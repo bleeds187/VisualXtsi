@@ -12,6 +12,15 @@ namespace VisualXtsi.Interop
         Macro = 2,
     }
 
+    /// <summary>Mirrors vx_status.</summary>
+    internal enum VxStatus
+    {
+        Ok = 0,
+        BadArguments = 1,
+        NotAvailable = 2,
+        ParseFailed = 3,
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct VxSpan
     {
@@ -20,11 +29,19 @@ namespace VisualXtsi.Interop
         public VxKind Kind;
     }
 
+    internal sealed class MacroInfo
+    {
+        public string Name;
+        public string Definition;
+        public string Location;
+        public string Expansion; // empty when hovering the definition itself
+    }
+
     /// <summary>P/Invoke surface of the native engine (vxengine.dll).</summary>
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 1;
+        private const uint ExpectedAbiVersion = 2;
 
         static Engine()
         {
@@ -51,6 +68,31 @@ namespace VisualXtsi.Interop
             return spans;
         }
 
+        /// <summary>Parses or reparses <paramref name="path"/> using its current editor text.</summary>
+        public static VxStatus Parse(string path, string compileCommandsDir, string text)
+        {
+            return (VxStatus)vx_parse(path, IntPtr.Zero, 0, compileCommandsDir, text, (uint)text.Length);
+        }
+
+        /// <param name="line">1-based line.</param>
+        /// <param name="column">1-based column in UTF-16 units.</param>
+        public static MacroInfo GetMacroInfo(string path, int line, int column)
+        {
+            var buffer = new char[8192];
+            uint needed = vx_macro_info(path, (uint)line, (uint)column, buffer, (uint)buffer.Length);
+            if (needed == 0)
+                return null;
+            if (needed > buffer.Length)
+            {
+                buffer = new char[needed];
+                needed = vx_macro_info(path, (uint)line, (uint)column, buffer, (uint)buffer.Length);
+            }
+            string[] parts = new string(buffer, 0, (int)needed).Split('\0');
+            if (parts.Length < 4)
+                return null;
+            return new MacroInfo { Name = parts[0], Definition = parts[1], Location = parts[2], Expansion = parts[3] };
+        }
+
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern IntPtr LoadLibraryW(string path);
 
@@ -59,5 +101,11 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_classify(string text, uint len, [Out] VxSpan[] spans, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern int vx_parse(string path, IntPtr args, uint argc, string compdbDir, string unsaved, uint unsavedLen);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_macro_info(string path, uint line, uint column, [Out] char[] output, uint cap);
     }
 }

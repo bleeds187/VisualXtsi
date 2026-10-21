@@ -17,14 +17,22 @@ Text offsets crossing the ABI are in UTF-16 code units, matching the VS editor b
 ## Building
 
 Requirements: Visual Studio 2022 with the "Desktop development with C++" and
-"Visual Studio extension development" workloads, and CMake 3.20+.
+"Visual Studio extension development" workloads, CMake 3.20+, and an LLVM 19 install
+(for libclang; the official `clang+llvm-19.1.5-x86_64-pc-windows-msvc` archive or the
+`LLVM-19.1.5-win64.exe` installer). Point `VX_LLVM_ROOT` at it (CMake cache variable or
+environment variable; default `C:/Program Files/LLVM`). Without it the engine still builds,
+with lexical classification only.
 
 ```
-cmake -S engine -B build/engine -G "Visual Studio 17 2022" -A x64
+cmake -S engine -B build/engine -G "Visual Studio 17 2022" -A x64 -DVX_LLVM_ROOT=<llvm root>
 cmake --build build/engine --config Release
 ctest --test-dir build/engine -C Release
-msbuild vsix/VisualXtsi.Vsix/VisualXtsi.Vsix.csproj -restore -p:Configuration=Release
+msbuild vsix/VisualXtsi.Vsix/VisualXtsi.Vsix.csproj -restore -p:Configuration=Release -p:VxLlvmRoot=<llvm root>
 ```
+
+The build copies `libclang.dll` and clang's builtin headers (`clang-resource/include`)
+next to `vxengine.dll`, and the VSIX packages them. `vxcli` (built with the engine) parses a
+file and prints macro information: `vxcli <file> [@args.rsp] [line:col ...]`.
 
 ## License
 
