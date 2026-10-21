@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Test fixture shaped like a UE 4.27 Unreal Build Tool project file: per-configuration
+     groups that only carry build commands (including platforms other than x64), unconditional
+     language options and include paths, and per-file include directories with a forced
+     PCH.<Module>.h that brings in the module's definitions. -->
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|arm64">
+      <Configuration>Debug</Configuration>
+      <Platform>arm64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Development_Editor|x64">
+      <Configuration>Development_Editor</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|arm64'">
+    <NMakePreprocessorDefinitions>$(NMakePreprocessorDefinitions);WRONG_CONFIGURATION=1</NMakePreprocessorDefinitions>
+    <AdditionalOptions>/ZW /ZW:nostdlib</AdditionalOptions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development_Editor|x64'">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <NMakeBuildCommandLine>Build.bat -Target="Fake4Editor Win64 Development"</NMakeBuildCommandLine>
+  </PropertyGroup>
+  <PropertyGroup>
+    <NMakePreprocessorDefinitions>$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <IncludePath>$(IncludePath);..\..\Source</IncludePath>
+    <NMakeForcedIncludes>$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <AdditionalOptions>/std:c++14</AdditionalOptions>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\Fake4Game\Fake4Thing.cpp">
+      <AdditionalIncludeDirectories>$(NMakeIncludeSearchPath);..\..\Source\Fake4Game;..\Build\Win64\UE4Editor\Inc\Fake4Game</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>$(SolutionDir)Intermediate\Build\Win64\UE4Editor\Development\Fake4Game\PCH.Fake4Game.h</ForcedIncludeFiles>
+      <AdditionalOptions>/Yu"$(SolutionDir)Intermediate\Build\Win64\UE4Editor\Development\Fake4Game\PCH.Fake4Game.h"</AdditionalOptions>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Fake4Game\Fake4Thing.h" />
+  </ItemGroup>
+</Project>

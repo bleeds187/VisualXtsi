@@ -116,6 +116,28 @@ int main()
     expect(ok && contains(info.expansion, "Sample_MyActor_h_6_GENERATED_BODY;"), "unsaved edit uses new __LINE__", &info);
 
     vx_release(header.c_str());
+
+    // Arguments discovered from a UE5-style generated project: the forced
+    // Definitions header and the UHT include directory make these resolve.
+    const std::u16string ue5Header = std::u16string(VX_SAMPLES_DIR) + u"/ue5_project/Source/FakeGame/Public/FakeThing.h";
+    uint32_t source = 0;
+    expect(vx_discover_args(ue5Header.c_str(), nullptr, 0, &source) > 0 && source == VX_ARGS_VCXPROJ,
+           "vx_discover_args finds the vcxproj");
+    status = vx_parse(ue5Header.c_str(), nullptr, 0, nullptr, nullptr, 0);
+    ok = status == VX_OK && query(ue5Header, 5, 2, info);
+    expect(ok && info.name == "FAKEGAME_API" && contains(info.location, "Definitions.FakeGame.h") &&
+               info.expansion == "__declspec(dllexport)",
+           "macro from discovered forced include", &info);
+    vx_release(ue5Header.c_str());
+
+    // UE 4.27 shape: the API macro comes through the forced PCH.<Module>.h -> Definitions.<Module>.h.
+    const std::u16string ue4Header = std::u16string(VX_SAMPLES_DIR) + u"/ue427_project/Source/Fake4Game/Fake4Thing.h";
+    status = vx_parse(ue4Header.c_str(), nullptr, 0, nullptr, nullptr, 0);
+    ok = status == VX_OK && query(ue4Header, 5, 2, info);
+    expect(ok && info.name == "FAKE4GAME_API" && contains(info.location, "Definitions.Fake4Game.h"),
+           "UE4 macro from the forced module header", &info);
+    vx_release(ue4Header.c_str());
+
     if (failures == 0)
         std::printf("all tests passed\n");
     return failures == 0 ? 0 : 1;

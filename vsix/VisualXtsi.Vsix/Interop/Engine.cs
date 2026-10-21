@@ -21,6 +21,14 @@ namespace VisualXtsi.Interop
         ParseFailed = 3,
     }
 
+    /// <summary>Mirrors vx_args_source.</summary>
+    internal enum VxArgsSource
+    {
+        None = 0,
+        CompileCommands = 1,
+        Vcxproj = 2,
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct VxSpan
     {
@@ -41,7 +49,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 2;
+        private const uint ExpectedAbiVersion = 3;
 
         static Engine()
         {
@@ -68,10 +76,34 @@ namespace VisualXtsi.Interop
             return spans;
         }
 
-        /// <summary>Parses or reparses <paramref name="path"/> using its current editor text.</summary>
-        public static VxStatus Parse(string path, string compileCommandsDir, string text)
+        /// <summary>
+        /// Parses or reparses <paramref name="path"/> using its current editor text. The engine
+        /// discovers arguments (compile_commands.json, then Unreal project files). Blocking: call
+        /// from a background thread.
+        /// </summary>
+        public static VxStatus Parse(string path, string text)
         {
-            return (VxStatus)vx_parse(path, IntPtr.Zero, 0, compileCommandsDir, text, (uint)text.Length);
+            return (VxStatus)vx_parse(path, IntPtr.Zero, 0, null, text, (uint)text.Length);
+        }
+
+        /// <summary>Where the engine finds compile arguments for <paramref name="path"/>, and how many.</summary>
+        public static VxArgsSource DiscoverArgs(string path, out int argumentCount)
+        {
+            uint needed = vx_discover_args(path, null, 0, out uint source);
+            var buffer = new char[needed];
+            needed = vx_discover_args(path, buffer, (uint)buffer.Length, out source);
+            argumentCount = 0;
+            for (int i = 0; i < needed && i < buffer.Length; i++)
+            {
+                if (buffer[i] == '\0')
+                    argumentCount++;
+            }
+            return (VxArgsSource)source;
+        }
+
+        public static void Release(string path)
+        {
+            vx_release(path);
         }
 
         /// <param name="line">1-based line.</param>
@@ -104,6 +136,12 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern int vx_parse(string path, IntPtr args, uint argc, string compdbDir, string unsaved, uint unsavedLen);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_discover_args(string path, [Out] char[] output, uint cap, out uint source);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern void vx_release(string path);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_macro_info(string path, uint line, uint column, [Out] char[] output, uint cap);

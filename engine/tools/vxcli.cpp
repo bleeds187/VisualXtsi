@@ -3,6 +3,7 @@
 // The response file holds one compiler argument per line (UTF-8).
 #include "vx/vx.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <fstream>
@@ -96,6 +97,16 @@ int main(int argc, char** argv)
     std::vector<const char16_t*> argPtrs;
     for (auto& a : args)
         argPtrs.push_back(a.c_str());
+    if (args.empty()) {
+        uint32_t source = 0;
+        auto t0 = std::chrono::steady_clock::now();
+        uint32_t n = vx_discover_args(file.c_str(), nullptr, 0, &source);
+        std::vector<char16_t> discovered(n);
+        vx_discover_args(file.c_str(), discovered.data(), n, &source);
+        size_t count = static_cast<size_t>(std::count(discovered.begin(), discovered.end(), u'\0'));
+        static const char* sources[] = {"none (defaults)", "compile_commands.json", "vcxproj"};
+        std::printf("arguments: %s, %zu args, %.0f ms\n", sources[source < 3 ? source : 0], count, msSince(t0));
+    }
 
     auto t = std::chrono::steady_clock::now();
     int32_t status = vx_parse(file.c_str(), argPtrs.empty() ? nullptr : argPtrs.data(),

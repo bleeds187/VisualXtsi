@@ -2,6 +2,7 @@
 #include "vx/vx.h"
 
 #include "macro_expand.h"
+#include "project_args.h"
 #include "unicode.h"
 
 #include <clang-c/CXCompilationDatabase.h>
@@ -285,9 +286,17 @@ const vx::MacroDef* UnitMacroTable::find(const std::string& name)
     return nullptr;
 }
 
+// g_mutex guards g_index and the map; each slot's own mutex guards its translation
+// unit, so a long parse of one file never blocks queries on another, and queries on
+// a file that is being (re)parsed return immediately instead of waiting.
+struct Slot {
+    std::mutex mutex;
+    std::unique_ptr<Unit> unit;
+};
+
 std::mutex g_mutex;
 CXIndex g_index = nullptr;
-std::unordered_map<std::string, std::unique_ptr<Unit>> g_units;
+std::unordered_map<std::string, std::shared_ptr<Slot>> g_units;
 
 std::string normalizeKey(std::string path)
 {
@@ -343,10 +352,46 @@ std::u16string readFile16(const std::string& path)
     return vx::toUtf16(bytes);
 }
 
-Unit* findUnit(const char16_t* path)
+std::shared_ptr<Slot> findSlot(const std::string& path8, bool create)
 {
-    auto it = g_units.find(normalizeKey(vx::toUtf8(path)));
-    return it == g_units.end() ? nullptr : it->second.get();
+    std::lock_guard lock(g_mutex);
+    if (create && !g_index)
+        g_index = clang_createIndex(0, 0);
+    auto& slot = g_units[normalizeKey(path8)];
+    if (!slot && create)
+        slot = std::make_shared<Slot>();
+    return slot;
+}
+
+fs::path widePath(const std::string& path8)
+{
+    const std::u16string w = vx::toUtf16(path8);
+    return fs::path(std::wstring(w.begin(), w.end()));
+}
+
+// Arguments for `path8`: compile_commands.json in a parent directory that lists the
+// file, else the generated .vcxproj of the Unreal project (or engine) containing it.
+vx_args_source discoverArgs(const std::string& path8, std::vector<std::string>& out)
+{
+    std::error_code ec;
+    for (fs::path dir = widePath(path8).parent_path(); !dir.empty(); dir = dir.parent_path()) {
+        if (fs::exists(dir / L"compile_commands.json", ec)) {
+            const std::wstring w = dir.wstring();
+            std::vector<std::string> args;
+            if (argsFromCompilationDatabase(vx::toUtf8(std::u16string(w.begin(), w.end())), path8, args)) {
+                out = std::move(args);
+                return VX_ARGS_COMPILE_COMMANDS;
+            }
+        }
+        if (dir == dir.root_path())
+            break;
+    }
+    vx::VcxprojArgs project;
+    if (vx::argsFromUnrealProject(path8, project)) {
+        out = std::move(project.args);
+        return VX_ARGS_VCXPROJ;
+    }
+    return VX_ARGS_NONE;
 }
 
 uint32_t writeOut(const std::u16string& s, char16_t* out, uint32_t cap)
@@ -367,12 +412,10 @@ VX_API int32_t VX_CALL vx_parse(const char16_t* path, const char16_t* const* arg
         return VX_ERR_ARGS;
     if (!ensureLibclang())
         return VX_ERR_NOT_AVAILABLE;
-    std::lock_guard lock(g_mutex);
-    if (!g_index)
-        g_index = clang_createIndex(0, 0);
-
     const std::string path8 = vx::toUtf8(path);
-    auto& slot = g_units[normalizeKey(path8)];
+    std::shared_ptr<Slot> holder = findSlot(path8, true);
+    std::lock_guard unitLock(holder->mutex);
+    std::unique_ptr<Unit>& slot = holder->unit;
 
     std::vector<std::string> wanted;
     bool fullArgv = false;
@@ -382,7 +425,10 @@ VX_API int32_t VX_CALL vx_parse(const char16_t* path, const char16_t* const* arg
     } else if (compdb_dir && argsFromCompilationDatabase(vx::toUtf8(compdb_dir), path8, wanted)) {
         fullArgv = true;
     } else {
-        wanted = defaultArgs(path8);
+        const vx_args_source source = compdb_dir ? VX_ARGS_NONE : discoverArgs(path8, wanted);
+        fullArgv = source == VX_ARGS_COMPILE_COMMANDS;
+        if (source == VX_ARGS_NONE)
+            wanted = defaultArgs(path8);
     }
     // Keep going past errors: a partially broken TU still has a full preprocessing record.
     wanted.push_back("-ferror-limit=0");
@@ -436,10 +482,13 @@ VX_API uint32_t VX_CALL vx_macro_info(const char16_t* path, uint32_t line, uint3
 {
     if (!path || line == 0 || column == 0 || !ensureLibclang())
         return 0;
-    std::lock_guard lock(g_mutex);
-    Unit* unit = findUnit(path);
-    if (!unit)
+    std::shared_ptr<Slot> holder = findSlot(vx::toUtf8(path), false);
+    if (!holder)
         return 0;
+    std::unique_lock unitLock(holder->mutex, std::try_to_lock);
+    if (!unitLock.owns_lock() || !holder->unit)
+        return 0; // being parsed right now: answer nothing rather than block
+    Unit* unit = holder->unit.get();
 
     // Convert the UTF-16 column to libclang's 1-based UTF-8 byte column.
     size_t lineStart = 0;
@@ -507,7 +556,25 @@ VX_API void VX_CALL vx_release(const char16_t* path)
     if (!path)
         return;
     std::lock_guard lock(g_mutex);
-    g_units.erase(normalizeKey(vx::toUtf8(path)));
+    g_units.erase(normalizeKey(vx::toUtf8(path))); // an in-flight parse keeps its slot alive
+}
+
+VX_API uint32_t VX_CALL vx_discover_args(const char16_t* path, char16_t* out, uint32_t cap, uint32_t* source)
+{
+    if (source)
+        *source = VX_ARGS_NONE;
+    if (!path || !ensureLibclang())
+        return 0;
+    std::vector<std::string> args;
+    const vx_args_source found = discoverArgs(vx::toUtf8(path), args);
+    if (source)
+        *source = found;
+    std::u16string result;
+    for (const std::string& a : args) {
+        result += vx::toUtf16(a);
+        result.push_back(u'\0');
+    }
+    return writeOut(result, out, cap);
 }
 
 } // extern "C"

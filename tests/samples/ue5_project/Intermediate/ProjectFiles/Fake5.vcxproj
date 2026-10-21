@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Test fixture shaped like a UE5 Unreal Build Tool project file: per-file
+     include directories and forced includes behind property indirection. -->
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Development_Editor|x64">
+      <Configuration>Development_Editor</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugGame_Editor|x64'">
+    <NMakeBuildCommandLine>Build.bat Fake5Editor Win64 DebugGame</NMakeBuildCommandLine>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development_Editor|x64'">
+    <NMakeBuildCommandLine>Build.bat Fake5Editor Win64 Development</NMakeBuildCommandLine>
+  </PropertyGroup>
+  <PropertyGroup>
+    <IncludePath>$(IncludePath);..\Build\Win64\UnrealEditor\Inc\FakeGame\UHT</IncludePath>
+    <NMakePreprocessorDefinitions>$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <AdditionalOptions>/std:c++20 /DSAL_NO_ATTRIBUTE_DECLARATIONS=1 /permissive- /Zc:preprocessor /Yu"$(SolutionDir)Intermediate\Build\Win64\x64\FakeEditor\Development\UnrealEd\SharedPCH.UnrealEd.Cpp20.h"</AdditionalOptions>
+    <AID_1>..\..\Source\FakeGame\Public</AID_1>
+    <AID_2>..\..\Source\Other\Public</AID_2>
+    <FIF>$(SolutionDir)Intermediate\Build\Win64\x64\FakeEditor\Development\UnrealEd\SharedPCH.UnrealEd.Cpp20.h</FIF>
+    <ClCompile_AdditionalIncludeDirectories_1>$(NMakeIncludeSearchPath);$(AID_1)</ClCompile_AdditionalIncludeDirectories_1>
+    <ClCompile_AdditionalIncludeDirectories_2>$(NMakeIncludeSearchPath);$(AID_1);$(AID_2)</ClCompile_AdditionalIncludeDirectories_2>
+    <ClCompile_ForcedIncludeFiles_1>$(FIF);$(SolutionDir)Intermediate\Build\Win64\x64\UnrealEditor\Development\FakeGame\Definitions.FakeGame.h</ClCompile_ForcedIncludeFiles_1>
+    <ClCompile_ForcedIncludeFiles_2>$(FIF);$(SolutionDir)Intermediate\Build\Win64\x64\UnrealEditor\Development\Other\Definitions.Other.h</ClCompile_ForcedIncludeFiles_2>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\FakeGame\Private\FakeThing.cpp">
+      <AdditionalIncludeDirectories>$(ClCompile_AdditionalIncludeDirectories_1)</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>$(ClCompile_ForcedIncludeFiles_1)</ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Other\Private\Other.cpp">
+      <AdditionalIncludeDirectories>$(ClCompile_AdditionalIncludeDirectories_2)</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>$(ClCompile_ForcedIncludeFiles_2)</ForcedIncludeFiles>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\FakeGame\Public\FakeThing.h" />
+  </ItemGroup>
+</Project>

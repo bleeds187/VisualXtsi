@@ -16,4 +16,11 @@ VX_API uint32_t VX_CALL vx_macro_info(const char16_t*, uint32_t, uint32_t, char1
 
 VX_API void VX_CALL vx_release(const char16_t*) {}
 
+VX_API uint32_t VX_CALL vx_discover_args(const char16_t*, char16_t*, uint32_t, uint32_t* source)
+{
+    if (source)
+        *source = VX_ARGS_NONE;
+    return 0;
+}
+
 } // extern "C"

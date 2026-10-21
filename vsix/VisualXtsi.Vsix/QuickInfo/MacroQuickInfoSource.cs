@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -16,6 +15,7 @@ using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.TextManager.Interop;
 using VisualXtsi.Interop;
+using VisualXtsi.Parsing;
 
 namespace VisualXtsi.QuickInfo
 {
@@ -23,6 +23,7 @@ namespace VisualXtsi.QuickInfo
     /// Adds what VS's own C++ QuickInfo lacks for macros: the fully expanded invocation laid
     /// out one statement per line, a link to the definition, and notes for Unreal markers.
     /// (VS already shows the #define line and a one-line raw expansion, so we don't.)
+    /// Parsing happens in <see cref="DocumentParser"/>; a hover only queries.
     /// </summary>
     internal sealed class MacroQuickInfoSource : IAsyncQuickInfoSource
     {
@@ -38,9 +39,6 @@ namespace VisualXtsi.QuickInfo
         };
 
         private readonly ITextBuffer _buffer;
-        private readonly object _parseLock = new object();
-        private int _parsedVersion = -1;
-        private bool _unavailable;
 
         public MacroQuickInfoSource(ITextBuffer buffer)
         {
@@ -50,27 +48,27 @@ namespace VisualXtsi.QuickInfo
         public async Task<QuickInfoItem> GetQuickInfoItemAsync(IAsyncQuickInfoSession session, CancellationToken cancellationToken)
         {
             SnapshotPoint? trigger = session.GetTriggerPoint(_buffer.CurrentSnapshot);
-            if (trigger == null || _unavailable)
+            if (trigger == null)
                 return null;
-            if (!_buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
-                return null;
-
             SnapshotPoint point = trigger.Value;
             SnapshotSpan? word = IdentifierAt(point);
             if (word == null)
                 return null;
 
-            string path = document.FilePath;
-            ITextSnapshotLine line = point.GetContainingLine();
+            // Never parse here: use whatever the background parser last finished, mapping the
+            // hover position back to that snapshot. Until the first parse lands, show nothing.
+            DocumentParser parser = DocumentParser.TryGet(_buffer);
+            ITextSnapshot parsed = parser?.ParsedSnapshot;
+            if (parsed == null)
+                return null;
+            SnapshotPoint parsedPoint = point.TranslateTo(parsed, PointTrackingMode.Negative);
+            ITextSnapshotLine line = parsedPoint.GetContainingLine();
             int lineNumber = line.LineNumber + 1;
-            int column = point.Position - line.Start.Position + 1;
+            int column = parsedPoint.Position - line.Start.Position + 1;
+            string path = parser.Path;
 
-            MacroInfo info = await Task.Run(() =>
-            {
-                if (!EnsureParsed(path, point.Snapshot))
-                    return null;
-                return Engine.GetMacroInfo(path, lineNumber, column);
-            }, cancellationToken).ConfigureAwait(false);
+            MacroInfo info = await Task.Run(() => Engine.GetMacroInfo(path, lineNumber, column), cancellationToken)
+                .ConfigureAwait(false);
             // Hovering the #define itself: VS's QuickInfo already covers it.
             if (info == null || string.IsNullOrEmpty(info.Expansion))
                 return null;
@@ -78,34 +76,6 @@ namespace VisualXtsi.QuickInfo
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             ITrackingSpan applicable = point.Snapshot.CreateTrackingSpan(word.Value, SpanTrackingMode.EdgeInclusive);
             return new QuickInfoItem(applicable, BuildContent(info));
-        }
-
-        private bool EnsureParsed(string path, ITextSnapshot snapshot)
-        {
-            lock (_parseLock)
-            {
-                if (_parsedVersion == snapshot.Version.VersionNumber)
-                    return true;
-                var timer = Stopwatch.StartNew();
-                VxStatus status = Engine.Parse(path, FindCompileCommandsDir(path), snapshot.GetText());
-                Debug.WriteLine($"VisualXtsi: parse {path} -> {status} in {timer.ElapsedMilliseconds} ms");
-                if (status == VxStatus.NotAvailable)
-                    _unavailable = true;
-                if (status != VxStatus.Ok)
-                    return false;
-                _parsedVersion = snapshot.Version.VersionNumber;
-                return true;
-            }
-        }
-
-        private static string FindCompileCommandsDir(string path)
-        {
-            for (string dir = Path.GetDirectoryName(path); !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
-            {
-                if (File.Exists(Path.Combine(dir, "compile_commands.json")))
-                    return dir;
-            }
-            return null;
         }
 
         private static SnapshotSpan? IdentifierAt(SnapshotPoint point)

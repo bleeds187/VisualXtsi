@@ -34,7 +34,9 @@ add_library(vxengine SHARED
   src/lexer.cpp
   src/classify.cpp
   src/macro_expand.cpp
+  src/project_args.cpp
   src/unicode.cpp
+  src/xml.cpp
 )
 target_include_directories(vxengine PUBLIC include PRIVATE src)
 target_compile_definitions(vxengine PRIVATE VX_BUILDING_ENGINE)
@@ -61,6 +63,11 @@ add_test(NAME vxengine_tests COMMAND vxengine_tests)
 add_executable(vxengine_expand_tests tests/test_macro_expand.cpp src/macro_expand.cpp)
 target_include_directories(vxengine_expand_tests PRIVATE src)
 add_test(NAME vxengine_expand_tests COMMAND vxengine_expand_tests)
+
+add_executable(vxengine_project_tests tests/test_project_args.cpp src/project_args.cpp src/xml.cpp src/unicode.cpp)
+target_include_directories(vxengine_project_tests PRIVATE src)
+target_compile_definitions(vxengine_project_tests PRIVATE VX_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../tests/samples")
+add_test(NAME vxengine_project_tests COMMAND vxengine_project_tests)
 
 if(VX_HAVE_LIBCLANG)
   add_executable(vxengine_clang_tests tests/test_clang.cpp)
