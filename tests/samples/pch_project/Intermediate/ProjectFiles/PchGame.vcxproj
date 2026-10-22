@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Test fixture shaped like a UE5 Unreal Build Tool project file, with an "engine"
+     include directory outside the project tree. -->
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <AdditionalOptions>/std:c++20</AdditionalOptions>
+    <ClCompile_AdditionalIncludeDirectories_1>..\..\Source\PchGame\Public;..\..\..\pch_engine\Public</ClCompile_AdditionalIncludeDirectories_1>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\PchGame\Private\A.cpp">
+      <AdditionalIncludeDirectories>$(ClCompile_AdditionalIncludeDirectories_1)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PchGame\Private\B.cpp">
+      <AdditionalIncludeDirectories>$(ClCompile_AdditionalIncludeDirectories_1)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemGroup>
+</Project>

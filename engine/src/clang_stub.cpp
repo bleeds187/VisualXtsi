@@ -21,6 +21,11 @@ VX_API uint32_t VX_CALL vx_semantic_tokens(const char16_t*, vx_span*, uint32_t)
     return 0;
 }
 
+VX_API int32_t VX_CALL vx_prepare_module_pch(const char16_t*)
+{
+    return VX_PCH_NOT_APPLICABLE;
+}
+
 VX_API uint32_t VX_CALL vx_discover_args(const char16_t*, char16_t*, uint32_t, uint32_t* source)
 {
     if (source)

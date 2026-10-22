@@ -42,6 +42,14 @@ and reparsed shortly after edits; progress is logged to
 (the open file keeps its own), which makes first parses about a third faster and reparses
 about four times faster on Unreal code; set `VX_FULL_PREAMBLE=1` to compare against full parsing.
 
+After the first file of an Unreal module is parsed, a shared precompiled header for the module
+is built in the background: the engine and plugin headers that at least a fifth of the module's
+source files reach (directly or through the project's own headers), leaving out any that do not
+compile on their own. Later files of the module start from it (on Lyra, about 1.5 s instead of
+about 4 s). PCHs live in `%LOCALAPPDATA%\VisualXtsi\pch`, are rebuilt when the module's
+arguments or any header in them changes, and the least recently used ones are evicted beyond
+`VX_PCH_CACHE_MB` (default 4096).
+
 ## Coloring
 
 Two classifiers feed the editor. A lexical one (instant, no parsing) colors preprocessor

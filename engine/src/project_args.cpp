@@ -431,6 +431,26 @@ bool argsFromVcxproj(const std::string& vcxproj, const std::string& path, Vcxpro
     out.args = std::move(args);
     out.vcxproj = fromPath(project);
     out.basedOn = best ? fromPath(best->file) : std::string();
+    out.projectRoot = fromPath(model->dir.parent_path().parent_path());
+    out.moduleSources.clear();
+    if (best) {
+        // Same settings and the same Source\<Module> directory (UE4 projects share one setting
+        // set across modules, so the directory is what separates them there).
+        const std::string anchor = "\\source\\";
+        std::string moduleDir = best->key.substr(0, best->key.rfind('\\') + 1);
+        if (size_t s = best->key.find(anchor); s != std::string::npos) {
+            size_t end = best->key.find('\\', s + anchor.size());
+            if (end != std::string::npos)
+                moduleDir = best->key.substr(0, end + 1);
+        }
+        for (const Item& item : model->items) {
+            if (out.moduleSources.size() >= 300)
+                break;
+            if (item.key.rfind(moduleDir, 0) == 0 && item.includeDirs == best->includeDirs &&
+                item.forcedIncludes == best->forcedIncludes && item.options == best->options)
+                out.moduleSources.push_back(fromPath(item.file));
+        }
+    }
     return true;
 }
 

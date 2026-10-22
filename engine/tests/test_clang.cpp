@@ -3,6 +3,8 @@
 
 #include <chrono>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <map>
 #include <set>
 #include <string>
@@ -182,6 +184,84 @@ int main()
     }
     expect(!kinds.contains("override"), "'override' is not colored");
     vx_release(semantic.c_str());
+
+    // Shared module PCH: built from the "engine" headers both sources include, leaving out
+    // the one that does not compile and the project's own header; then used by new parses.
+    namespace fs = std::filesystem;
+    const fs::path pchDir = VX_TEST_PCH_DIR;
+    std::error_code ec;
+    fs::remove_all(pchDir, ec);
+    fs::create_directories(pchDir, ec);
+    { // an old, unused cache entry that the 1 MB cap must evict
+        std::ofstream stale(pchDir / "0000000000000000.pch", std::ios::binary);
+        stale << std::string(2 << 20, 'x');
+    }
+    fs::last_write_time(pchDir / "0000000000000000.pch", fs::file_time_type::clock::now() - std::chrono::hours(24), ec);
+    _wputenv_s(L"VX_PCH_DIR", pchDir.wstring().c_str());
+    _wputenv_s(L"VX_PCH_CACHE_MB", L"1");
+    const std::u16string sourceA = std::u16string(VX_SAMPLES_DIR) + u"/pch_project/Source/PchGame/Private/A.cpp";
+    const std::u16string sourceB = std::u16string(VX_SAMPLES_DIR) + u"/pch_project/Source/PchGame/Private/B.cpp";
+    expect(vx_prepare_module_pch(sourceA.c_str()) == VX_PCH_READY, "module PCH built");
+    expect(vx_prepare_module_pch(sourceB.c_str()) == VX_PCH_READY, "module PCH shared by the module");
+    std::string pchHeader;
+    size_t pchCount = 0;
+    for (auto& e : fs::directory_iterator(pchDir, ec)) {
+        if (e.path().extension() == ".pch")
+            ++pchCount;
+        if (e.path().extension() == ".h") {
+            std::ifstream in(e.path());
+            pchHeader.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        }
+    }
+    expect(pchCount == 1 && !fs::exists(pchDir / "0000000000000000.pch"), "one PCH for the module, stale one evicted");
+    expect(contains(pchHeader, "CoreMinimal.h") && contains(pchHeader, "FakeEngine/Actor.h") &&
+               !contains(pchHeader, "Broken.h") && !contains(pchHeader, "PchThing.h"),
+           "PCH headers: common engine headers only, without the broken one");
+    status = vx_parse(sourceB.c_str(), nullptr, 0, nullptr, nullptr, 0);
+    ok = status == VX_OK && query(sourceB, 6, 30, info);
+    expect(ok && info.name == "FAKE_ENGINE_VERSION" && contains(info.location, "CoreMinimal.h") &&
+               info.expansion == "5",
+           "macro from the PCH resolves", &info);
+    vx_release(sourceB.c_str());
+
+    // Editing a header inside the PCH makes it stale: new parses stop using it, and the
+    // next prepare rebuilds it. Works on a copy of the fixtures so the repo is untouched.
+    {
+        const fs::path copyRoot = pchDir.parent_path() / "test-pch-src";
+        fs::remove_all(copyRoot, ec);
+        fs::create_directories(copyRoot, ec);
+        const fs::path samples = std::u16string(VX_SAMPLES_DIR);
+        fs::copy(samples / "pch_project", copyRoot / "pch_project", fs::copy_options::recursive, ec);
+        fs::copy(samples / "pch_engine", copyRoot / "pch_engine", fs::copy_options::recursive, ec);
+        _wputenv_s(L"VX_PCH_REVALIDATE_SEC", L"0");
+        const std::u16string copyA = (copyRoot / "pch_project/Source/PchGame/Private/A.cpp").u16string();
+        const std::u16string copyB = (copyRoot / "pch_project/Source/PchGame/Private/B.cpp").u16string();
+        expect(vx_prepare_module_pch(copyA.c_str()) == VX_PCH_READY, "PCH for the copied module");
+        auto newestPch = [&] {
+            fs::file_time_type newest{};
+            for (auto& e : fs::directory_iterator(pchDir, ec))
+                if (e.path().extension() == ".pch")
+                    newest = std::max(newest, e.last_write_time());
+            return newest;
+        };
+        const auto before = newestPch();
+        {
+            std::ofstream edit(copyRoot / "pch_engine/Public/CoreMinimal.h", std::ios::app);
+            edit << "\n#define FAKE_ENGINE_EXTRA 1\n";
+        }
+        // A new parse must not use the stale PCH: the new macro has to be visible.
+        const std::u16string probe = u"#include \"CoreMinimal.h\"\nint Extra = FAKE_ENGINE_EXTRA;\n";
+        status = vx_parse(copyB.c_str(), nullptr, 0, nullptr, probe.c_str(), static_cast<uint32_t>(probe.size()));
+        ok = status == VX_OK && query(copyB, 2, 13, info);
+        expect(ok && info.name == "FAKE_ENGINE_EXTRA", "stale PCH is not used after a header edit", &info);
+        vx_release(copyB.c_str());
+        expect(vx_prepare_module_pch(copyA.c_str()) == VX_PCH_READY && newestPch() > before,
+               "PCH rebuilt after a header edit");
+        _wputenv_s(L"VX_PCH_REVALIDATE_SEC", L"");
+    }
+
+    _wputenv_s(L"VX_PCH_DIR", L"");
+    _wputenv_s(L"VX_PCH_CACHE_MB", L"");
 
     if (failures == 0)
         std::printf("all tests passed\n");

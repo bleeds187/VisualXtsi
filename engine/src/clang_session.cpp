@@ -2,6 +2,7 @@
 #include "vx/vx.h"
 
 #include "macro_expand.h"
+#include "module_pch.h"
 #include "project_args.h"
 #include "semantic_tokens.h"
 #include "unicode.h"
@@ -376,7 +377,8 @@ fs::path widePath(const std::string& path8)
 
 // Arguments for `path8`: compile_commands.json in a parent directory that lists the
 // file, else the generated .vcxproj of the Unreal project (or engine) containing it.
-vx_args_source discoverArgs(const std::string& path8, std::vector<std::string>& out)
+vx_args_source discoverArgs(const std::string& path8, std::vector<std::string>& out,
+                            vx::VcxprojArgs* projectOut = nullptr)
 {
     std::error_code ec;
     for (fs::path dir = widePath(path8).parent_path(); !dir.empty(); dir = dir.parent_path()) {
@@ -393,10 +395,47 @@ vx_args_source discoverArgs(const std::string& path8, std::vector<std::string>& 
     }
     vx::VcxprojArgs project;
     if (vx::argsFromUnrealProject(path8, project)) {
-        out = std::move(project.args);
+        out = project.args;
+        if (projectOut)
+            *projectOut = std::move(project);
         return VX_ARGS_VCXPROJ;
     }
     return VX_ARGS_NONE;
+}
+
+struct ParseArgs {
+    std::vector<std::string> args; // everything passed to libclang except an -include-pch
+    bool fullArgv = false;         // args[0] is the compiler
+    vx_args_source source = VX_ARGS_NONE;
+    vx::VcxprojArgs project;       // when source == VX_ARGS_VCXPROJ
+};
+
+// The arguments vx_parse uses for a file: explicit, compile_commands.json, discovered, or
+// defaults, plus the options every parse gets.
+ParseArgs computeArgs(const std::string& path8, const char16_t* const* args, uint32_t argc,
+                      const char16_t* compdb_dir)
+{
+    ParseArgs result;
+    if (argc > 0 && args) {
+        for (uint32_t i = 0; i < argc; ++i)
+            result.args.push_back(vx::toUtf8(args[i]));
+    } else if (compdb_dir && argsFromCompilationDatabase(vx::toUtf8(compdb_dir), path8, result.args)) {
+        result.fullArgv = true;
+    } else {
+        result.source = compdb_dir ? VX_ARGS_NONE : discoverArgs(path8, result.args, &result.project);
+        result.fullArgv = result.source == VX_ARGS_COMPILE_COMMANDS;
+        if (result.source == VX_ARGS_NONE)
+            result.args = defaultArgs(path8);
+    }
+    // Keep going past errors: a partially broken TU still has a full preprocessing record.
+    result.args.push_back("-ferror-limit=0");
+    result.args.push_back("-w");
+    const fs::path resourceDir = moduleDirectory() / L"clang-resource";
+    if (fs::exists(resourceDir / L"include")) {
+        result.args.push_back("-resource-dir");
+        result.args.push_back(resourceDir.string());
+    }
+    return result;
 }
 
 uint32_t writeOut(const std::u16string& s, char16_t* out, uint32_t cap)
@@ -422,27 +461,9 @@ VX_API int32_t VX_CALL vx_parse(const char16_t* path, const char16_t* const* arg
     std::lock_guard unitLock(holder->mutex);
     std::unique_ptr<Unit>& slot = holder->unit;
 
-    std::vector<std::string> wanted;
-    bool fullArgv = false;
-    if (argc > 0 && args) {
-        for (uint32_t i = 0; i < argc; ++i)
-            wanted.push_back(vx::toUtf8(args[i]));
-    } else if (compdb_dir && argsFromCompilationDatabase(vx::toUtf8(compdb_dir), path8, wanted)) {
-        fullArgv = true;
-    } else {
-        const vx_args_source source = compdb_dir ? VX_ARGS_NONE : discoverArgs(path8, wanted);
-        fullArgv = source == VX_ARGS_COMPILE_COMMANDS;
-        if (source == VX_ARGS_NONE)
-            wanted = defaultArgs(path8);
-    }
-    // Keep going past errors: a partially broken TU still has a full preprocessing record.
-    wanted.push_back("-ferror-limit=0");
-    wanted.push_back("-w");
-    const fs::path resourceDir = moduleDirectory() / L"clang-resource";
-    if (fs::exists(resourceDir / L"include")) {
-        wanted.push_back("-resource-dir");
-        wanted.push_back(resourceDir.string());
-    }
+    ParseArgs parseArgs = computeArgs(path8, args, argc, compdb_dir);
+    const std::vector<std::string>& wanted = parseArgs.args;
+    const bool fullArgv = parseArgs.fullArgv;
 
     std::u16string text = unsaved ? std::u16string(unsaved, unsaved_len) : readFile16(path8);
     const std::string text8 = vx::toUtf8(text);
@@ -463,9 +484,19 @@ VX_API int32_t VX_CALL vx_parse(const char16_t* path, const char16_t* const* arg
     unit->fullArgv = fullArgv;
     unit->text = std::move(text);
 
+    // A new translation unit uses the module's shared PCH when one is ready. (An existing unit
+    // keeps its arguments, so it goes on reparsing from its own preamble.)
+    std::string modulePch;
+    const std::string pchKey = parseArgs.source == VX_ARGS_VCXPROJ ? vx::pch::moduleKey(wanted) : std::string();
+    if (!pchKey.empty())
+        modulePch = vx::pch::ready(pchKey);
     std::vector<const char*> argv;
     for (auto& a : unit->args)
         argv.push_back(a.c_str());
+    if (!modulePch.empty()) {
+        argv.push_back("-include-pch");
+        argv.push_back(modulePch.c_str());
+    }
     unsigned options = CXTranslationUnit_DetailedPreprocessingRecord | CXTranslationUnit_PrecompiledPreamble |
                        CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_CreatePreambleOnFirstParse |
                        CXTranslationUnit_KeepGoing;
@@ -478,11 +509,22 @@ VX_API int32_t VX_CALL vx_parse(const char16_t* path, const char16_t* const* arg
     }();
     if (!fullPreamble)
         options |= CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_LimitSkipFunctionBodiesToPreamble;
-    CXErrorCode err = fullArgv
-        ? clang_parseTranslationUnit2FullArgv(g_index, nullptr, argv.data(), static_cast<int>(argv.size()), &file,
-                                              numUnsaved, options, &unit->tu)
-        : clang_parseTranslationUnit2(g_index, path8.c_str(), argv.data(), static_cast<int>(argv.size()), &file,
-                                      numUnsaved, options, &unit->tu);
+    auto parse = [&] {
+        return fullArgv ? clang_parseTranslationUnit2FullArgv(g_index, nullptr, argv.data(),
+                                                              static_cast<int>(argv.size()), &file, numUnsaved,
+                                                              options, &unit->tu)
+                        : clang_parseTranslationUnit2(g_index, path8.c_str(), argv.data(),
+                                                      static_cast<int>(argv.size()), &file, numUnsaved, options,
+                                                      &unit->tu);
+    };
+    CXErrorCode err = parse();
+    if ((err != CXError_Success || !unit->tu) && !modulePch.empty()) {
+        // An unusable PCH (stale in a way the manifest missed, or incompatible): drop it, parse plainly.
+        vx::pch::markBad(pchKey);
+        argv.resize(argv.size() - 2);
+        unit->tu = nullptr;
+        err = parse();
+    }
     if (err != CXError_Success || !unit->tu) {
         slot.reset();
         return VX_ERR_PARSE;
@@ -592,6 +634,17 @@ VX_API uint32_t VX_CALL vx_semantic_tokens(const char16_t* path, vx_span* out, u
     if (out)
         std::copy_n(spans.begin(), std::min<size_t>(spans.size(), cap), out);
     return static_cast<uint32_t>(spans.size());
+}
+
+VX_API int32_t VX_CALL vx_prepare_module_pch(const char16_t* path)
+{
+    if (!path || !ensureLibclang())
+        return VX_PCH_NOT_APPLICABLE;
+    const std::string path8 = vx::toUtf8(path);
+    ParseArgs parseArgs = computeArgs(path8, nullptr, 0, nullptr);
+    if (parseArgs.source != VX_ARGS_VCXPROJ)
+        return VX_PCH_NOT_APPLICABLE;
+    return vx::pch::prepare(vx::pch::moduleKey(parseArgs.args), parseArgs.args, parseArgs.project);
 }
 
 VX_API uint32_t VX_CALL vx_discover_args(const char16_t* path, char16_t* out, uint32_t cap, uint32_t* source)

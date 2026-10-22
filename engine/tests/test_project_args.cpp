@@ -60,6 +60,9 @@ int main()
     expect(!hasArg(a, "SharedPCH"), "UE5 shared PCH is skipped", &a);
     expect(hasArg(a, "Source\\FakeGame\\Public") && hasArg(a, "Inc\\FakeGame\\UHT"), "UE5 include dirs", &a);
     expect(!hasArg(a, "Source\\Other\\Public"), "UE5 per-module include dirs", &a);
+    expect(a.moduleSources.size() == 1 && a.moduleSources[0].find("FakeThing.cpp") != std::string::npos,
+           "UE5 module sources", &a);
+    expect(a.projectRoot.find("ue5_project") != std::string::npos, "UE5 project root", &a);
 
     ok = vx::argsFromUnrealProject(samples("ue5_project/Source/Other/Private/Other.cpp"), a);
     expect(ok && a.basedOn.find("Other.cpp") != std::string::npos && hasForcedInclude(a, "Definitions.Other.h") &&

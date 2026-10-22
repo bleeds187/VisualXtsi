@@ -1,5 +1,5 @@
 // Developer CLI: parse a file with the engine and print macro info at positions.
-//   vxcli <file> [@args.rsp] [--semantic | --dump=<line>] [line:col ...]
+//   vxcli <file> [@args.rsp] [--pch] [--semantic | --dump=<line>] [line:col ...]
 // The response file holds one compiler argument per line (UTF-8).
 #include "vx/vx.h"
 
@@ -79,10 +79,13 @@ int main(int argc, char** argv)
     std::vector<std::u16string> args;
     std::vector<std::pair<unsigned, unsigned>> queries;
     bool semantic = false;
+    bool usePch = false;
     unsigned dumpLine = 0;
     for (int i = 2; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--semantic") {
+        if (a == "--pch") {
+            usePch = true;
+        } else if (a == "--semantic") {
             semantic = true;
         } else if (a.rfind("--dump=", 0) == 0) {
             semantic = true;
@@ -115,6 +118,12 @@ int main(int argc, char** argv)
         std::printf("arguments: %s, %zu args, %.0f ms\n", sources[source < 3 ? source : 0], count, msSince(t0));
     }
 
+    if (usePch) {
+        auto t0 = std::chrono::steady_clock::now();
+        int32_t pch = vx_prepare_module_pch(file.c_str());
+        static const char* pchStates[] = {"ready", "not applicable", "failed", "busy"};
+        std::printf("module pch: %s, %.0f ms\n", pch >= 0 && pch < 4 ? pchStates[pch] : "?", msSince(t0));
+    }
     auto t = std::chrono::steady_clock::now();
     int32_t status = vx_parse(file.c_str(), argPtrs.empty() ? nullptr : argPtrs.data(),
                               static_cast<uint32_t>(argPtrs.size()), nullptr, nullptr, 0);

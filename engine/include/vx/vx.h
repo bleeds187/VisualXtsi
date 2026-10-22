@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 4u
+#define VX_ABI_VERSION 5u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -104,6 +104,23 @@ VX_API uint32_t VX_CALL vx_macro_info(const char16_t* path, uint32_t line, uint3
  * total. Results are cached until the next vx_parse. Blocks while the file is
  * being parsed, so call it from a background thread. */
 VX_API uint32_t VX_CALL vx_semantic_tokens(const char16_t* path, vx_span* out, uint32_t cap);
+
+typedef enum vx_pch_status {
+    VX_PCH_READY = 0,          /* a current shared PCH exists (built now or earlier) */
+    VX_PCH_NOT_APPLICABLE = 1, /* not part of an Unreal module, or too few shared headers */
+    VX_PCH_FAILED = 2,         /* the module's common headers could not be precompiled */
+    VX_PCH_BUSY = 3            /* another thread is building it */
+} vx_pch_status;
+
+/* Builds, if needed, the shared precompiled header of the Unreal module that
+ * contains `path`: the engine and plugin headers most of the module's source
+ * files include, precompiled once and cached under
+ * %LOCALAPPDATA%\VisualXtsi\pch (least recently used entries are evicted past
+ * VX_PCH_CACHE_MB, default 4096). New translation units of the module's files
+ * then start from it. It is rebuilt when the module's arguments or any header
+ * in it changes. Slow (seconds): call from a background thread. Returns a
+ * vx_pch_status. */
+VX_API int32_t VX_CALL vx_prepare_module_pch(const char16_t* path);
 
 /* Drops the cached translation unit for `path`. */
 VX_API void VX_CALL vx_release(const char16_t* path);

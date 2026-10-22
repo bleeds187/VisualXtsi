@@ -139,6 +139,9 @@ namespace VisualXtsi.Parsing
                     {
                         VxArgsSource source = Engine.DiscoverArgs(_path, out int count);
                         Log.Write($"{what} {_path}: {status} in {elapsed} ms + {semanticMs} ms semantic (arguments: {Describe(source)}, {count})");
+                        // The module's next files can start from a shared PCH: build it now, off the parse loop.
+                        if (first && status == VxStatus.Ok && source == VxArgsSource.Vcxproj)
+                            _ = Task.Run(() => PrepareModulePch());
                     }
                     else
                     {
@@ -165,6 +168,22 @@ namespace VisualXtsi.Parsing
                     if (!_running)
                         return;
                 }
+            }
+        }
+
+        private void PrepareModulePch()
+        {
+            try
+            {
+                var timer = Stopwatch.StartNew();
+                VxPchStatus pch = Engine.PrepareModulePch(_path);
+                if (pch == VxPchStatus.Ready && timer.ElapsedMilliseconds < 1000)
+                    return; // it already existed
+                Log.Write($"Module PCH for {_path}: {pch} in {timer.ElapsedMilliseconds} ms");
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"Module PCH for {_path} failed: {ex.Message}");
             }
         }
 

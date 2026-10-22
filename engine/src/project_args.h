@@ -13,6 +13,10 @@ struct VcxprojArgs {
     std::vector<std::string> args; // clang arguments (no compiler, no source file)
     std::string vcxproj;           // project file used
     std::string basedOn;           // ClCompile item the arguments came from (empty: project-wide)
+    std::string projectRoot;       // $(SolutionDir), without trailing separator
+    // Source files compiled with the same settings in the same module directory (the file's
+    // "module"), at most a few hundred; used to choose a shared precompiled header.
+    std::vector<std::string> moduleSources;
 };
 
 // All paths are UTF-8. Returns false when no generated project covers `path`.

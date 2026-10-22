@@ -33,6 +33,15 @@ namespace VisualXtsi.Interop
         ParseFailed = 3,
     }
 
+    /// <summary>Mirrors vx_pch_status.</summary>
+    internal enum VxPchStatus
+    {
+        Ready = 0,
+        NotApplicable = 1,
+        Failed = 2,
+        Busy = 3,
+    }
+
     /// <summary>Mirrors vx_args_source.</summary>
     internal enum VxArgsSource
     {
@@ -61,7 +70,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 4;
+        private const uint ExpectedAbiVersion = 5;
 
         static Engine()
         {
@@ -127,6 +136,15 @@ namespace VisualXtsi.Interop
             return spans;
         }
 
+        /// <summary>
+        /// Builds the shared precompiled header of the Unreal module containing <paramref name="path"/>
+        /// if it does not exist yet. Takes seconds: call from a background thread.
+        /// </summary>
+        public static VxPchStatus PrepareModulePch(string path)
+        {
+            return (VxPchStatus)vx_prepare_module_pch(path);
+        }
+
         public static void Release(string path)
         {
             vx_release(path);
@@ -168,6 +186,9 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern void vx_release(string path);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern int vx_prepare_module_pch(string path);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_semantic_tokens(string path, [Out] VxSpan[] spans, uint cap);
