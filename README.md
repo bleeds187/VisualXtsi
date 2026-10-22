@@ -70,6 +70,13 @@ available to automation as `DTE.Properties("VisualXtsi", "General")`. The enviro
 
 ## Packaging
 
+A release package is one command; it builds the engine, runs its tests, builds the VSIX and
+checks its contents, writing `dist\VisualXtsi-<version>.vsix` (version from the manifest):
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\package.ps1 -LlvmRoot <llvm root>
+```
+
 The build copies `libclang.dll` and clang's builtin headers (`clang-resource/include`)
 next to `vxengine.dll`, and the VSIX packages them. `vxcli` (built with the engine) parses a
 file and prints macro information: `vxcli <file> [@args.rsp] [line:col ...]`.

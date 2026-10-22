@@ -18,3 +18,4 @@ packages/
 CMakeUserPresets.json
 CMakeCache.txt
 CMakeFiles/
+dist/
