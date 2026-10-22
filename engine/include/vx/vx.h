@@ -1,4 +1,4 @@
-/* VisualXtsi engine: flat C ABI.
+﻿/* VisualXtsi engine: flat C ABI.
  * All text offsets and lengths are in UTF-16 code units. */
 #ifndef VX_VX_H
 #define VX_VX_H
@@ -21,11 +21,24 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 3u
+#define VX_ABI_VERSION 4u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
-    VX_KIND_MACRO = 2         /* identifier #defined in the file, or ALL_CAPS */
+    VX_KIND_MACRO = 2,        /* identifier #defined in the file, or ALL_CAPS */
+
+    /* Semantic kinds (vx_semantic_tokens) */
+    VX_KIND_LOCAL = 10,          /* local variable */
+    VX_KIND_PARAMETER = 11,      /* function parameter or non-type template parameter */
+    VX_KIND_FIELD = 12,          /* non-static data member */
+    VX_KIND_GLOBAL = 13,         /* namespace-scope, static or static-member variable */
+    VX_KIND_TYPE = 14,           /* class, struct, union, enum, typedef, alias, template type */
+    VX_KIND_ENUM_CONSTANT = 15,
+    VX_KIND_NAMESPACE = 16,
+    VX_KIND_FUNCTION = 17,       /* free function */
+    VX_KIND_METHOD = 18,         /* member function */
+    VX_KIND_STATIC_METHOD = 19,
+    VX_KIND_VIRTUAL_METHOD = 20
 } vx_kind;
 
 typedef struct vx_span {
@@ -83,6 +96,14 @@ VX_API int32_t VX_CALL vx_parse(const char16_t* path, const char16_t* const* arg
  * or 0 if there is no macro there. */
 VX_API uint32_t VX_CALL vx_macro_info(const char16_t* path, uint32_t line, uint32_t column,
                                       char16_t* out, uint32_t cap);
+
+/* Semantic classification of the identifiers in a parsed file (its own text
+ * only, not included headers; tokens produced by macro expansion are left to
+ * the lexical classifier). Offsets are UTF-16 units into the text that was
+ * parsed. Writes at most `cap` spans (sorted, non-overlapping) and returns the
+ * total. Results are cached until the next vx_parse. Blocks while the file is
+ * being parsed, so call it from a background thread. */
+VX_API uint32_t VX_CALL vx_semantic_tokens(const char16_t* path, vx_span* out, uint32_t cap);
 
 /* Drops the cached translation unit for `path`. */
 VX_API void VX_CALL vx_release(const char16_t* path);

@@ -1,5 +1,5 @@
 // Developer CLI: parse a file with the engine and print macro info at positions.
-//   vxcli <file> [@args.rsp] [line:col ...]
+//   vxcli <file> [@args.rsp] [--semantic | --dump=<line>] [line:col ...]
 // The response file holds one compiler argument per line (UTF-8).
 #include "vx/vx.h"
 
@@ -78,9 +78,16 @@ int main(int argc, char** argv)
     const std::u16string file = widen(argv[1]);
     std::vector<std::u16string> args;
     std::vector<std::pair<unsigned, unsigned>> queries;
+    bool semantic = false;
+    unsigned dumpLine = 0;
     for (int i = 2; i < argc; ++i) {
         std::string a = argv[i];
-        if (!a.empty() && a[0] == '@') {
+        if (a == "--semantic") {
+            semantic = true;
+        } else if (a.rfind("--dump=", 0) == 0) {
+            semantic = true;
+            dumpLine = static_cast<unsigned>(std::stoul(a.substr(7)));
+        } else if (!a.empty() && a[0] == '@') {
             std::ifstream rsp(a.substr(1));
             for (std::string line; std::getline(rsp, line);) {
                 if (!line.empty() && line.back() == '\r')
@@ -118,6 +125,35 @@ int main(int argc, char** argv)
     status = vx_parse(file.c_str(), argPtrs.empty() ? nullptr : argPtrs.data(), static_cast<uint32_t>(argPtrs.size()),
                       nullptr, nullptr, 0);
     std::printf("reparse: status %d, %.0f ms\n", status, msSince(t));
+
+    if (semantic) {
+        t = std::chrono::steady_clock::now();
+        uint32_t n = vx_semantic_tokens(file.c_str(), nullptr, 0);
+        std::printf("semantic tokens: %u in %.0f ms\n", n, msSince(t));
+        std::vector<vx_span> spans(n);
+        vx_semantic_tokens(file.c_str(), spans.data(), n);
+        static const char* names[] = {"local", "parameter", "field", "global", "type", "enum-constant",
+                                      "namespace", "function", "method", "static-method", "virtual-method"};
+        std::vector<unsigned> histogram(std::size(names));
+        for (const vx_span& s : spans)
+            if (s.kind >= VX_KIND_LOCAL && s.kind <= VX_KIND_VIRTUAL_METHOD)
+                ++histogram[s.kind - VX_KIND_LOCAL];
+        for (size_t k = 0; k < histogram.size(); ++k)
+            std::printf("  %-15s %u\n", names[k], histogram[k]);
+        if (dumpLine) {
+            std::ifstream in(argv[1], std::ios::binary);
+            const std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            const std::u16string text = widen(bytes);
+            for (const vx_span& s : spans) {
+                const unsigned line = 1 + static_cast<unsigned>(std::count(text.begin(), text.begin() + s.start, u'\n'));
+                if (line != dumpLine)
+                    continue;
+                std::printf("  %u: ", line);
+                printUtf16(text.data() + s.start, s.length);
+                std::printf(" -> %s\n", names[s.kind - VX_KIND_LOCAL]);
+            }
+        }
+    }
 
     std::vector<char16_t> buf(1 << 20);
     for (auto [line, col] : queries) {

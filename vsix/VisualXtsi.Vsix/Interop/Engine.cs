@@ -1,15 +1,27 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 
 namespace VisualXtsi.Interop
 {
-    /// <summary>Kinds returned by vx_classify; mirrors vx_kind in engine/include/vx/vx.h.</summary>
+    /// <summary>Kinds returned by vx_classify and vx_semantic_tokens; mirrors vx_kind in engine/include/vx/vx.h.</summary>
     internal enum VxKind : uint
     {
         Preprocessor = 1,
         Macro = 2,
+
+        Local = 10,
+        Parameter = 11,
+        Field = 12,
+        Global = 13,
+        Type = 14,
+        EnumConstant = 15,
+        Namespace = 16,
+        Function = 17,
+        Method = 18,
+        StaticMethod = 19,
+        VirtualMethod = 20,
     }
 
     /// <summary>Mirrors vx_status.</summary>
@@ -49,7 +61,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 3;
+        private const uint ExpectedAbiVersion = 4;
 
         static Engine()
         {
@@ -101,6 +113,20 @@ namespace VisualXtsi.Interop
             return (VxArgsSource)source;
         }
 
+        /// <summary>
+        /// Semantic spans for the text of the last successful parse of <paramref name="path"/>.
+        /// Blocks while that file is being parsed: call from a background thread.
+        /// </summary>
+        public static VxSpan[] SemanticTokens(string path)
+        {
+            uint count = vx_semantic_tokens(path, null, 0);
+            var spans = new VxSpan[count];
+            count = vx_semantic_tokens(path, spans, (uint)spans.Length);
+            if (count < spans.Length)
+                Array.Resize(ref spans, (int)count);
+            return spans;
+        }
+
         public static void Release(string path)
         {
             vx_release(path);
@@ -142,6 +168,9 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern void vx_release(string path);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_semantic_tokens(string path, [Out] VxSpan[] spans, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_macro_info(string path, uint line, uint column, [Out] char[] output, uint cap);

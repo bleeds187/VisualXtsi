@@ -25,6 +25,7 @@ namespace VisualXtsi.Parsing
         private bool _unavailable;
         private int _views;
         private volatile ITextSnapshot _parsedSnapshot;
+        private volatile SemanticResult _semantic;
 
         private DocumentParser(ITextBuffer buffer, string path)
         {
@@ -34,6 +35,12 @@ namespace VisualXtsi.Parsing
 
         /// <summary>The snapshot the engine's translation unit was built from, or null before the first parse.</summary>
         public ITextSnapshot ParsedSnapshot => _parsedSnapshot;
+
+        /// <summary>Semantic spans of the last parse, with the snapshot they belong to; null before the first parse.</summary>
+        public SemanticResult Semantic => _semantic;
+
+        /// <summary>Raised on a background thread after each parse with (previous, current) results.</summary>
+        public event Action<SemanticResult, SemanticResult> SemanticUpdated;
 
         public string Path => _path;
 
@@ -47,8 +54,14 @@ namespace VisualXtsi.Parsing
         {
             if (!buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
                 return null;
-            DocumentParser parser = buffer.Properties.GetOrCreateSingletonProperty(
-                typeof(DocumentParser), () => new DocumentParser(buffer, document.FilePath));
+            bool created = false;
+            DocumentParser parser = buffer.Properties.GetOrCreateSingletonProperty(typeof(DocumentParser), () =>
+            {
+                created = true;
+                return new DocumentParser(buffer, document.FilePath);
+            });
+            if (created && buffer.Properties.TryGetProperty(typeof(IDocumentParserListener), out IDocumentParserListener listener))
+                listener.ParserCreated(parser);
             lock (parser._gate)
             {
                 if (parser._views++ == 0)
@@ -110,17 +123,26 @@ namespace VisualXtsi.Parsing
                     var timer = Stopwatch.StartNew();
                     status = Engine.Parse(_path, snapshot.GetText());
                     long elapsed = timer.ElapsedMilliseconds;
+                    long semanticMs = 0;
                     if (status == VxStatus.Ok)
+                    {
                         _parsedSnapshot = snapshot;
+                        timer.Restart();
+                        var result = new SemanticResult(snapshot, Engine.SemanticTokens(_path));
+                        semanticMs = timer.ElapsedMilliseconds;
+                        SemanticResult previous = _semantic;
+                        _semantic = result;
+                        SemanticUpdated?.Invoke(previous, result);
+                    }
                     string what = first ? "Parsed" : "Reparsed";
                     if (first || status != VxStatus.Ok)
                     {
                         VxArgsSource source = Engine.DiscoverArgs(_path, out int count);
-                        Log.Write($"{what} {_path}: {status} in {elapsed} ms (arguments: {Describe(source)}, {count})");
+                        Log.Write($"{what} {_path}: {status} in {elapsed} ms + {semanticMs} ms semantic (arguments: {Describe(source)}, {count})");
                     }
                     else
                     {
-                        Log.Write($"{what} {_path} in {elapsed} ms");
+                        Log.Write($"{what} {_path} in {elapsed} ms + {semanticMs} ms semantic");
                     }
                 }
                 catch (Exception ex)

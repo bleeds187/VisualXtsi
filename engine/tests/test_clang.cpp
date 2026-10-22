@@ -3,6 +3,8 @@
 
 #include <chrono>
 #include <cstdio>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -137,6 +139,49 @@ int main()
     expect(ok && info.name == "FAKE4GAME_API" && contains(info.location, "Definitions.Fake4Game.h"),
            "UE4 macro from the forced module header", &info);
     vx_release(ue4Header.c_str());
+
+    // Semantic classification: every occurrence of each name gets exactly the expected kind.
+    const std::u16string semantic = std::u16string(VX_SAMPLES_DIR) + u"/semantic/Semantic.cpp";
+    status = vx_parse(semantic.c_str(), nullptr, 0, nullptr, nullptr, 0);
+    std::vector<vx_span> spans(vx_semantic_tokens(semantic.c_str(), nullptr, 0));
+    vx_semantic_tokens(semantic.c_str(), spans.data(), static_cast<uint32_t>(spans.size()));
+    std::u16string text;
+    if (FILE* f = nullptr; _wfopen_s(&f, reinterpret_cast<const wchar_t*>(semantic.c_str()), L"rb") == 0 && f) {
+        std::string bytes;
+        char buf[4096];
+        for (size_t n; (n = fread(buf, 1, sizeof buf, f)) > 0;)
+            bytes.append(buf, n);
+        fclose(f);
+        text.assign(bytes.begin(), bytes.end()); // the fixture is ASCII
+    }
+    std::map<std::string, std::set<uint32_t>> kinds;
+    for (const vx_span& s : spans)
+        kinds[narrow(text.substr(s.start, s.length))].insert(s.kind);
+    const std::map<std::string, uint32_t> expected = {
+        {"Game", VX_KIND_NAMESPACE},       {"EColor", VX_KIND_TYPE},          {"Red", VX_KIND_ENUM_CONSTANT},
+        {"Green", VX_KIND_ENUM_CONSTANT}, {"FPoint", VX_KIND_TYPE},          {"FPoint3", VX_KIND_TYPE},
+        {"X", VX_KIND_FIELD},             {"Count", VX_KIND_GLOBAL},         {"Length", VX_KIND_METHOD},
+        {"Origin", VX_KIND_STATIC_METHOD}, {"Draw", VX_KIND_VIRTUAL_METHOD}, {"GlobalCounter", VX_KIND_GLOBAL},
+        {"Twice", VX_KIND_FUNCTION},      {"TValue", VX_KIND_TYPE},          {"Size", VX_KIND_PARAMETER},
+        {"Value", VX_KIND_PARAMETER},     {"Result", VX_KIND_LOCAL},         {"Calls", VX_KIND_GLOBAL},
+        {"Point", VX_KIND_LOCAL},         {"Color", VX_KIND_LOCAL},          {"Alias", VX_KIND_TYPE},
+        {"Use", VX_KIND_FUNCTION},
+    };
+    expect(status == VX_OK && !spans.empty(), "semantic tokens produced");
+    for (auto& [name, kind] : expected) {
+        auto it = kinds.find(name);
+        const bool match = it != kinds.end() && it->second == std::set<uint32_t>{kind};
+        if (!match) {
+            std::printf("  %s: expected %u, got", name.c_str(), kind);
+            if (it != kinds.end())
+                for (uint32_t k : it->second)
+                    std::printf(" %u", k);
+            std::printf("\n");
+        }
+        expect(match, "semantic kind");
+    }
+    expect(!kinds.contains("override"), "'override' is not colored");
+    vx_release(semantic.c_str());
 
     if (failures == 0)
         std::printf("all tests passed\n");

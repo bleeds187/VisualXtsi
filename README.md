@@ -40,6 +40,15 @@ of the nearest source file of their module. Files are parsed in the background w
 and reparsed shortly after edits; progress is logged to
 `%LOCALAPPDATA%\VisualXtsi\VisualXtsi.log`.
 
+## Coloring
+
+Two classifiers feed the editor. A lexical one (instant, no parsing) colors preprocessor
+directives and macro-like names. A semantic one colors identifiers by what they name (locals,
+parameters, member fields, globals and statics, types, enum constants, namespaces, functions,
+methods, static and virtual methods), using the last background parse; edits only recolor the
+spans whose classification changed. Every category has its own entry under Tools > Options >
+Environment > Fonts and Colors (names start with "VisualXtsi"); defaults suit the dark theme.
+
 ## Packaging
 
 The build copies `libclang.dll` and clang's builtin headers (`clang-resource/include`)

@@ -3,6 +3,7 @@
 
 #include "macro_expand.h"
 #include "project_args.h"
+#include "semantic_tokens.h"
 #include "unicode.h"
 
 #include <clang-c/CXCompilationDatabase.h>
@@ -125,6 +126,8 @@ struct Unit {
     std::unordered_map<std::string, std::vector<Definition>> definitions; // in preprocessing order
     std::unordered_map<std::string, std::unique_ptr<vx::MacroDef>> parsedDefs;
     bool definitionsBuilt = false;
+    std::vector<vx_span> semantic;
+    bool semanticBuilt = false;
 
     ~Unit()
     {
@@ -137,6 +140,8 @@ struct Unit {
         definitions.clear();
         parsedDefs.clear();
         definitionsBuilt = false;
+        semantic.clear();
+        semanticBuilt = false;
     }
 
     void buildDefinitions()
@@ -557,6 +562,27 @@ VX_API void VX_CALL vx_release(const char16_t* path)
         return;
     std::lock_guard lock(g_mutex);
     g_units.erase(normalizeKey(vx::toUtf8(path))); // an in-flight parse keeps its slot alive
+}
+
+VX_API uint32_t VX_CALL vx_semantic_tokens(const char16_t* path, vx_span* out, uint32_t cap)
+{
+    if (!path || !ensureLibclang())
+        return 0;
+    std::shared_ptr<Slot> holder = findSlot(vx::toUtf8(path), false);
+    if (!holder)
+        return 0;
+    std::lock_guard unitLock(holder->mutex);
+    Unit* unit = holder->unit.get();
+    if (!unit)
+        return 0;
+    if (!unit->semanticBuilt) {
+        unit->semantic = vx::semanticTokens(unit->tu, unit->path, unit->text);
+        unit->semanticBuilt = true;
+    }
+    const auto& spans = unit->semantic;
+    if (out)
+        std::copy_n(spans.begin(), std::min<size_t>(spans.size(), cap), out);
+    return static_cast<uint32_t>(spans.size());
 }
 
 VX_API uint32_t VX_CALL vx_discover_args(const char16_t* path, char16_t* out, uint32_t cap, uint32_t* source)
