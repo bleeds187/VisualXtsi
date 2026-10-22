@@ -87,7 +87,41 @@ int main(int argc, char** argv)
     unsigned dumpLine = 0;
     for (int i = 2; i < argc; ++i) {
         std::string a = argv[i];
-        if (a.rfind("--symbols=", 0) == 0) {
+        if (a.rfind("--goto=", 0) == 0) {
+            // Index the project's symbols, parse <file>, then Go to Definition at line:col[,line:col...].
+            vx_symbols_start();
+            vx_index_add_project_of(file.c_str());
+            uint32_t files = 0, pending = 1, idleTicks = 0;
+            while (idleTicks < 6) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                vx_symbols_status(&files, &pending, nullptr);
+                idleTicks = pending == 0 && files > 0 ? idleTicks + 1 : 0;
+            }
+            auto t0 = std::chrono::steady_clock::now();
+            const int32_t status = vx_parse(file.c_str(), nullptr, 0, nullptr, nullptr, 0);
+            std::printf("symbols in %u files; parse status %d in %.0f ms\n", files, status, msSince(t0));
+            for (size_t start = 7; start <= a.size();) {
+                size_t comma = a.find(',', start);
+                unsigned l = 0, c = 0;
+                sscanf_s(a.substr(start, comma - start).c_str(), "%u:%u", &l, &c);
+                auto t1 = std::chrono::steady_clock::now();
+                std::vector<char16_t> buf(1 << 16);
+                const uint32_t n = vx_goto_definition(file.c_str(), l, c, buf.data(), static_cast<uint32_t>(buf.size()));
+                std::printf("goto %u:%u (%.1f ms):\n", l, c, msSince(t1));
+                for (size_t k = 0, s = 0; k < n; ++k)
+                    if (buf[k] == 0) {
+                        std::printf("  ");
+                        printUtf16(buf.data() + s, k - s);
+                        std::printf("\n");
+                        s = k + 1;
+                    }
+                if (comma == std::string::npos)
+                    break;
+                start = comma + 1;
+            }
+            vx_index_reset();
+            return 0;
+        } else if (a.rfind("--symbols=", 0) == 0) {
             // Index the symbols of the project containing <file> (or of folder <file>), then search.
             auto t0 = std::chrono::steady_clock::now();
             vx_symbols_start();

@@ -38,6 +38,14 @@
           <LocCanonicalName>.VisualXtsi.FindSymbolInSolution</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" priority="0x0103" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="NavigationGroup" />
+        <Strings>
+          <ButtonText>Go to Definition (VisualXtsi)</ButtonText>
+          <CanonicalName>.VisualXtsi.GoToDefinition</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.GoToDefinition</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -51,6 +59,8 @@
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" editor="guidTextEditor" key1="O" mod1="Alt Shift" />
     <!-- Shift+Alt+S is only bound in the image editor. -->
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidFindSymbolInSolution" editor="guidVSStd97" key1="S" mod1="Alt Shift" />
+    <!-- Alt+G is Edit.BriefBrowse globally: ours applies in the text editor only. -->
+    <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" editor="guidTextEditor" key1="G" mod1="Alt" />
   </KeyBindings>
 
   <Symbols>
@@ -60,6 +70,7 @@
       <IDSymbol name="cmdidToggleHeaderSource" value="0x0100" />
       <IDSymbol name="cmdidOpenFileInSolution" value="0x0101" />
       <IDSymbol name="cmdidFindSymbolInSolution" value="0x0102" />
+      <IDSymbol name="cmdidGoToDefinition" value="0x0103" />
     </GuidSymbol>
     <!-- The "Text Editor" key binding scope. -->
     <GuidSymbol name="guidTextEditor" value="{8B382828-6202-11d1-8870-0000F87579D2}" />

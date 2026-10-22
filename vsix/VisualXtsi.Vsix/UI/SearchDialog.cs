@@ -86,6 +86,9 @@ namespace VisualXtsi.UI
         /// <summary>Runs on a background thread.</summary>
         protected abstract IReadOnlyList<SearchResult> Search(string query);
 
+        /// <summary>Whether an empty query is searched too (otherwise it shows nothing).</summary>
+        protected virtual bool SearchWhenEmpty => false;
+
         /// <summary>Runs on a background thread; the line under the results.</summary>
         protected abstract string Status(string query, int resultCount);
 
@@ -140,7 +143,7 @@ namespace VisualXtsi.UI
                 query = m.Groups[1].Value;
             var (found, status) = await Task.Run(() =>
             {
-                IReadOnlyList<SearchResult> results = query.Length == 0 ? Array.Empty<SearchResult>() : Search(query);
+                IReadOnlyList<SearchResult> results = query.Length == 0 && !SearchWhenEmpty ? Array.Empty<SearchResult>() : Search(query);
                 return (results, Status(query, results.Count));
             });
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();

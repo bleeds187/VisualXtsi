@@ -28,6 +28,11 @@ VX_API int32_t VX_CALL vx_prepare_module_pch(const char16_t*)
 
 VX_API void VX_CALL vx_configure(const vx_config*) {}
 
+VX_API uint32_t VX_CALL vx_goto_definition(const char16_t*, uint32_t, uint32_t, char16_t*, uint32_t)
+{
+    return 0;
+}
+
 VX_API uint64_t VX_CALL vx_clear_pch_cache(void)
 {
     return 0;

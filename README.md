@@ -59,6 +59,19 @@ methods, static and virtual methods), using the last background parse; edits onl
 spans whose classification changed. Every category has its own entry under Tools > Options >
 Environment > Fonts and Colors (names start with "VisualXtsi"); defaults suit the dark theme.
 
+## Navigation
+
+| Command (Keyboard options name) | Default key | What it does |
+| --- | --- | --- |
+| `VisualXtsi.ToggleHeaderSource` | Alt+O | Header ↔ source: same folder, Unreal Public/Classes ↔ Private, the module, include paths |
+| `VisualXtsi.OpenFileInSolution` | Shift+Alt+O (editor) | Fuzzy file search over the solution folder and Unreal project(s); `name:123` opens at a line |
+| `VisualXtsi.FindSymbolInSolution` | Shift+Alt+S | Fuzzy search over a persisted index of the project's declarations; `Scope::name` narrows |
+| `VisualXtsi.GoToDefinition` | Alt+G (editor) | Definition of the symbol at the caret (libclang, then the symbol index); on a definition, its declaration |
+
+Visual Studio binds Shift+Alt+O and Alt+G globally (File.OpenWebSite, Edit.BriefBrowse), so ours
+apply in the text editor only. All four are under the Edit menu and can be rebound. The engine
+source can be indexed too (Options > VisualXtsi > Navigation; off by default, ~0.8 GB).
+
 ## Options
 
 Tools > Options > VisualXtsi > General holds what Fonts and Colors cannot: switching each

@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 9u
+#define VX_ABI_VERSION 10u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -196,6 +196,16 @@ VX_API uint32_t VX_CALL vx_symbols_find(const char16_t* query, uint32_t max_resu
 VX_API void VX_CALL vx_symbols_status(uint32_t* files, uint32_t* pending, uint32_t* symbols);
 /* Writes the cache now (it is also written whenever the scan queue drains). */
 VX_API void VX_CALL vx_symbols_save(void);
+
+/* Where the symbol at a 1-based line and UTF-16 column of `path` is defined:
+ * macros go to their #define; otherwise the parsed file's definition if libclang
+ * sees it, else matching definitions from the symbol index (same scope first);
+ * on a definition, its separate declaration instead. Without a parse (or while
+ * the file is being parsed) the symbol index is searched for the word under the
+ * caret. Each result is a NUL-terminated UTF-16 record of tab-separated fields:
+ * path, line, column (UTF-16), label. Returns the number of char16_t needed. */
+VX_API uint32_t VX_CALL vx_goto_definition(const char16_t* path, uint32_t line, uint32_t column, char16_t* out,
+                                           uint32_t cap);
 
 /* Drops the cached translation unit for `path`. */
 VX_API void VX_CALL vx_release(const char16_t* path);

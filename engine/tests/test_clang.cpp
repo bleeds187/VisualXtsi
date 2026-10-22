@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -184,6 +185,47 @@ int main()
     }
     expect(!kinds.contains("override"), "'override' is not colored");
     vx_release(semantic.c_str());
+
+    // Go to Definition: the parser for what this TU sees, the symbol index for other files.
+    {
+        const std::u16string dir = std::u16string(VX_SAMPLES_DIR) + u"/goto";
+        const std::u16string main = dir + u"/Main.cpp", impl = dir + u"/Shapes.cpp";
+        vx_symbols_start();
+        vx_index_add_root(dir.c_str());
+        uint32_t files = 0, pending = 1;
+        for (int i = 0; i < 250 && !(files >= 3 && pending == 0); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            vx_symbols_status(&files, &pending, nullptr);
+        }
+        auto gotoAt = [](const std::u16string& file, uint32_t line, uint32_t col) {
+            std::vector<char16_t> buf(4096);
+            const uint32_t n = vx_goto_definition(file.c_str(), line, col, buf.data(), static_cast<uint32_t>(buf.size()));
+            std::string first;
+            for (uint32_t k = 0; k < n && buf[k] != 0; ++k)
+                first.push_back(buf[k] < 0x80 ? static_cast<char>(buf[k]) : '?');
+            return first; // "path\tline\tcolumn\tlabel" of the best target
+        };
+        auto expectTarget = [&](const std::string& got, const char* file, const char* lineCol, const char* what) {
+            const bool match = got.find(file) != std::string::npos && got.find(lineCol) != std::string::npos;
+            if (!match)
+                std::printf("  got: %s\n", got.c_str());
+            expect(match, what);
+        };
+        expect(vx_parse(main.c_str(), nullptr, 0, nullptr, nullptr, 0) == VX_OK, "parse Main.cpp");
+        expectTarget(gotoAt(main, 6, 7), "Shapes.cpp", "\t3\t13\t", "out-of-line method via the symbol index");
+        expectTarget(gotoAt(main, 7, 14), "Shapes.h", "\t10\t9\t", "inline member defined in the header");
+        expectTarget(gotoAt(main, 5, 5), "Shapes.h", "\t6\t7\t", "class definition");
+        expectTarget(gotoAt(main, 7, 25), "Shapes.h", "\t4\t9\t", "macro definition");
+        // Another class's Paint() must not stand in for the definition Canvas::Paint lacks.
+        expectTarget(gotoAt(main, 13, 7), "Shapes.h", "\t17\t10\t", "undefined method: its own declaration");
+        vx_release(main.c_str());
+        expect(vx_parse(impl.c_str(), nullptr, 0, nullptr, nullptr, 0) == VX_OK, "parse Shapes.cpp");
+        expectTarget(gotoAt(impl, 3, 14), "Shapes.h", "\t9\t10\t", "from a definition to its declaration");
+        vx_release(impl.c_str());
+        // Not parsed at all: the word under the caret, through the symbol index.
+        expectTarget(gotoAt(main, 6, 8), "Shapes.cpp", "\t3\t13\t", "unparsed file falls back to the index");
+        vx_index_reset();
+    }
 
     // Shared module PCH: built from the "engine" headers both sources include, leaving out
     // the one that does not compile and the project's own header; then used by new parses.

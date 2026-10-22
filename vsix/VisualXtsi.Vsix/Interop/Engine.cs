@@ -91,7 +91,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 9;
+        private const uint ExpectedAbiVersion = 10;
 
         static Engine()
         {
@@ -230,6 +230,31 @@ namespace VisualXtsi.Interop
         /// <summary>Indexes the engine source of the Unreal project containing <paramref name="path"/>.</summary>
         public static bool IndexAddEngineOf(string path) => vx_index_add_engine_of(path) != 0;
 
+        /// <summary>A place to navigate to.</summary>
+        public sealed class Target
+        {
+            public string Path;
+            public int Line;
+            public int Column;
+            public string Label;
+        }
+
+        /// <summary>
+        /// Definition(s) of the symbol at a 1-based line and UTF-16 column of the file as last parsed
+        /// (or, without a parse, of the word there via the symbol index). Background thread.
+        /// </summary>
+        public static Target[] GoToDefinition(string path, int line, int column)
+        {
+            var targets = new List<Target>();
+            foreach (string record in SplitStrings((buffer, cap) => vx_goto_definition(path, (uint)line, (uint)column, buffer, cap)))
+            {
+                string[] f = record.Split('\t');
+                if (f.Length >= 4)
+                    targets.Add(new Target { Path = f[0], Line = int.Parse(f[1]), Column = int.Parse(f[2]), Label = f[3] });
+            }
+            return targets.ToArray();
+        }
+
         public static void SymbolsStart() => vx_symbols_start();
 
         public static void SymbolStatus(out int files, out int pending, out int symbols)
@@ -295,6 +320,9 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_index_add_engine_of(string path);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_goto_definition(string path, uint line, uint column, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
         private static extern void vx_symbols_start();

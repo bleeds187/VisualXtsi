@@ -10,5 +10,6 @@ namespace VisualXtsi.Commands
         public const int ToggleHeaderSource = 0x0100;
         public const int OpenFileInSolution = 0x0101;
         public const int FindSymbolInSolution = 0x0102;
+        public const int GoToDefinition = 0x0103;
     }
 }

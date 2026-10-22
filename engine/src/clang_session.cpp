@@ -5,7 +5,9 @@
 #include "macro_expand.h"
 #include "module_pch.h"
 #include "project_args.h"
+#include "lexer.h"
 #include "semantic_tokens.h"
+#include "symbol_index.h"
 #include "unicode.h"
 
 #include <clang-c/CXCompilationDatabase.h>
@@ -439,6 +441,192 @@ ParseArgs computeArgs(const std::string& path8, const char16_t* const* args, uin
     return result;
 }
 
+// ---- Go to Definition -------------------------------------------------------------------
+
+struct Target {
+    std::u16string path;
+    uint32_t line = 0;
+    uint32_t column = 0; // UTF-16, 1-based
+    std::u16string label;
+};
+
+// A cursor's location as path, line and UTF-16 column.
+bool targetOf(CXTranslationUnit tu, CXCursor c, Target& t)
+{
+    CXFile file = nullptr;
+    unsigned line = 0, column = 0, offset = 0;
+    clang_getSpellingLocation(clang_getCursorLocation(c), &file, &line, &column, &offset);
+    if (!file || line == 0)
+        return false;
+    t.path = vx::toUtf16(takeString(clang_getFileName(file)));
+    t.line = line;
+    // Byte column -> UTF-16 column, from the file's contents as the TU saw them.
+    size_t size = 0;
+    const char* contents = clang_getFileContents(tu, file, &size);
+    if (contents && offset <= size && column >= 1) {
+        const size_t lineStart = offset - (column - 1);
+        t.column = static_cast<uint32_t>(vx::toUtf16(std::string_view(contents + lineStart, column - 1)).size()) + 1;
+    } else {
+        t.column = column;
+    }
+    return true;
+}
+
+// "Outer::Inner" for the semantic parents of a declaration (namespaces, classes).
+std::u16string qualifiedScope(CXCursor decl)
+{
+    std::u16string scope;
+    for (CXCursor p = clang_getCursorSemanticParent(decl); !clang_Cursor_isNull(p) &&
+                                                           clang_getCursorKind(p) != CXCursor_TranslationUnit;
+         p = clang_getCursorSemanticParent(p)) {
+        const std::u16string name = vx::toUtf16(takeString(clang_getCursorSpelling(p)));
+        if (name.empty())
+            continue; // anonymous namespace or struct
+        scope = scope.empty() ? name : name + u"::" + scope;
+    }
+    return scope;
+}
+
+std::u16string label(const std::u16string& scope, const std::u16string& name, const char16_t* what)
+{
+    return (scope.empty() ? name : scope + u"::" + name) + u" (" + what + u")";
+}
+
+// Definitions the symbol index knows for `name`: same scope (by suffix) first, definitions only
+// when any exist. `scope` may be empty (no semantic information).
+std::vector<Target> indexTargets(const std::u16string& name, const std::u16string& scope, bool wantFunction)
+{
+    std::vector<Target> exact, others, declarations;
+    for (const vx::symbols::Hit& hit : vx::symbols::lookup(name, 50)) {
+        const vx::symbols::Symbol& s = hit.symbol;
+        const bool isFunction = s.kind == vx::symbols::Kind::Function || s.kind == vx::symbols::Kind::Method;
+        if (wantFunction && !isFunction)
+            continue;
+        Target t{std::u16string(hit.path.begin(), hit.path.end()), s.line, s.column,
+                 label(s.scope, s.name, s.definition ? u"definition" : u"declaration")};
+        const bool scopeMatches = scope.empty() || s.scope == scope ||
+                                  (s.scope.size() > scope.size() && s.scope.ends_with(u"::" + scope)) ||
+                                  (scope.size() > s.scope.size() && !s.scope.empty() && scope.ends_with(u"::" + s.scope));
+        if (!s.definition) {
+            if (scopeMatches)
+                declarations.push_back(std::move(t));
+        } else if (scopeMatches)
+            exact.push_back(std::move(t));
+        else if (scope.empty())
+            others.push_back(std::move(t));
+    }
+    if (!exact.empty())
+        return exact;
+    if (!others.empty())
+        return others;
+    return declarations;
+}
+
+// The identifier under (or just before) a UTF-16 column on a line of `text`.
+std::u16string wordAt(const std::u16string& text, uint32_t line, uint32_t column)
+{
+    size_t start = 0;
+    for (uint32_t l = 1; l < line; ++l) {
+        start = text.find(u'\n', start);
+        if (start == std::u16string::npos)
+            return {};
+        ++start;
+    }
+    size_t pos = std::min(text.size(), start + column - 1);
+    auto ident = [&](size_t i) { return i < text.size() && vx::isIdentChar(text[i]); };
+    if (!ident(pos) && pos > start && ident(pos - 1))
+        --pos;
+    if (!ident(pos))
+        return {};
+    size_t b = pos, e = pos;
+    while (b > start && ident(b - 1))
+        --b;
+    while (ident(e))
+        ++e;
+    return text.substr(b, e - b);
+}
+
+std::vector<Target> definitionsAt(Unit& unit, uint32_t line, uint32_t column)
+{
+    std::vector<Target> targets;
+    // UTF-16 column -> byte column on that line.
+    size_t lineStart = 0;
+    for (uint32_t l = 1; l < line; ++l) {
+        lineStart = unit.text.find(u'\n', lineStart);
+        if (lineStart == std::u16string::npos)
+            return targets;
+        ++lineStart;
+    }
+    const auto prefix = std::u16string_view(unit.text).substr(lineStart, column - 1);
+    const unsigned byteColumn = static_cast<unsigned>(vx::toUtf8(prefix).size()) + 1;
+    CXFile file = clang_getFile(unit.tu, unit.path.c_str());
+    if (!file)
+        return targets;
+    const CXCursor cursor = clang_getCursor(unit.tu, clang_getLocation(unit.tu, file, line, byteColumn));
+    const CXCursorKind kind = clang_getCursorKind(cursor);
+
+    if (kind == CXCursor_MacroExpansion || kind == CXCursor_MacroDefinition) {
+        const CXCursor def = kind == CXCursor_MacroExpansion ? clang_getCursorReferenced(cursor) : cursor;
+        Target t;
+        if (!clang_Cursor_isNull(def) && targetOf(unit.tu, def, t)) {
+            t.label = label(u"", vx::toUtf16(takeString(clang_getCursorSpelling(def))), u"macro");
+            targets.push_back(std::move(t));
+        }
+        return targets;
+    }
+
+    CXCursor decl = clang_isDeclaration(kind) ? cursor : clang_getCursorReferenced(cursor);
+    if (kind == CXCursor_OverloadedDeclRef && clang_getNumOverloadedDecls(cursor) > 0)
+        decl = clang_getOverloadedDecl(cursor, 0);
+    if (clang_Cursor_isNull(decl) || clang_isInvalid(clang_getCursorKind(decl)))
+        return targets;
+    const std::u16string name = vx::toUtf16(takeString(clang_getCursorSpelling(decl)));
+    const std::u16string scope = qualifiedScope(decl);
+    const CXCursorKind declKind = clang_getCursorKind(decl);
+    const bool isFunction = declKind == CXCursor_FunctionDecl || declKind == CXCursor_CXXMethod ||
+                            declKind == CXCursor_Constructor || declKind == CXCursor_Destructor ||
+                            declKind == CXCursor_ConversionFunction || declKind == CXCursor_FunctionTemplate;
+
+    const CXCursor def = clang_getCursorDefinition(decl);
+    const bool onDefinition = !clang_Cursor_isNull(def) && clang_equalCursors(def, cursor);
+    if (onDefinition || (clang_isDeclaration(kind) && clang_isCursorDefinition(cursor))) {
+        // Already on the definition: go to the declaration (header <-> source), if separate.
+        const CXCursor canonical = clang_getCanonicalCursor(cursor);
+        Target t;
+        if (!clang_equalCursors(canonical, cursor) && targetOf(unit.tu, canonical, t)) {
+            t.label = label(scope, name, u"declaration");
+            targets.push_back(std::move(t));
+            return targets;
+        }
+        if (isFunction) { // a definition whose declaration this TU does not see
+            for (Target& c : indexTargets(name, scope, true))
+                if (c.label.ends_with(u"(declaration)"))
+                    targets.push_back(std::move(c));
+        }
+        return targets;
+    }
+    if (!clang_Cursor_isNull(def)) {
+        Target t;
+        if (targetOf(unit.tu, def, t)) {
+            t.label = label(scope, name, u"definition");
+            targets.push_back(std::move(t));
+            return targets;
+        }
+    }
+    // Defined in another translation unit: ask the symbol index.
+    if (isFunction || declKind == CXCursor_VarDecl) {
+        targets = indexTargets(name, scope, isFunction);
+        if (!targets.empty())
+            return targets;
+    }
+    Target t; // at least the declaration
+    if (targetOf(unit.tu, decl, t)) {
+        t.label = label(scope, name, u"declaration");
+        targets.push_back(std::move(t));
+    }
+    return targets;
+}
+
 uint32_t writeOut(const std::u16string& s, char16_t* out, uint32_t cap)
 {
     if (out)
@@ -614,6 +802,40 @@ VX_API void VX_CALL vx_release(const char16_t* path)
         return;
     std::lock_guard lock(g_mutex);
     g_units.erase(normalizeKey(vx::toUtf8(path))); // an in-flight parse keeps its slot alive
+}
+
+VX_API uint32_t VX_CALL vx_goto_definition(const char16_t* path, uint32_t line, uint32_t column, char16_t* out,
+                                           uint32_t cap)
+{
+    if (!path || line == 0 || column == 0)
+        return 0;
+    std::vector<Target> targets;
+    std::u16string text;
+    if (ensureLibclang()) {
+        if (std::shared_ptr<Slot> holder = findSlot(vx::toUtf8(path), false)) {
+            std::unique_lock unitLock(holder->mutex, std::try_to_lock);
+            if (unitLock.owns_lock() && holder->unit) {
+                targets = definitionsAt(*holder->unit, line, column);
+                text = holder->unit->text;
+            }
+        }
+    }
+    if (targets.empty()) {
+        // Not parsed (or being parsed), or nothing the parser could resolve: the symbol index
+        // by the word under the caret.
+        if (text.empty())
+            text = readFile16(vx::toUtf8(path));
+        const std::u16string word = wordAt(text, line, column);
+        if (!word.empty())
+            targets = indexTargets(word, u"", false);
+    }
+    std::u16string result;
+    for (const Target& t : targets) {
+        result += t.path + u"\t" + vx::toUtf16(std::to_string(t.line)) + u"\t" + vx::toUtf16(std::to_string(t.column)) +
+                  u"\t" + t.label;
+        result.push_back(u'\0');
+    }
+    return writeOut(result, out, cap);
 }
 
 VX_API uint32_t VX_CALL vx_semantic_tokens(const char16_t* path, vx_span* out, uint32_t cap)
