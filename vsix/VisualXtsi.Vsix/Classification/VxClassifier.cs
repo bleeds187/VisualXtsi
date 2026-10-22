@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using VisualXtsi.Interop;
+using VisualXtsi.Options;
 
 namespace VisualXtsi.Classification
 {
@@ -11,7 +12,7 @@ namespace VisualXtsi.Classification
     /// The lexical pass needs whole-file context (comment state, #defines), so any edit
     /// can change coloring anywhere; we invalidate the full buffer on change.
     /// </summary>
-    internal sealed class VxClassifier : IClassifier
+    internal sealed class VxClassifier : IClassifier, IVxSettingsListener
     {
         private readonly ITextBuffer _buffer;
         private readonly IClassificationType _preprocessor;
@@ -26,14 +27,26 @@ namespace VisualXtsi.Classification
             _preprocessor = registry.GetClassificationType(ClassificationNames.Preprocessor);
             _macro = registry.GetClassificationType(ClassificationNames.Macro);
             _buffer.Changed += OnBufferChanged;
+            VxSettings.AddListener(this);
+        }
+
+        public void SettingsChanged(VxSettings settings)
+        {
+            ITextSnapshot snapshot = _buffer.CurrentSnapshot;
+            ClassificationChanged?.Invoke(this, new ClassificationChangedEventArgs(new SnapshotSpan(snapshot, 0, snapshot.Length)));
         }
 
         public event EventHandler<ClassificationChangedEventArgs> ClassificationChanged;
 
         public IList<ClassificationSpan> GetClassificationSpans(SnapshotSpan span)
         {
-            VxSpan[] spans = GetSpans(span.Snapshot);
             var result = new List<ClassificationSpan>();
+            VxSettings settings = VxSettings.Current;
+            bool preprocessorOn = settings.IsColorEnabled(ClassificationNames.Preprocessor);
+            bool macroOn = settings.IsColorEnabled(ClassificationNames.Macro);
+            if (!preprocessorOn && !macroOn)
+                return result;
+            VxSpan[] spans = GetSpans(span.Snapshot);
 
             // Spans are sorted by start; binary search for the first one that may intersect.
             int lo = 0, hi = spans.Length;
@@ -48,7 +61,10 @@ namespace VisualXtsi.Classification
 
             for (int i = lo; i < spans.Length && spans[i].Start < span.End.Position; i++)
             {
-                IClassificationType type = spans[i].Kind == VxKind.Preprocessor ? _preprocessor : _macro;
+                bool preprocessor = spans[i].Kind == VxKind.Preprocessor;
+                if (preprocessor ? !preprocessorOn : !macroOn)
+                    continue;
+                IClassificationType type = preprocessor ? _preprocessor : _macro;
                 result.Add(new ClassificationSpan(
                     new SnapshotSpan(span.Snapshot, (int)spans[i].Start, (int)spans[i].Length), type));
             }

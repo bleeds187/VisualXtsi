@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using VisualXtsi.Interop;
+using VisualXtsi.Options;
 using VisualXtsi.Parsing;
 
 namespace VisualXtsi.Classification
@@ -14,13 +15,14 @@ namespace VisualXtsi.Classification
     /// snapshot are mapped forward to the current one (tokens edited since then are skipped),
     /// and after each parse only the spans that actually changed are invalidated.
     /// </summary>
-    internal sealed class SemanticClassifier : IClassifier, IDocumentParserListener
+    internal sealed class SemanticClassifier : IClassifier, IDocumentParserListener, IVxSettingsListener
     {
         private const int MaxInvalidatedRanges = 64;
 
         private readonly ITextBuffer _buffer;
         private readonly Dictionary<VxKind, IClassificationType> _types = new Dictionary<VxKind, IClassificationType>();
         private DocumentParser _parser;
+        private HashSet<VxKind> _enabled = new HashSet<VxKind>();
 
         public SemanticClassifier(ITextBuffer buffer, IClassificationTypeRegistryService registry)
         {
@@ -34,8 +36,26 @@ namespace VisualXtsi.Classification
             // The parser may be created before or after this classifier: it looks us up in the
             // buffer's properties when it appears (no static events, so nothing outlives the buffer).
             buffer.Properties[typeof(IDocumentParserListener)] = this;
+            UpdateEnabled(VxSettings.Current);
+            VxSettings.AddListener(this);
             if (DocumentParser.TryGet(buffer) is DocumentParser existing)
                 Link(existing);
+        }
+
+        public void SettingsChanged(VxSettings settings)
+        {
+            UpdateEnabled(settings);
+            ITextSnapshot snapshot = _buffer.CurrentSnapshot;
+            ClassificationChanged?.Invoke(this, new ClassificationChangedEventArgs(new SnapshotSpan(snapshot, 0, snapshot.Length)));
+        }
+
+        private void UpdateEnabled(VxSettings settings)
+        {
+            var enabled = new HashSet<VxKind>();
+            foreach (VxKind kind in _types.Keys)
+                if (settings.IsColorEnabled(SemanticNames.For(kind)))
+                    enabled.Add(kind);
+            _enabled = enabled;
         }
 
         public event EventHandler<ClassificationChangedEventArgs> ClassificationChanged;
@@ -50,9 +70,10 @@ namespace VisualXtsi.Classification
             bool sameSnapshot = span.Snapshot == semantic.Snapshot;
             SnapshotSpan requested = sameSnapshot ? span : span.TranslateTo(semantic.Snapshot, SpanTrackingMode.EdgeInclusive);
             VxSpan[] spans = semantic.Spans;
+            HashSet<VxKind> enabled = _enabled;
             for (int i = semantic.FirstEndingAfter(requested.Start); i < spans.Length && spans[i].Start < requested.End; i++)
             {
-                if (!_types.TryGetValue(spans[i].Kind, out IClassificationType type))
+                if (!enabled.Contains(spans[i].Kind) || !_types.TryGetValue(spans[i].Kind, out IClassificationType type))
                     continue;
                 var token = new SnapshotSpan(semantic.Snapshot, (int)spans[i].Start, (int)spans[i].Length);
                 if (!sameSnapshot)

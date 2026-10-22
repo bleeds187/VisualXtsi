@@ -15,6 +15,7 @@ using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.TextManager.Interop;
 using VisualXtsi.Interop;
+using VisualXtsi.Options;
 using VisualXtsi.Parsing;
 
 namespace VisualXtsi.QuickInfo
@@ -48,7 +49,7 @@ namespace VisualXtsi.QuickInfo
         public async Task<QuickInfoItem> GetQuickInfoItemAsync(IAsyncQuickInfoSession session, CancellationToken cancellationToken)
         {
             SnapshotPoint? trigger = session.GetTriggerPoint(_buffer.CurrentSnapshot);
-            if (trigger == null)
+            if (trigger == null || !VxSettings.Current.MacroTooltip)
                 return null;
             SnapshotPoint point = trigger.Value;
             SnapshotSpan? word = IdentifierAt(point);

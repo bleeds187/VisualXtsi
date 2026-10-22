@@ -59,6 +59,15 @@ methods, static and virtual methods), using the last background parse; edits onl
 spans whose classification changed. Every category has its own entry under Tools > Options >
 Environment > Fonts and Colors (names start with "VisualXtsi"); defaults suit the dark theme.
 
+## Options
+
+Tools > Options > VisualXtsi > General holds what Fonts and Colors cannot: switching each
+coloring category and the macro tooltip on or off, skipping function bodies in included headers,
+the shared PCH and its cache size limit, and a button that clears the PCH cache. Settings are
+stored in the Visual Studio user settings store (collection "VisualXtsi") and are also
+available to automation as `DTE.Properties("VisualXtsi", "General")`. The environment variables
+`VX_FULL_PREAMBLE`, `VX_PCH_CACHE_MB` and `VX_PCH_DIR` override the parsing settings.
+
 ## Packaging
 
 The build copies `libclang.dll` and clang's builtin headers (`clang-resource/include`)

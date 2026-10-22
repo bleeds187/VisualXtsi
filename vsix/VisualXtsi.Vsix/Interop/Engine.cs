@@ -70,7 +70,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 5;
+        private const uint ExpectedAbiVersion = 6;
 
         static Engine()
         {
@@ -82,6 +82,24 @@ namespace VisualXtsi.Interop
             uint abi = vx_abi_version();
             if (abi != ExpectedAbiVersion)
                 throw new InvalidOperationException($"{Dll} ABI version {abi}, expected {ExpectedAbiVersion}");
+        }
+
+        /// <summary>Applies parse settings to parses started afterwards (environment variables still override).</summary>
+        public static void Configure(bool skipHeaderBodies, bool sharedPch, int pchCacheMb)
+        {
+            var config = new VxConfig
+            {
+                SkipHeaderBodies = skipHeaderBodies ? 1u : 0u,
+                SharedPch = sharedPch ? 1u : 0u,
+                PchCacheMb = (uint)Math.Max(0, pchCacheMb),
+            };
+            vx_configure(ref config);
+        }
+
+        /// <summary>Deletes the cached shared PCHs that are not in use; returns the bytes freed.</summary>
+        public static ulong ClearPchCache()
+        {
+            return vx_clear_pch_cache();
         }
 
         public static VxSpan[] Classify(string text)
@@ -189,6 +207,20 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern int vx_prepare_module_pch(string path);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void vx_configure(ref VxConfig config);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern ulong vx_clear_pch_cache();
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct VxConfig
+        {
+            public uint SkipHeaderBodies;
+            public uint SharedPch;
+            public uint PchCacheMb;
+        }
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_semantic_tokens(string path, [Out] VxSpan[] spans, uint cap);

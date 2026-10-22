@@ -260,6 +260,18 @@ int main()
         _wputenv_s(L"VX_PCH_REVALIDATE_SEC", L"");
     }
 
+    // Settings: the shared PCH can be switched off, and the cache cleared.
+    vx_config config{1, 0, 0};
+    vx_configure(&config);
+    expect(vx_prepare_module_pch(sourceA.c_str()) == VX_PCH_NOT_APPLICABLE, "shared PCH switched off");
+    config.shared_pch = 1;
+    vx_configure(&config);
+    expect(vx_clear_pch_cache() > 0, "PCH cache cleared");
+    bool anyLeft = false;
+    for (auto& e : fs::directory_iterator(pchDir, ec))
+        anyLeft |= e.path().extension() == ".pch";
+    expect(!anyLeft, "no PCH left after clearing");
+
     _wputenv_s(L"VX_PCH_DIR", L"");
     _wputenv_s(L"VX_PCH_CACHE_MB", L"");
 

@@ -2,6 +2,7 @@
 
 #include "project_args.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -19,5 +20,8 @@ int prepare(const std::string& key, const std::vector<std::string>& args, const 
 
 // Called when a parse could not use the PCH: it is deleted and not rebuilt this session.
 void markBad(const std::string& key);
+
+// Deletes every cached PCH not in use; returns the bytes freed.
+uint64_t clearCache();
 
 } // namespace vx::pch

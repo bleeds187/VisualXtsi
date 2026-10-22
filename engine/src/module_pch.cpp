@@ -2,6 +2,7 @@
 
 #include "vx/vx.h"
 
+#include "config.h"
 #include "unicode.h"
 
 #include <clang-c/Index.h>
@@ -91,6 +92,8 @@ uintmax_t cacheCapBytes()
     if (GetEnvironmentVariableA("VX_PCH_CACHE_MB", value, sizeof value) > 0)
         if (unsigned long mb = std::strtoul(value, nullptr, 10); mb > 0)
             return static_cast<uintmax_t>(mb) << 20;
+    if (uint32_t mb = config::pchCacheMb; mb > 0)
+        return static_cast<uintmax_t>(mb) << 20;
     return uintmax_t(4096) << 20;
 }
 
@@ -440,6 +443,8 @@ std::string moduleKey(const std::vector<std::string>& args)
 
 std::string ready(const std::string& key)
 {
+    if (!config::sharedPch)
+        return {};
     const auto now = std::chrono::steady_clock::now();
     {
         std::lock_guard lock(g_mutex);
@@ -465,6 +470,8 @@ std::string ready(const std::string& key)
 
 int prepare(const std::string& key, const std::vector<std::string>& args, const VcxprojArgs& project)
 {
+    if (!config::sharedPch)
+        return VX_PCH_NOT_APPLICABLE;
     if (!ready(key).empty())
         return VX_PCH_READY;
     {
@@ -504,6 +511,26 @@ void markBad(const std::string& key)
     removeFiles(key);
     std::lock_guard lock(g_mutex);
     g_entries[key].state = State::Failed;
+}
+
+uint64_t clearCache()
+{
+    std::error_code ec;
+    uint64_t freed = 0;
+    std::vector<fs::path> files;
+    for (auto& e : fs::directory_iterator(cacheDir(), ec)) {
+        const std::wstring ext = e.path().extension().wstring();
+        if (ext == L".pch" || ext == L".manifest" || ext == L".h" || ext == L".tmp" || ext == L".log")
+            files.push_back(e.path());
+    }
+    for (const fs::path& f : files) {
+        const uintmax_t size = fs::file_size(f, ec);
+        if (fs::remove(f, ec) && !ec)
+            freed += size; // a PCH loaded by an open file stays until that file is closed
+    }
+    std::lock_guard lock(g_mutex);
+    g_entries.clear();
+    return freed;
 }
 
 } // namespace vx::pch

@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 5u
+#define VX_ABI_VERSION 6u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -121,6 +121,20 @@ typedef enum vx_pch_status {
  * in it changes. Slow (seconds): call from a background thread. Returns a
  * vx_pch_status. */
 VX_API int32_t VX_CALL vx_prepare_module_pch(const char16_t* path);
+
+typedef struct vx_config {
+    uint32_t skip_header_bodies; /* nonzero: skip function bodies in included headers (default 1) */
+    uint32_t shared_pch;         /* nonzero: build and use per-module shared PCHs (default 1) */
+    uint32_t pch_cache_mb;       /* PCH cache size limit in MB; 0 keeps the default (4096) */
+} vx_config;
+
+/* Applies settings to parses started afterwards. Environment variables override
+ * them: VX_FULL_PREAMBLE=1 (no body skipping), VX_PCH_CACHE_MB, VX_PCH_DIR. */
+VX_API void VX_CALL vx_configure(const vx_config* config);
+
+/* Deletes every cached PCH that is not in use and forgets their state. Returns
+ * the number of bytes freed. */
+VX_API uint64_t VX_CALL vx_clear_pch_cache(void);
 
 /* Drops the cached translation unit for `path`. */
 VX_API void VX_CALL vx_release(const char16_t* path);

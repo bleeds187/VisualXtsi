@@ -18,7 +18,8 @@
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <PlatformTarget>x64</PlatformTarget>
-    <GeneratePkgDefFile>false</GeneratePkgDefFile>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <UseCodebase>true</UseCodebase>
     <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
     <IncludeDebugSymbolsInVSIXContainer>true</IncludeDebugSymbolsInVSIXContainer>
     <IncludeDebugSymbolsInLocalVSIXDeployment>true</IncludeDebugSymbolsInLocalVSIXDeployment>
@@ -58,6 +59,9 @@
     <Compile Include="Classification\ThemeDefaults.cs" />
     <Compile Include="Interop\Engine.cs" />
     <Compile Include="Log.cs" />
+    <Compile Include="Options\OptionsPage.cs" />
+    <Compile Include="Options\VxSettings.cs" />
+    <Compile Include="VisualXtsiPackage.cs" />
     <Compile Include="Parsing\DocumentParser.cs" />
     <Compile Include="Parsing\IDocumentParserListener.cs" />
     <Compile Include="Parsing\ParseOnOpenListener.cs" />

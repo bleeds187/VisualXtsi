@@ -1,6 +1,7 @@
 // libclang-backed parsing and macro queries (vx_parse, vx_macro_info, vx_release).
 #include "vx/vx.h"
 
+#include "config.h"
 #include "macro_expand.h"
 #include "module_pch.h"
 #include "project_args.h"
@@ -502,12 +503,12 @@ VX_API int32_t VX_CALL vx_parse(const char16_t* path, const char16_t* const* arg
                        CXTranslationUnit_KeepGoing;
     // Skip function bodies in the included headers (the preamble) but keep the open file's
     // own bodies: macro queries and semantic coloring only look at the open file.
-    // VX_FULL_PREAMBLE=1 turns this off for comparisons.
+    // VX_FULL_PREAMBLE=1 turns this off regardless of the setting, for comparisons.
     static const bool fullPreamble = [] {
         char value[8] = {};
         return GetEnvironmentVariableA("VX_FULL_PREAMBLE", value, sizeof value) > 0 && value[0] == '1';
     }();
-    if (!fullPreamble)
+    if (!fullPreamble && vx::config::skipHeaderBodies)
         options |= CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_LimitSkipFunctionBodiesToPreamble;
     auto parse = [&] {
         return fullArgv ? clang_parseTranslationUnit2FullArgv(g_index, nullptr, argv.data(),
@@ -634,6 +635,20 @@ VX_API uint32_t VX_CALL vx_semantic_tokens(const char16_t* path, vx_span* out, u
     if (out)
         std::copy_n(spans.begin(), std::min<size_t>(spans.size(), cap), out);
     return static_cast<uint32_t>(spans.size());
+}
+
+VX_API void VX_CALL vx_configure(const vx_config* config)
+{
+    if (!config)
+        return;
+    vx::config::skipHeaderBodies = config->skip_header_bodies != 0;
+    vx::config::sharedPch = config->shared_pch != 0;
+    vx::config::pchCacheMb = config->pch_cache_mb;
+}
+
+VX_API uint64_t VX_CALL vx_clear_pch_cache(void)
+{
+    return vx::pch::clearCache();
 }
 
 VX_API int32_t VX_CALL vx_prepare_module_pch(const char16_t* path)

@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Utilities;
+using VisualXtsi.Options;
 
 namespace VisualXtsi.Classification
 {
@@ -21,6 +22,7 @@ namespace VisualXtsi.Classification
         public IClassifier GetClassifier(ITextBuffer buffer)
         {
             ThreadHelper.ThrowIfNotOnUIThread(); // classifier providers are called on the UI thread
+            VxSettings.EnsureLoaded(); // before the classifier reads which categories are on
             if (!_themeApplied)
             {
                 _themeApplied = true;
