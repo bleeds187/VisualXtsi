@@ -6,9 +6,29 @@
   <Extern href="vsshlids.h" />
 
   <Commands package="guidVisualXtsiPackage">
+    <!-- Extensions > VisualXtsi -->
+    <Menus>
+      <Menu guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidVisualXtsiCmdSet" id="ExtensionsGroup" />
+        <Strings>
+          <ButtonText>VisualXtsi</ButtonText>
+          <CommandName>VisualXtsi</CommandName>
+        </Strings>
+      </Menu>
+    </Menus>
+
     <Groups>
       <Group guid="guidVisualXtsiCmdSet" id="NavigationGroup" priority="0x0600">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_EDIT" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="ExtensionsGroup" priority="0x0600">
+        <Parent guid="guidVsMainMenu" id="IDM_VS_MENU_EXTENSIONS" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" priority="0x0100">
+        <Parent guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="SubmenuSettingsGroup" priority="0x0200">
+        <Parent guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" />
       </Group>
     </Groups>
 
@@ -46,8 +66,32 @@
           <LocCanonicalName>.VisualXtsi.GoToDefinition</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidShowOptions" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="SubmenuSettingsGroup" />
+        <Strings>
+          <ButtonText>Options...</ButtonText>
+          <CanonicalName>.VisualXtsi.Options</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Options</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
+
+  <!-- The navigation commands appear in the Edit menu and in Extensions > VisualXtsi. -->
+  <CommandPlacements>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidToggleHeaderSource" priority="0x0100">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" priority="0x0101">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidFindSymbolInSolution" priority="0x0102">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" priority="0x0103">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" />
+    </CommandPlacement>
+  </CommandPlacements>
 
   <!-- Defaults chosen to avoid Visual Studio's own bindings. -->
   <KeyBindings>
@@ -71,6 +115,16 @@
       <IDSymbol name="cmdidOpenFileInSolution" value="0x0101" />
       <IDSymbol name="cmdidFindSymbolInSolution" value="0x0102" />
       <IDSymbol name="cmdidGoToDefinition" value="0x0103" />
+      <IDSymbol name="cmdidShowOptions" value="0x0104" />
+      <IDSymbol name="VisualXtsiMenu" value="0x2000" />
+      <IDSymbol name="ExtensionsGroup" value="0x1001" />
+      <IDSymbol name="SubmenuNavigationGroup" value="0x1002" />
+      <IDSymbol name="SubmenuSettingsGroup" value="0x1003" />
+    </GuidSymbol>
+    <!-- guidSHLMainMenu's Extensions menu: the VSSDK build tools' vsshlids.h lacks IDM_VS_MENU_EXTENSIONS
+         (Visual Studio's own copy defines it as 0x0091). -->
+    <GuidSymbol name="guidVsMainMenu" value="{d309f791-903f-11d0-9efc-00a0c911004f}">
+      <IDSymbol name="IDM_VS_MENU_EXTENSIONS" value="0x0091" />
     </GuidSymbol>
     <!-- The "Text Editor" key binding scope. -->
     <GuidSymbol name="guidTextEditor" value="{8B382828-6202-11d1-8870-0000F87579D2}" />

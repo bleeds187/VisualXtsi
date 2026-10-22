@@ -63,14 +63,17 @@ Environment > Fonts and Colors (names start with "VisualXtsi"); defaults suit th
 
 | Command (Keyboard options name) | Default key | What it does |
 | --- | --- | --- |
-| `VisualXtsi.ToggleHeaderSource` | Alt+O | Header ↔ source: same folder, Unreal Public/Classes ↔ Private, the module, include paths |
+| `VisualXtsi.ToggleHeaderSource` | Alt+O (editor) | Header ↔ source: same folder, Unreal Public/Classes ↔ Private, the module, include paths |
 | `VisualXtsi.OpenFileInSolution` | Shift+Alt+O (editor) | Fuzzy file search over the solution folder and Unreal project(s); `name:123` opens at a line |
 | `VisualXtsi.FindSymbolInSolution` | Shift+Alt+S | Fuzzy search over a persisted index of the project's declarations; `Scope::name` narrows |
 | `VisualXtsi.GoToDefinition` | Alt+G (editor) | Definition of the symbol at the caret (libclang, then the symbol index); on a definition, its declaration |
 
-Visual Studio binds Shift+Alt+O and Alt+G globally (File.OpenWebSite, Edit.BriefBrowse), so ours
-apply in the text editor only. All four are under the Edit menu and can be rebound. The engine
-source can be indexed too (Options > VisualXtsi > Navigation; off by default, ~0.8 GB).
+Alt+O, Shift+Alt+O and Alt+G are bound in the Text Editor scope: Visual Studio binds the last two
+globally (File.OpenWebSite, Edit.BriefBrowse), other extensions often take Alt+O and Alt+G, and in an
+editor a Text Editor binding outranks global ones. If another tool still takes a key, rebind the
+command under Tools > Options > Environment > Keyboard. All four commands, plus Options..., are
+under Extensions > VisualXtsi; the four are in the Edit menu too. The engine source can be
+indexed as well (Options > VisualXtsi > Navigation; off by default, ~0.8 GB).
 
 ## Options
 

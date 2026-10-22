@@ -31,6 +31,14 @@ namespace VisualXtsi
                 OpenFileInSolutionCommand.Register(this, commands);
                 FindSymbolCommand.Register(this, commands);
                 GoToDefinitionCommand.Register(this, commands);
+                // Extensions > VisualXtsi > Options...
+                EditorCommands.Add(commands, CommandIds.ShowOptions,
+                    async () =>
+                    {
+                        await JoinableTaskFactory.SwitchToMainThreadAsync();
+                        ShowOptionPage(typeof(OptionsPage));
+                    },
+                    () => true);
             }
             OpenFileInSolutionCommand.EnsureRoots();
         }
