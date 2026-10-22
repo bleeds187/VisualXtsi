@@ -38,7 +38,9 @@ project files of the enclosing project (`Intermediate/ProjectFiles/*.vcxproj`, g
 "Generate Visual Studio project files"; UE 4.27 and UE5 layouts). Headers use the arguments
 of the nearest source file of their module. Files are parsed in the background when opened
 and reparsed shortly after edits; progress is logged to
-`%LOCALAPPDATA%\VisualXtsi\VisualXtsi.log`.
+`%LOCALAPPDATA%\VisualXtsi\VisualXtsi.log`. Function bodies in included headers are skipped
+(the open file keeps its own), which makes first parses about a third faster and reparses
+about four times faster on Unreal code; set `VX_FULL_PREAMBLE=1` to compare against full parsing.
 
 ## Coloring
 

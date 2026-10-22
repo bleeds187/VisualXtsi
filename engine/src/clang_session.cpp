@@ -466,9 +466,18 @@ VX_API int32_t VX_CALL vx_parse(const char16_t* path, const char16_t* const* arg
     std::vector<const char*> argv;
     for (auto& a : unit->args)
         argv.push_back(a.c_str());
-    const unsigned options = CXTranslationUnit_DetailedPreprocessingRecord | CXTranslationUnit_PrecompiledPreamble |
-                             CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_CreatePreambleOnFirstParse |
-                             CXTranslationUnit_KeepGoing;
+    unsigned options = CXTranslationUnit_DetailedPreprocessingRecord | CXTranslationUnit_PrecompiledPreamble |
+                       CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_CreatePreambleOnFirstParse |
+                       CXTranslationUnit_KeepGoing;
+    // Skip function bodies in the included headers (the preamble) but keep the open file's
+    // own bodies: macro queries and semantic coloring only look at the open file.
+    // VX_FULL_PREAMBLE=1 turns this off for comparisons.
+    static const bool fullPreamble = [] {
+        char value[8] = {};
+        return GetEnvironmentVariableA("VX_FULL_PREAMBLE", value, sizeof value) > 0 && value[0] == '1';
+    }();
+    if (!fullPreamble)
+        options |= CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_LimitSkipFunctionBodiesToPreamble;
     CXErrorCode err = fullArgv
         ? clang_parseTranslationUnit2FullArgv(g_index, nullptr, argv.data(), static_cast<int>(argv.size()), &file,
                                               numUnsaved, options, &unit->tu)
