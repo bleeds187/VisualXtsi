@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 8u
+#define VX_ABI_VERSION 9u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -159,8 +159,43 @@ VX_API uint32_t VX_CALL vx_index_file_count(void);
  * NUL-terminated UTF-16 paths, best first; returns the number of char16_t needed. */
 VX_API uint32_t VX_CALL vx_index_find_files(const char16_t* query, uint32_t max_results, char16_t* out,
                                             uint32_t cap);
-/* Stops watching and forgets all roots and files. */
+/* Adds the engine source tree (…\Engine\Source) that the Unreal project
+ * containing `path` builds against; returns 1 if found. Not done by default. */
+VX_API uint32_t VX_CALL vx_index_add_engine_of(const char16_t* path);
+/* Stops watching and forgets all roots, files and symbols. */
 VX_API void VX_CALL vx_index_reset(void);
+
+/* Symbol index (Find Symbol, cross-file Go to Definition): declarations in every
+ * C/C++ file of the file index, found by a fast lexical scanner on background
+ * threads, kept current as files change, and cached in
+ * %LOCALAPPDATA%\VisualXtsi\symbols.cache (VX_SYMBOL_CACHE overrides) so that
+ * only changed files are rescanned after a restart. */
+typedef enum vx_symbol_kind {
+    VX_SYMBOL_NAMESPACE = 1,
+    VX_SYMBOL_CLASS = 2,
+    VX_SYMBOL_STRUCT = 3,
+    VX_SYMBOL_UNION = 4,
+    VX_SYMBOL_ENUM = 5,
+    VX_SYMBOL_ENUM_CONSTANT = 6,
+    VX_SYMBOL_TYPEDEF = 7,
+    VX_SYMBOL_FUNCTION = 8,
+    VX_SYMBOL_METHOD = 9,
+    VX_SYMBOL_FIELD = 10,
+    VX_SYMBOL_VARIABLE = 11,
+    VX_SYMBOL_MACRO = 12,
+    VX_SYMBOL_DELEGATE = 13 /* Unreal DECLARE_*DELEGATE* / DECLARE_*EVENT* types */
+} vx_symbol_kind;
+
+/* Starts following the file index (idempotent). */
+VX_API void VX_CALL vx_symbols_start(void);
+/* Fuzzy search over symbol names, best first ("Scope::name" also matches the
+ * scope). Each result is a NUL-terminated UTF-16 record of tab-separated fields:
+ * kind, definition (0/1), line, column (1-based, UTF-16), name, scope, path.
+ * Returns the number of char16_t needed. */
+VX_API uint32_t VX_CALL vx_symbols_find(const char16_t* query, uint32_t max_results, char16_t* out, uint32_t cap);
+VX_API void VX_CALL vx_symbols_status(uint32_t* files, uint32_t* pending, uint32_t* symbols);
+/* Writes the cache now (it is also written whenever the scan queue drains). */
+VX_API void VX_CALL vx_symbols_save(void);
 
 /* Drops the cached translation unit for `path`. */
 VX_API void VX_CALL vx_release(const char16_t* path);

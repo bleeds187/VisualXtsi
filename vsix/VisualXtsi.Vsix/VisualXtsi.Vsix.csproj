@@ -59,13 +59,16 @@
     <Compile Include="Classification\ThemeDefaults.cs" />
     <Compile Include="Commands\CommandIds.cs" />
     <Compile Include="Commands\EditorCommands.cs" />
+    <Compile Include="Commands\FindSymbolCommand.cs" />
     <Compile Include="Commands\OpenFileInSolutionCommand.cs" />
     <Compile Include="Commands\ToggleHeaderSourceCommand.cs" />
     <Compile Include="Interop\Engine.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Options\OptionsPage.cs" />
     <Compile Include="Options\VxSettings.cs" />
+    <Compile Include="UI\FindSymbolDialog.cs" />
     <Compile Include="UI\OpenFileDialog.cs" />
+    <Compile Include="UI\SearchDialog.cs" />
     <Compile Include="VisualXtsiPackage.cs" />
     <Compile Include="Parsing\DocumentParser.cs" />
     <Compile Include="Parsing\IDocumentParserListener.cs" />

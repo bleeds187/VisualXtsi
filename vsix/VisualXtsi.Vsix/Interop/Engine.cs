@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -66,11 +67,31 @@ namespace VisualXtsi.Interop
         public string Expansion; // empty when hovering the definition itself
     }
 
+    /// <summary>A symbol index entry (see vx_symbols_find).</summary>
+    internal sealed class SymbolInfo
+    {
+        private static readonly string[] KindLabels =
+        {
+            "", "namespace", "class", "struct", "union", "enum", "enumerator", "typedef", "function", "method",
+            "field", "variable", "macro", "delegate",
+        };
+
+        public int Kind;
+        public bool Definition;
+        public int Line;
+        public int Column;
+        public string Name;
+        public string Scope;
+        public string Path;
+
+        public string KindLabel => (Kind > 0 && Kind < KindLabels.Length ? KindLabels[Kind] : "") + (Definition ? "" : " (declaration)");
+    }
+
     /// <summary>P/Invoke surface of the native engine (vxengine.dll).</summary>
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 8;
+        private const uint ExpectedAbiVersion = 9;
 
         static Engine()
         {
@@ -206,6 +227,42 @@ namespace VisualXtsi.Interop
             return SplitStrings((buffer, cap) => vx_index_find_files(query, (uint)maxResults, buffer, cap));
         }
 
+        /// <summary>Indexes the engine source of the Unreal project containing <paramref name="path"/>.</summary>
+        public static bool IndexAddEngineOf(string path) => vx_index_add_engine_of(path) != 0;
+
+        public static void SymbolsStart() => vx_symbols_start();
+
+        public static void SymbolStatus(out int files, out int pending, out int symbols)
+        {
+            vx_symbols_status(out uint f, out uint p, out uint s);
+            files = (int)f;
+            pending = (int)p;
+            symbols = (int)s;
+        }
+
+        /// <summary>Fuzzy symbol search, best first. Never waits for indexing.</summary>
+        public static SymbolInfo[] FindSymbols(string query, int maxResults)
+        {
+            var result = new List<SymbolInfo>();
+            foreach (string record in SplitStrings((buffer, cap) => vx_symbols_find(query, (uint)maxResults, buffer, cap)))
+            {
+                string[] f = record.Split('\t');
+                if (f.Length < 7)
+                    continue;
+                result.Add(new SymbolInfo
+                {
+                    Kind = int.Parse(f[0]),
+                    Definition = f[1] == "1",
+                    Line = int.Parse(f[2]),
+                    Column = int.Parse(f[3]),
+                    Name = f[4],
+                    Scope = f[5],
+                    Path = f[6],
+                });
+            }
+            return result.ToArray();
+        }
+
         // Calls an engine function that writes NUL-terminated UTF-16 strings, growing the buffer as needed.
         private static string[] SplitStrings(Func<char[], uint, uint> call)
         {
@@ -235,6 +292,18 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_index_find_files(string query, uint maxResults, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_index_add_engine_of(string path);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void vx_symbols_start();
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void vx_symbols_status(out uint files, out uint pending, out uint symbols);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_symbols_find(string query, uint maxResults, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
         private static extern uint vx_abi_version();

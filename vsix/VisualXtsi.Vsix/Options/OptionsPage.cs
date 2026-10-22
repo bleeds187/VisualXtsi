@@ -26,7 +26,7 @@ namespace VisualXtsi.Options
         private bool _shownInDialog;
         private StackPanel _root;
         private readonly Dictionary<string, CheckBox> _colorBoxes = new Dictionary<string, CheckBox>();
-        private CheckBox _tooltip, _skipBodies, _sharedPch;
+        private CheckBox _tooltip, _skipBodies, _sharedPch, _indexEngine;
         private TextBox _cacheMb;
         private TextBlock _clearStatus;
 
@@ -52,6 +52,12 @@ namespace VisualXtsi.Options
         {
             get => _working.PchCacheMb;
             set { ThreadHelper.ThrowIfNotOnUIThread(); _working.PchCacheMb = Math.Max(256, value); SaveIfAutomated(); }
+        }
+
+        public bool IndexEngineSource
+        {
+            get => _working.IndexEngineSource;
+            set { ThreadHelper.ThrowIfNotOnUIThread(); _working.IndexEngineSource = value; SaveIfAutomated(); }
         }
 
         /// <summary>Semicolon-separated classification names whose coloring is off.</summary>
@@ -158,6 +164,12 @@ namespace VisualXtsi.Options
 
             root.Children.Add(Note("Parsing changes apply to files opened afterwards. The environment variables VX_FULL_PREAMBLE, " +
                                    "VX_PCH_CACHE_MB and VX_PCH_DIR override these settings."));
+
+            root.Children.Add(Heading("Navigation"));
+            _indexEngine = Option("Index the Unreal Engine source for Open File and Find Symbol (about 60,000 files; uses ~0.8 GB)",
+                                  v => _working.IndexEngineSource = v);
+            root.Children.Add(_indexEngine);
+            root.Children.Add(Note("The project's own source is always indexed. Turning engine indexing off takes effect after a restart."));
             Refresh();
             return root;
         }
@@ -171,6 +183,7 @@ namespace VisualXtsi.Options
             _tooltip.IsChecked = _working.MacroTooltip;
             _skipBodies.IsChecked = _working.SkipHeaderBodies;
             _sharedPch.IsChecked = _working.SharedPch;
+            _indexEngine.IsChecked = _working.IndexEngineSource;
             _cacheMb.Text = _working.PchCacheMb.ToString();
             _clearStatus.Text = "";
         }

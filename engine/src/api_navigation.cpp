@@ -4,6 +4,7 @@
 #include "file_index.h"
 #include "navigation.h"
 #include "project_args.h"
+#include "symbol_index.h"
 #include "unicode.h"
 
 #include <algorithm>
@@ -64,7 +65,63 @@ VX_API uint32_t VX_CALL vx_index_find_files(const char16_t* query, uint32_t max_
 
 VX_API void VX_CALL vx_index_reset(void)
 {
+    vx::symbols::reset();
     vx::files::reset();
+}
+
+VX_API uint32_t VX_CALL vx_index_add_engine_of(const char16_t* path)
+{
+    if (!path)
+        return 0;
+    vx::VcxprojArgs project;
+    if (!vx::argsFromUnrealProject(vx::toUtf8(path), project))
+        return 0;
+    std::vector<std::wstring> includeDirs;
+    for (const std::string& a : project.args)
+        if (a.size() > 2 && a.compare(0, 2, "-I") == 0) {
+            const std::u16string w = vx::toUtf16(a.substr(2));
+            includeDirs.emplace_back(w.begin(), w.end());
+        }
+    return vx::files::addEngineOf(reinterpret_cast<const wchar_t*>(path), includeDirs) ? 1u : 0u;
+}
+
+VX_API void VX_CALL vx_symbols_start(void)
+{
+    vx::symbols::start();
+}
+
+VX_API uint32_t VX_CALL vx_symbols_find(const char16_t* query, uint32_t max_results, char16_t* out, uint32_t cap)
+{
+    if (!query)
+        return 0;
+    std::u16string result;
+    for (const vx::symbols::Hit& hit : vx::symbols::find(query, max_results)) {
+        const vx::symbols::Symbol& s = hit.symbol;
+        result += vx::toUtf16(std::to_string(int(s.kind)) + "\t" + std::to_string(int(s.definition)) + "\t" +
+                              std::to_string(s.line) + "\t" + std::to_string(s.column) + "\t");
+        result += s.name + u"\t" + s.scope + u"\t";
+        result.append(hit.path.begin(), hit.path.end());
+        result.push_back(u'\0');
+    }
+    if (out)
+        std::copy_n(result.begin(), std::min<size_t>(result.size(), cap), out);
+    return static_cast<uint32_t>(result.size());
+}
+
+VX_API void VX_CALL vx_symbols_status(uint32_t* files, uint32_t* pending, uint32_t* symbols)
+{
+    const vx::symbols::Status st = vx::symbols::status();
+    if (files)
+        *files = static_cast<uint32_t>(st.files);
+    if (pending)
+        *pending = static_cast<uint32_t>(st.pending);
+    if (symbols)
+        *symbols = static_cast<uint32_t>(st.symbols);
+}
+
+VX_API void VX_CALL vx_symbols_save(void)
+{
+    vx::symbols::save();
 }
 
 } // extern "C"

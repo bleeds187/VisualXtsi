@@ -29,6 +29,7 @@ namespace VisualXtsi
             {
                 ToggleHeaderSourceCommand.Register(this, commands);
                 OpenFileInSolutionCommand.Register(this, commands);
+                FindSymbolCommand.Register(this, commands);
             }
             OpenFileInSolutionCommand.EnsureRoots();
         }

@@ -37,6 +37,8 @@ add_library(vxengine SHARED
   src/classify.cpp
   src/macro_expand.cpp
   src/navigation.cpp
+  src/symbol_index.cpp
+  src/symbol_scanner.cpp
   src/project_args.cpp
   src/unicode.cpp
   src/xml.cpp
@@ -71,6 +73,16 @@ add_executable(vxengine_navigation_tests tests/test_navigation.cpp src/navigatio
 target_include_directories(vxengine_navigation_tests PRIVATE src)
 target_compile_definitions(vxengine_navigation_tests PRIVATE VX_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../tests/samples")
 add_test(NAME vxengine_navigation_tests COMMAND vxengine_navigation_tests)
+
+add_executable(vxengine_symbol_scanner_tests tests/test_symbol_scanner.cpp src/symbol_scanner.cpp src/lexer.cpp)
+target_include_directories(vxengine_symbol_scanner_tests PRIVATE src)
+add_test(NAME vxengine_symbol_scanner_tests COMMAND vxengine_symbol_scanner_tests)
+
+add_executable(vxengine_symbol_index_tests tests/test_symbol_index.cpp src/symbol_index.cpp src/symbol_scanner.cpp
+               src/file_index.cpp src/lexer.cpp src/unicode.cpp)
+target_include_directories(vxengine_symbol_index_tests PRIVATE src)
+target_compile_definitions(vxengine_symbol_index_tests PRIVATE VX_TEST_DIR=L"${CMAKE_CURRENT_BINARY_DIR}/test-symbols")
+add_test(NAME vxengine_symbol_index_tests COMMAND vxengine_symbol_index_tests)
 
 add_executable(vxengine_file_index_tests tests/test_file_index.cpp src/file_index.cpp)
 target_include_directories(vxengine_file_index_tests PRIVATE src)

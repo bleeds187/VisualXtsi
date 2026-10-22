@@ -52,6 +52,7 @@ namespace VisualXtsi.Options
         public bool SkipHeaderBodies { get; set; } = true;
         public bool SharedPch { get; set; } = true;
         public int PchCacheMb { get; set; } = 4096;
+        public bool IndexEngineSource { get; set; } = false;
         public HashSet<string> DisabledColors { get; set; } = new HashSet<string>();
 
         public bool IsColorEnabled(string classificationName) => !DisabledColors.Contains(classificationName);
@@ -87,6 +88,7 @@ namespace VisualXtsi.Options
                 settings.SkipHeaderBodies = store.GetBoolean(Collection, nameof(SkipHeaderBodies), settings.SkipHeaderBodies);
                 settings.SharedPch = store.GetBoolean(Collection, nameof(SharedPch), settings.SharedPch);
                 settings.PchCacheMb = store.GetInt32(Collection, nameof(PchCacheMb), settings.PchCacheMb);
+                settings.IndexEngineSource = store.GetBoolean(Collection, nameof(IndexEngineSource), settings.IndexEngineSource);
                 settings.DisabledColors = ParseList(store.GetString(Collection, nameof(DisabledColors), ""));
             }
             catch (Exception ex)
@@ -109,6 +111,7 @@ namespace VisualXtsi.Options
                 store.SetBoolean(Collection, nameof(SkipHeaderBodies), settings.SkipHeaderBodies);
                 store.SetBoolean(Collection, nameof(SharedPch), settings.SharedPch);
                 store.SetInt32(Collection, nameof(PchCacheMb), settings.PchCacheMb);
+                store.SetBoolean(Collection, nameof(IndexEngineSource), settings.IndexEngineSource);
                 store.SetString(Collection, nameof(DisabledColors), string.Join(";", settings.DisabledColors.OrderBy(n => n)));
             }
             catch (Exception ex)

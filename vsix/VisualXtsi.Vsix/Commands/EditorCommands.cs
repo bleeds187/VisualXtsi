@@ -38,7 +38,8 @@ namespace VisualXtsi.Commands
             commands.AddCommand(command);
         }
 
-        public static void OpenDocument(string path, int line = 0)
+        /// <summary>Opens a file, optionally at a 1-based line and column (UTF-16 units).</summary>
+        public static void OpenDocument(string path, int line = 0, int column = 0)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             VsShellUtilities.OpenDocument(ServiceProvider.GlobalProvider, path, Guid.Empty,
@@ -46,7 +47,7 @@ namespace VisualXtsi.Commands
             frame?.Show();
             if (view != null && line > 0)
             {
-                view.SetCaretPos(line - 1, 0);
+                view.SetCaretPos(line - 1, Math.Max(0, column - 1));
                 view.CenterLines(line - 1, 1);
             }
         }

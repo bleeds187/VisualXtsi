@@ -22,9 +22,9 @@ namespace VisualXtsi.Parsing
             if (parser != null)
             {
                 textView.Closed += (s, e) => parser.Detach();
-                // Open File in Solution covers the Unreal project of every file opened.
+                // Open File and Find Symbol cover the Unreal project of every file opened.
                 string path = parser.Path;
-                _ = System.Threading.Tasks.Task.Run(() => Engine.IndexAddProjectOf(path));
+                _ = System.Threading.Tasks.Task.Run(() => Commands.OpenFileInSolutionCommand.IndexDocument(path));
             }
         }
     }

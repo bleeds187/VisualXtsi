@@ -30,6 +30,14 @@
           <LocCanonicalName>.VisualXtsi.OpenFileInSolution</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidFindSymbolInSolution" priority="0x0102" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="NavigationGroup" />
+        <Strings>
+          <ButtonText>Find Symbol in Solution... (VisualXtsi)</ButtonText>
+          <CanonicalName>.VisualXtsi.FindSymbolInSolution</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.FindSymbolInSolution</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -41,6 +49,8 @@
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidToggleHeaderSource" editor="guidTextEditor" key1="O" mod1="Alt" />
     <!-- Shift+Alt+O is File.OpenWebSite globally: ours applies in the text editor only. -->
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" editor="guidTextEditor" key1="O" mod1="Alt Shift" />
+    <!-- Shift+Alt+S is only bound in the image editor. -->
+    <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidFindSymbolInSolution" editor="guidVSStd97" key1="S" mod1="Alt Shift" />
   </KeyBindings>
 
   <Symbols>
@@ -49,6 +59,7 @@
       <IDSymbol name="NavigationGroup" value="0x1000" />
       <IDSymbol name="cmdidToggleHeaderSource" value="0x0100" />
       <IDSymbol name="cmdidOpenFileInSolution" value="0x0101" />
+      <IDSymbol name="cmdidFindSymbolInSolution" value="0x0102" />
     </GuidSymbol>
     <!-- The "Text Editor" key binding scope. -->
     <GuidSymbol name="guidTextEditor" value="{8B382828-6202-11d1-8870-0000F87579D2}" />

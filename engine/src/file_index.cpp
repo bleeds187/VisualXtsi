@@ -71,9 +71,18 @@ struct Entry {
     bool alive = true;
 };
 
+std::atomic<Listener> g_listener{nullptr};
+
+void notify(const std::wstring& path, Change change)
+{
+    if (Listener l = g_listener.load())
+        l(path, change);
+}
+
 class Index {
 public:
-    void add(const fs::path& p)
+    // Returns true if the file was not indexed before.
+    bool add(const fs::path& p)
     {
         Entry e;
         e.path = p.lexically_normal().wstring();
@@ -82,39 +91,66 @@ public:
         e.nameLower = lower(e.name);
         e.nameMask = charMask(e.nameLower);
         e.pathMask = charMask(e.pathLower);
-        std::unique_lock lock(mutex_);
-        auto [it, inserted] = byPath_.try_emplace(e.pathLower, entries_.size());
-        if (!inserted) {
-            if (!entries_[it->second].alive) {
+        const std::wstring path = e.path;
+        {
+            std::unique_lock lock(mutex_);
+            auto [it, inserted] = byPath_.try_emplace(e.pathLower, entries_.size());
+            if (!inserted) {
+                if (entries_[it->second].alive)
+                    return false;
                 entries_[it->second].alive = true;
                 ++alive_;
+            } else {
+                entries_.push_back(std::move(e));
+                ++alive_;
             }
-            return;
         }
-        entries_.push_back(std::move(e));
-        ++alive_;
+        notify(path, Change::Added);
+        return true;
     }
 
     void remove(const fs::path& p)
     {
         const std::wstring key = lower(p.lexically_normal().wstring());
-        std::unique_lock lock(mutex_);
-        if (auto it = byPath_.find(key); it != byPath_.end() && entries_[it->second].alive) {
-            entries_[it->second].alive = false;
-            --alive_;
+        std::wstring removed;
+        {
+            std::unique_lock lock(mutex_);
+            if (auto it = byPath_.find(key); it != byPath_.end() && entries_[it->second].alive) {
+                entries_[it->second].alive = false;
+                --alive_;
+                removed = entries_[it->second].path;
+            }
         }
+        if (!removed.empty())
+            notify(removed, Change::Removed);
     }
 
     void removeUnder(const fs::path& dir)
     {
         const std::wstring prefix = lower(dir.lexically_normal().wstring()) + L"\\";
-        std::unique_lock lock(mutex_);
-        for (Entry& e : entries_) {
-            if (e.alive && e.pathLower.compare(0, prefix.size(), prefix) == 0) {
-                e.alive = false;
-                --alive_;
+        std::vector<std::wstring> removed;
+        {
+            std::unique_lock lock(mutex_);
+            for (Entry& e : entries_) {
+                if (e.alive && e.pathLower.compare(0, prefix.size(), prefix) == 0) {
+                    e.alive = false;
+                    --alive_;
+                    removed.push_back(e.path);
+                }
             }
         }
+        for (const std::wstring& p : removed)
+            notify(p, Change::Removed);
+    }
+
+    std::vector<std::wstring> all() const
+    {
+        std::shared_lock lock(mutex_);
+        std::vector<std::wstring> paths;
+        for (const Entry& e : entries_)
+            if (e.alive)
+                paths.push_back(e.path);
+        return paths;
     }
 
     size_t count() const
@@ -218,8 +254,9 @@ private:
         while (!stop_) {
             DWORD bytes = 0;
             if (!ReadDirectoryChangesW(handle, buffer.data(), static_cast<DWORD>(buffer.size()), TRUE,
-                                       FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME, &bytes, nullptr,
-                                       nullptr))
+                                       FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME |
+                                           FILE_NOTIFY_CHANGE_LAST_WRITE,
+                                       &bytes, nullptr, nullptr))
                 break; // cancelled, or the folder went away
             if (stop_)
                 break;
@@ -257,6 +294,10 @@ private:
         case FILE_ACTION_RENAMED_OLD_NAME:
             g_index.remove(p);
             g_index.removeUnder(p); // in case it was a folder
+            break;
+        case FILE_ACTION_MODIFIED:
+            if (wantedFile(p) && !g_index.add(p)) // add() reports new files itself
+                notify(p.lexically_normal().wstring(), Change::Modified);
             break;
         default:
             break;
@@ -394,6 +435,28 @@ size_t count()
 std::vector<std::wstring> find(const std::wstring& query, size_t maxResults)
 {
     return g_index.find(query, maxResults);
+}
+
+void setListener(Listener listener)
+{
+    g_listener = listener;
+    if (listener)
+        for (const std::wstring& path : g_index.all())
+            listener(path, Change::Added);
+}
+
+bool addEngineOf(const std::wstring& path, const std::vector<std::wstring>& includeDirs)
+{
+    (void)path;
+    for (const std::wstring& dir : includeDirs) {
+        const std::wstring l = lower(dir);
+        const size_t at = l.find(L"\\engine\\source\\");
+        if (at != std::wstring::npos) {
+            addRoot(dir.substr(0, at + std::wstring(L"\\engine\\source").size()));
+            return true;
+        }
+    }
+    return false;
 }
 
 void reset()

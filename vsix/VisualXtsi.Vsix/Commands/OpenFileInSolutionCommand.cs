@@ -22,7 +22,10 @@ namespace VisualXtsi.Commands
                 () => true);
         }
 
-        /// <summary>Indexes the open solution's folder and the Unreal project of the active document.</summary>
+        /// <summary>
+        /// Indexes the open solution's folder and the Unreal project (and, if enabled, engine source)
+        /// of the active document, and starts the symbol index on them.
+        /// </summary>
         public static void EnsureRoots()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
@@ -31,11 +34,20 @@ namespace VisualXtsi.Commands
             string active = dte?.ActiveDocument?.FullName;
             _ = Task.Run(() =>
             {
+                Engine.SymbolsStart();
                 if (!string.IsNullOrEmpty(solution))
                     Engine.IndexAddRoot(Path.GetDirectoryName(solution));
                 if (!string.IsNullOrEmpty(active))
-                    Engine.IndexAddProjectOf(active);
+                    IndexDocument(active);
             });
+        }
+
+        /// <summary>Indexes the Unreal project of a document, and its engine source if enabled. Background thread.</summary>
+        public static void IndexDocument(string path)
+        {
+            Engine.SymbolsStart();
+            if (Engine.IndexAddProjectOf(path) && Options.VxSettings.Current.IndexEngineSource)
+                Engine.IndexAddEngineOf(path);
         }
 
         private static async Task ExecuteAsync()
@@ -43,8 +55,8 @@ namespace VisualXtsi.Commands
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             EnsureRoots();
             var dialog = new OpenFileDialog();
-            if (dialog.ShowModal() == true && dialog.SelectedPath != null)
-                EditorCommands.OpenDocument(dialog.SelectedPath, dialog.SelectedLine);
+            if (dialog.ShowModal() == true && dialog.Selected != null)
+                EditorCommands.OpenDocument(dialog.Selected.Path, dialog.Selected.Line);
         }
     }
 }
