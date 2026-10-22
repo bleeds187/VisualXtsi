@@ -70,7 +70,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 7;
+        private const uint ExpectedAbiVersion = 8;
 
         static Engine()
         {
@@ -193,6 +193,19 @@ namespace VisualXtsi.Interop
             return SplitStrings((buffer, cap) => vx_counterparts(path, buffer, cap));
         }
 
+        public static void IndexAddRoot(string dir) => vx_index_add_root(dir);
+
+        /// <summary>Indexes the Unreal project containing <paramref name="path"/>; false if there is none.</summary>
+        public static bool IndexAddProjectOf(string path) => vx_index_add_project_of(path) != 0;
+
+        public static int IndexFileCount() => (int)vx_index_file_count();
+
+        /// <summary>Fuzzy file search over the index, best first. Never waits for indexing.</summary>
+        public static string[] FindFiles(string query, int maxResults)
+        {
+            return SplitStrings((buffer, cap) => vx_index_find_files(query, (uint)maxResults, buffer, cap));
+        }
+
         // Calls an engine function that writes NUL-terminated UTF-16 strings, growing the buffer as needed.
         private static string[] SplitStrings(Func<char[], uint, uint> call)
         {
@@ -210,6 +223,18 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_counterparts(string path, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern void vx_index_add_root(string dir);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_index_add_project_of(string path);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern uint vx_index_file_count();
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_index_find_files(string query, uint maxResults, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
         private static extern uint vx_abi_version();

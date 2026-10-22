@@ -22,6 +22,14 @@
           <LocCanonicalName>.VisualXtsi.ToggleHeaderSource</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="NavigationGroup" />
+        <Strings>
+          <ButtonText>Open File in Solution... (VisualXtsi)</ButtonText>
+          <CanonicalName>.VisualXtsi.OpenFileInSolution</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.OpenFileInSolution</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -31,6 +39,8 @@
          header/source commands), and a global binding of ours can be removed by tools that claim
          their keys (seen in practice: a RemoveShortcut for our global Alt+O). -->
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidToggleHeaderSource" editor="guidTextEditor" key1="O" mod1="Alt" />
+    <!-- Shift+Alt+O is File.OpenWebSite globally: ours applies in the text editor only. -->
+    <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" editor="guidTextEditor" key1="O" mod1="Alt Shift" />
   </KeyBindings>
 
   <Symbols>
@@ -38,6 +48,7 @@
     <GuidSymbol name="guidVisualXtsiCmdSet" value="{3d8c5e21-6a4f-4b7e-9c12-7f0a8e3b5d64}">
       <IDSymbol name="NavigationGroup" value="0x1000" />
       <IDSymbol name="cmdidToggleHeaderSource" value="0x0100" />
+      <IDSymbol name="cmdidOpenFileInSolution" value="0x0101" />
     </GuidSymbol>
     <!-- The "Text Editor" key binding scope. -->
     <GuidSymbol name="guidTextEditor" value="{8B382828-6202-11d1-8870-0000F87579D2}" />

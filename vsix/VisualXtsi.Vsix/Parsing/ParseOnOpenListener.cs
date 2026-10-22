@@ -2,6 +2,7 @@ using System.ComponentModel.Composition;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
+using VisualXtsi.Interop;
 using VisualXtsi.Options;
 
 namespace VisualXtsi.Parsing
@@ -19,7 +20,12 @@ namespace VisualXtsi.Parsing
             VxSettings.EnsureLoaded(); // configures the engine before the first parse
             DocumentParser parser = DocumentParser.Attach(textView.TextDataModel.DocumentBuffer);
             if (parser != null)
+            {
                 textView.Closed += (s, e) => parser.Detach();
+                // Open File in Solution covers the Unreal project of every file opened.
+                string path = parser.Path;
+                _ = System.Threading.Tasks.Task.Run(() => Engine.IndexAddProjectOf(path));
+            }
         }
     }
 }

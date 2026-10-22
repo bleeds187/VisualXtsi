@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 7u
+#define VX_ABI_VERSION 8u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -144,6 +144,23 @@ VX_API uint64_t VX_CALL vx_clear_pch_cache(void);
  * char16_t needed (0: none found). Touches the file system: call off the UI
  * thread. */
 VX_API uint32_t VX_CALL vx_counterparts(const char16_t* path, char16_t* out, uint32_t cap);
+
+/* File index for Open File in Solution. Roots are scanned on background threads
+ * (skipping Intermediate, Binaries, Saved, DerivedDataCache, Content, .git, .vs)
+ * and kept current with directory change notifications; searches never wait for
+ * a scan and see whatever is indexed so far. */
+VX_API void VX_CALL vx_index_add_root(const char16_t* dir);
+/* Adds the Unreal project containing `path` (nearest folder with a *.uproject);
+ * returns 1 if there is one. */
+VX_API uint32_t VX_CALL vx_index_add_project_of(const char16_t* path);
+VX_API uint32_t VX_CALL vx_index_file_count(void);
+/* Fuzzy search (subsequence, case-insensitive, word starts and runs score higher;
+ * a query with a path separator matches whole paths). Writes up to `max_results`
+ * NUL-terminated UTF-16 paths, best first; returns the number of char16_t needed. */
+VX_API uint32_t VX_CALL vx_index_find_files(const char16_t* query, uint32_t max_results, char16_t* out,
+                                            uint32_t cap);
+/* Stops watching and forgets all roots and files. */
+VX_API void VX_CALL vx_index_reset(void);
 
 /* Drops the cached translation unit for `path`. */
 VX_API void VX_CALL vx_release(const char16_t* path);

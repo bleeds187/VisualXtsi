@@ -1,6 +1,7 @@
 // Developer CLI: parse a file with the engine and print macro info at positions.
 //   vxcli <file> [@args.rsp] [--pch] [--semantic | --dump=<line>] [line:col ...]
 //   vxcli <file> --counterparts
+//   vxcli <file-or-folder> --find=<query>[,<query>...]
 // The response file holds one compiler argument per line (UTF-8).
 #include "vx/vx.h"
 
@@ -9,6 +10,7 @@
 #include <cstdio>
 #include <fstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -84,7 +86,40 @@ int main(int argc, char** argv)
     unsigned dumpLine = 0;
     for (int i = 2; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--counterparts") {
+        if (a.rfind("--find=", 0) == 0) {
+            // Index the project containing <file> (or <file> itself if it is a folder), then search.
+            auto t0 = std::chrono::steady_clock::now();
+            if (!vx_index_add_project_of(file.c_str()))
+                vx_index_add_root(file.c_str());
+            uint32_t last = 0, stable = 0;
+            while (stable < 10) { // done when the count stops growing for 0.5 s
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                uint32_t n = vx_index_file_count();
+                stable = n == last ? stable + 1 : 0;
+                last = n;
+            }
+            std::printf("indexed %u files in %.0f ms\n", last, msSince(t0) - 500);
+            for (size_t start = 7; start <= a.size();) {
+                size_t comma = a.find(',', start);
+                const std::u16string query = widen(a.substr(start, comma - start));
+                auto t1 = std::chrono::steady_clock::now();
+                std::vector<char16_t> buf(1 << 16);
+                uint32_t n = vx_index_find_files(query.c_str(), 5, buf.data(), static_cast<uint32_t>(buf.size()));
+                std::printf("\"%s\" (%.1f ms):\n", a.substr(start, comma - start).c_str(), msSince(t1));
+                for (size_t k = 0, s = 0; k < n; ++k)
+                    if (buf[k] == 0) {
+                        std::printf("  ");
+                        printUtf16(buf.data() + s, k - s);
+                        std::printf("\n");
+                        s = k + 1;
+                    }
+                if (comma == std::string::npos)
+                    break;
+                start = comma + 1;
+            }
+            vx_index_reset();
+            return 0;
+        } else if (a == "--counterparts") {
             auto t0 = std::chrono::steady_clock::now();
             std::vector<char16_t> buf(vx_counterparts(file.c_str(), nullptr, 0));
             vx_counterparts(file.c_str(), buf.data(), static_cast<uint32_t>(buf.size()));

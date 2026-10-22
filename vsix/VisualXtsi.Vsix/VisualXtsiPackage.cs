@@ -26,7 +26,11 @@ namespace VisualXtsi
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             VxSettings.EnsureLoaded();
             if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commands)
+            {
                 ToggleHeaderSourceCommand.Register(this, commands);
+                OpenFileInSolutionCommand.Register(this, commands);
+            }
+            OpenFileInSolutionCommand.EnsureRoots();
         }
     }
 }

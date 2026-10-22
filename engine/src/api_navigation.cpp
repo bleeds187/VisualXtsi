@@ -1,6 +1,7 @@
 // Navigation entry points that need no parsing.
 #include "vx/vx.h"
 
+#include "file_index.h"
 #include "navigation.h"
 #include "project_args.h"
 #include "unicode.h"
@@ -29,6 +30,41 @@ VX_API uint32_t VX_CALL vx_counterparts(const char16_t* path, char16_t* out, uin
     if (out)
         std::copy_n(result.begin(), std::min<size_t>(result.size(), cap), out);
     return static_cast<uint32_t>(result.size());
+}
+
+VX_API void VX_CALL vx_index_add_root(const char16_t* dir)
+{
+    if (dir)
+        vx::files::addRoot(reinterpret_cast<const wchar_t*>(dir));
+}
+
+VX_API uint32_t VX_CALL vx_index_add_project_of(const char16_t* path)
+{
+    return path && vx::files::addProjectOf(reinterpret_cast<const wchar_t*>(path)) ? 1u : 0u;
+}
+
+VX_API uint32_t VX_CALL vx_index_file_count(void)
+{
+    return static_cast<uint32_t>(vx::files::count());
+}
+
+VX_API uint32_t VX_CALL vx_index_find_files(const char16_t* query, uint32_t max_results, char16_t* out, uint32_t cap)
+{
+    if (!query)
+        return 0;
+    std::wstring result;
+    for (const std::wstring& path : vx::files::find(reinterpret_cast<const wchar_t*>(query), max_results)) {
+        result += path;
+        result.push_back(L'\0');
+    }
+    if (out)
+        std::copy_n(reinterpret_cast<const char16_t*>(result.data()), std::min<size_t>(result.size(), cap), out);
+    return static_cast<uint32_t>(result.size());
+}
+
+VX_API void VX_CALL vx_index_reset(void)
+{
+    vx::files::reset();
 }
 
 } // extern "C"
