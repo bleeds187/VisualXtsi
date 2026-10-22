@@ -70,7 +70,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 6;
+        private const uint ExpectedAbiVersion = 7;
 
         static Engine()
         {
@@ -187,8 +187,29 @@ namespace VisualXtsi.Interop
             return new MacroInfo { Name = parts[0], Definition = parts[1], Location = parts[2], Expansion = parts[3] };
         }
 
+        /// <summary>Header for a source or source for a header, best first. Touches the disk: background thread.</summary>
+        public static string[] Counterparts(string path)
+        {
+            return SplitStrings((buffer, cap) => vx_counterparts(path, buffer, cap));
+        }
+
+        // Calls an engine function that writes NUL-terminated UTF-16 strings, growing the buffer as needed.
+        private static string[] SplitStrings(Func<char[], uint, uint> call)
+        {
+            uint needed = call(null, 0);
+            if (needed == 0)
+                return Array.Empty<string>();
+            var buffer = new char[needed];
+            needed = call(buffer, (uint)buffer.Length);
+            return new string(buffer, 0, (int)Math.Min(needed, (uint)buffer.Length))
+                .Split(new[] { '\0' }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern IntPtr LoadLibraryW(string path);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_counterparts(string path, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
         private static extern uint vx_abi_version();

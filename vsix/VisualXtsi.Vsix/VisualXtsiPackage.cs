@@ -1,18 +1,21 @@
 using System;
+using System.ComponentModel.Design;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.VisualStudio.Shell;
+using VisualXtsi.Commands;
 using VisualXtsi.Options;
 using Task = System.Threading.Tasks.Task;
 
 namespace VisualXtsi
 {
     /// <summary>
-    /// The package exists only to register the options page; the editor features are MEF
-    /// components and do not need it loaded.
+    /// Registers the options page and the commands. The editor features are MEF components and
+    /// do not need the package; Visual Studio loads it on first use of a page or command.
     /// </summary>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuid)]
+    [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideOptionPage(typeof(OptionsPage), "VisualXtsi", "General", 0, 0, true)]
     public sealed class VisualXtsiPackage : AsyncPackage
     {
@@ -22,6 +25,8 @@ namespace VisualXtsi
         {
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             VxSettings.EnsureLoaded();
+            if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commands)
+                ToggleHeaderSourceCommand.Register(this, commands);
         }
     }
 }

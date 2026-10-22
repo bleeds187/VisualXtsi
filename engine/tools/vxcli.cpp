@@ -1,5 +1,6 @@
 // Developer CLI: parse a file with the engine and print macro info at positions.
 //   vxcli <file> [@args.rsp] [--pch] [--semantic | --dump=<line>] [line:col ...]
+//   vxcli <file> --counterparts
 // The response file holds one compiler argument per line (UTF-8).
 #include "vx/vx.h"
 
@@ -83,7 +84,22 @@ int main(int argc, char** argv)
     unsigned dumpLine = 0;
     for (int i = 2; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--pch") {
+        if (a == "--counterparts") {
+            auto t0 = std::chrono::steady_clock::now();
+            std::vector<char16_t> buf(vx_counterparts(file.c_str(), nullptr, 0));
+            vx_counterparts(file.c_str(), buf.data(), static_cast<uint32_t>(buf.size()));
+            std::printf("counterparts (%.0f ms):\n", msSince(t0));
+            size_t start = 0;
+            for (size_t k = 0; k < buf.size(); ++k) {
+                if (buf[k] == 0) {
+                    std::printf("  ");
+                    printUtf16(buf.data() + start, k - start);
+                    std::printf("\n");
+                    start = k + 1;
+                }
+            }
+            return 0;
+        } else if (a == "--pch") {
             usePch = true;
         } else if (a == "--semantic") {
             semantic = true;

@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 6u
+#define VX_ABI_VERSION 7u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -135,6 +135,15 @@ VX_API void VX_CALL vx_configure(const vx_config* config);
 /* Deletes every cached PCH that is not in use and forgets their state. Returns
  * the number of bytes freed. */
 VX_API uint64_t VX_CALL vx_clear_pch_cache(void);
+
+/* Files to switch to from `path`: sources for a header, headers for a source,
+ * best first (same folder; Unreal's mirrored Public/Classes <-> Private layout;
+ * elsewhere in the module, i.e. under the folder holding its *.Build.cs; for a
+ * source, a same-named #include resolved through the module's include paths).
+ * Writes NUL-terminated UTF-16 paths to `out` and returns the number of
+ * char16_t needed (0: none found). Touches the file system: call off the UI
+ * thread. */
+VX_API uint32_t VX_CALL vx_counterparts(const char16_t* path, char16_t* out, uint32_t cap);
 
 /* Drops the cached translation unit for `path`. */
 VX_API void VX_CALL vx_release(const char16_t* path);
