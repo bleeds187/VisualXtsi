@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 13u
+#define VX_ABI_VERSION 14u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -198,9 +198,18 @@ typedef enum vx_symbol_kind {
 VX_API void VX_CALL vx_symbols_start(void);
 /* Fuzzy search over symbol names, best first ("Scope::name" also matches the
  * scope). Each result is a NUL-terminated UTF-16 record of tab-separated fields:
- * kind, definition (0/1), line, column (1-based, UTF-16), name, scope, path.
- * Returns the number of char16_t needed. */
+ * kind, definition (0/1), line, column (1-based, UTF-16), name, scope, path, Unreal
+ * split (VX_UE_* flags of a UFUNCTION declaration, else 0).\n * Returns the number of char16_t needed. */
 VX_API uint32_t VX_CALL vx_symbols_find(const char16_t* query, uint32_t max_results, char16_t* out, uint32_t cap);
+/* Symbols named exactly 
+ame (case-sensitive), definitions first; records as above. */
+VX_API uint32_t VX_CALL vx_symbols_lookup(const char16_t* name, uint32_t max_results, char16_t* out, uint32_t cap);
+
+/* How UnrealHeaderTool splits a UFUNCTION declaration: BlueprintNativeEvent and RPCs (Server,
+ * Client, NetMulticast) are implemented by Name_Implementation, WithValidation RPCs also by
+ * Name_Validate. vx_goto_definition goes from the declaration (or a call) to those, and back. */
+#define VX_UE_IMPLEMENTATION 1u
+#define VX_UE_VALIDATE 2u
 VX_API void VX_CALL vx_symbols_status(uint32_t* files, uint32_t* pending, uint32_t* symbols);
 /* Writes the cache now (it is also written whenever the scan queue drains). */
 VX_API void VX_CALL vx_symbols_save(void);

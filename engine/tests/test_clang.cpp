@@ -235,6 +235,55 @@ int main()
         vx_index_reset();
     }
 
+    // UnrealHeaderTool-split UFUNCTIONs: declaration and calls go to Name_Implementation (and
+    // Name_Validate), and from those back to the UFUNCTION declaration.
+    {
+        const std::u16string dir = std::u16string(VX_SAMPLES_DIR) + u"/ue_split";
+        const std::u16string splitHeader = dir + u"/SplitActor.h", splitSource = dir + u"/SplitActor.cpp";
+        vx_symbols_start();
+        vx_index_add_root(dir.c_str());
+        uint32_t files = 0, pending = 1;
+        for (int i = 0; i < 250 && !(files >= 3 && pending == 0); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            vx_symbols_status(&files, &pending, nullptr);
+        }
+        auto targetsAt = [](const std::u16string& file, uint32_t line, uint32_t col) {
+            std::vector<char16_t> buf(8192);
+            const uint32_t n = vx_goto_definition(file.c_str(), line, col, buf.data(), static_cast<uint32_t>(buf.size()));
+            std::vector<std::string> all(1);
+            for (uint32_t k = 0; k < n; ++k)
+                if (buf[k] == 0)
+                    all.emplace_back();
+                else
+                    all.back().push_back(buf[k] < 0x80 ? static_cast<char>(buf[k]) : '?');
+            all.pop_back();
+            return all; // "path\tline\tcolumn\tlabel" per target
+        };
+        auto expectTargets = [](const std::vector<std::string>& got, std::vector<const char*> wanted, const char* what) {
+            bool ok = got.size() == wanted.size();
+            for (size_t i = 0; ok && i < got.size(); ++i)
+                ok = got[i].find(wanted[i]) != std::string::npos;
+            if (!ok)
+                for (const std::string& g : got)
+                    std::printf("  got: %s\n", g.c_str());
+            expect(ok, what);
+        };
+        expect(vx_parse(splitHeader.c_str(), nullptr, 0, nullptr, nullptr, 0) == VX_OK, "parse SplitActor.h");
+        expectTargets(targetsAt(splitHeader, 9, 7), {"SplitActor.cpp\t3\t19\t"}, "BlueprintNativeEvent goes to _Implementation");
+        expectTargets(targetsAt(splitHeader, 11, 7), {"SplitActor.cpp\t5\t19\t", "SplitActor.cpp\t4\t19\t"},
+                      "WithValidation RPC lists _Implementation, then _Validate");
+        expectTargets(targetsAt(splitHeader, 13, 7), {"SplitActor.cpp\t6\t19\t"}, "Client RPC goes to _Implementation");
+        expectTargets(targetsAt(splitHeader, 15, 7), {"SplitActor.cpp\t7\t19\t"}, "NetMulticast RPC goes to _Implementation");
+        expectTargets(targetsAt(splitHeader, 16, 7), {"SplitActor.cpp\t8\t19\t"}, "a plain method still goes to its definition");
+        vx_release(splitHeader.c_str());
+        expect(vx_parse(splitSource.c_str(), nullptr, 0, nullptr, nullptr, 0) == VX_OK, "parse SplitActor.cpp");
+        expectTargets(targetsAt(splitSource, 3, 20), {"SplitActor.h\t9\t10\t"}, "_Implementation goes back to the UFUNCTION");
+        expectTargets(targetsAt(splitSource, 4, 20), {"SplitActor.h\t11\t10\t"}, "_Validate goes back to the UFUNCTION");
+        expectTargets(targetsAt(splitSource, 11, 6), {"SplitActor.cpp\t3\t19\t"}, "a call goes to _Implementation");
+        vx_release(splitSource.c_str());
+        vx_index_reset();
+    }
+
     // Shared module PCH: built from the "engine" headers both sources include, leaving out
     // the one that does not compile and the project's own header; then used by new parses.
     namespace fs = std::filesystem;

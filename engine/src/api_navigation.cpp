@@ -90,22 +90,36 @@ VX_API void VX_CALL vx_symbols_start(void)
     vx::symbols::start();
 }
 
-VX_API uint32_t VX_CALL vx_symbols_find(const char16_t* query, uint32_t max_results, char16_t* out, uint32_t cap)
+namespace {
+
+// Symbol records as documented at vx_symbols_find.
+uint32_t writeSymbols(const std::vector<vx::symbols::Hit>& hits, char16_t* out, uint32_t cap)
 {
-    if (!query)
-        return 0;
     std::u16string result;
-    for (const vx::symbols::Hit& hit : vx::symbols::find(query, max_results)) {
+    for (const vx::symbols::Hit& hit : hits) {
         const vx::symbols::Symbol& s = hit.symbol;
         result += vx::toUtf16(std::to_string(int(s.kind)) + "\t" + std::to_string(int(s.definition)) + "\t" +
                               std::to_string(s.line) + "\t" + std::to_string(s.column) + "\t");
         result += s.name + u"\t" + s.scope + u"\t";
         result.append(hit.path.begin(), hit.path.end());
+        result += u"\t" + vx::toUtf16(std::to_string(int(s.ue)));
         result.push_back(u'\0');
     }
     if (out)
         std::copy_n(result.begin(), std::min<size_t>(result.size(), cap), out);
     return static_cast<uint32_t>(result.size());
+}
+
+} // namespace
+
+VX_API uint32_t VX_CALL vx_symbols_find(const char16_t* query, uint32_t max_results, char16_t* out, uint32_t cap)
+{
+    return query ? writeSymbols(vx::symbols::find(query, max_results), out, cap) : 0;
+}
+
+VX_API uint32_t VX_CALL vx_symbols_lookup(const char16_t* name, uint32_t max_results, char16_t* out, uint32_t cap)
+{
+    return name ? writeSymbols(vx::symbols::lookup(name, max_results), out, cap) : 0;
 }
 
 VX_API void VX_CALL vx_symbols_status(uint32_t* files, uint32_t* pending, uint32_t* symbols)

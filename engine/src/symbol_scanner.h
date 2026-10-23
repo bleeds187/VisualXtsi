@@ -31,6 +31,14 @@ struct Symbol {
     bool definition;      // class/function bodies, variables; false for function declarations
     uint32_t line;        // 1-based
     uint32_t column;      // 1-based, UTF-16 units
+    uint8_t ue = 0;       // UeSplit flags for UFUNCTION declarations
+};
+
+// How UnrealHeaderTool splits a UFUNCTION: BlueprintNativeEvent and RPCs (Server, Client,
+// NetMulticast) are implemented by Name_Implementation, and WithValidation RPCs also by Name_Validate.
+enum UeSplit : uint8_t {
+    UeImplementation = 1,
+    UeValidate = 2,
 };
 
 // Declarations in one file, found lexically (no preprocessing, no includes): fast enough to

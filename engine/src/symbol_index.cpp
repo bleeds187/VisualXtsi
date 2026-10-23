@@ -233,13 +233,13 @@ public:
         const fs::path tmp = fs::path(path).concat(L".tmp");
         {
             std::ofstream out(tmp, std::ios::binary);
-            out << "vxsym 1\n";
+            out << "vxsym 2\n";
             for (const auto& [key, f] : files_) {
                 out << "F\t" << f.stamp << '\t' << f.size << '\t' << toUtf8(std::u16string(f.path.begin(), f.path.end()))
                     << '\n';
                 for (const Symbol& s : f.symbols)
                     out << "S\t" << int(s.kind) << '\t' << int(s.definition) << '\t' << s.line << '\t' << s.column << '\t'
-                        << toUtf8(s.name) << '\t' << toUtf8(s.scope) << '\n';
+                        << toUtf8(s.name) << '\t' << toUtf8(s.scope) << '\t' << int(s.ue) << '\n';
             }
         }
         fs::rename(tmp, path, ec);
@@ -343,7 +343,7 @@ private:
     {
         std::ifstream in(cachePath(), std::ios::binary);
         std::string line;
-        if (!std::getline(in, line) || line != "vxsym 1")
+        if (!std::getline(in, line) || line != "vxsym 2") // older caches are rebuilt
             return;
         FileSymbols* current = nullptr;
         std::unique_lock data(mutex_);
@@ -368,6 +368,7 @@ private:
                 s.column = static_cast<uint32_t>(std::stoul(fields[4]));
                 s.name = toUtf16(fields[5]);
                 s.scope = fields.size() > 6 ? toUtf16(fields[6]) : std::u16string();
+                s.ue = fields.size() > 7 ? static_cast<uint8_t>(std::stoi(fields[7])) : 0;
                 current->symbols.push_back(std::move(s));
             }
         }

@@ -357,8 +357,8 @@ namespace VisualXtsi.UI
                 "Hovering a macro shows its full expansion, laid out one statement per line, with a link to its #define.");
             Option(page, "_Color macros in the expansion", _working.ColorQuickInfo, v => _working.ColorQuickInfo = v,
                 "Uses the Macro and Preprocessor directive colors inside the expansion (also under Coloring and Attributes).");
-            Option(page, "Describe Unreal _specifiers (EditAnywhere, BlueprintCallable, Server, ...)", _working.SpecifierTooltip, v => _working.SpecifierTooltip = v,
-                "Hovering a specifier inside UCLASS(...), UPROPERTY(...), UFUNCTION(...) and the like shows what it does.");
+            Option(page, "Describe Unreal _specifiers and where native events and RPCs are implemented", _working.SpecifierTooltip, v => _working.SpecifierTooltip = v,
+                "Hovering a specifier inside UCLASS(...), UPROPERTY(...), UFUNCTION(...) shows what it does; hovering a BlueprintNativeEvent or RPC shows its Name_Implementation (and Name_Validate) with a link.");
             return page;
         }
 

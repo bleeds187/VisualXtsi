@@ -85,14 +85,32 @@ namespace VisualXtsi.Interop
         public string Scope;
         public string Path;
 
-        public string KindLabel => (Kind > 0 && Kind < KindLabels.Length ? KindLabels[Kind] : "") + (Definition ? "" : " (declaration)");
+        /// <summary>For a UFUNCTION declaration: how UnrealHeaderTool splits it (vx.h VX_UE_*).</summary>
+        public int Ue;
+
+        public const int UeImplementation = 1, UeValidate = 2;
+
+        public string KindLabel
+        {
+            get
+            {
+                string label = (Kind > 0 && Kind < KindLabels.Length ? KindLabels[Kind] : "") + (Definition ? "" : " (declaration)");
+                if ((Ue & UeImplementation) != 0)
+                    label += (Ue & UeValidate) != 0 ? ", UFUNCTION: _Implementation and _Validate" : ", UFUNCTION: _Implementation";
+                else if (Name.EndsWith("_Implementation", StringComparison.Ordinal) && Name.Length > 15)
+                    label += ", implements " + Name.Substring(0, Name.Length - 15);
+                else if (Name.EndsWith("_Validate", StringComparison.Ordinal) && Name.Length > 9)
+                    label += ", validates " + Name.Substring(0, Name.Length - 9);
+                return label;
+            }
+        }
     }
 
     /// <summary>P/Invoke surface of the native engine (vxengine.dll).</summary>
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 13;
+        private const uint ExpectedAbiVersion = 14;
 
         static Engine()
         {
@@ -278,10 +296,17 @@ namespace VisualXtsi.Interop
         }
 
         /// <summary>Fuzzy symbol search, best first. Never waits for indexing.</summary>
-        public static SymbolInfo[] FindSymbols(string query, int maxResults)
+        public static SymbolInfo[] FindSymbols(string query, int maxResults) =>
+            ParseSymbols(SplitStrings((buffer, cap) => vx_symbols_find(query, (uint)maxResults, buffer, cap)));
+
+        /// <summary>Symbols named exactly <paramref name="name"/>, definitions first.</summary>
+        public static SymbolInfo[] LookupSymbols(string name, int maxResults) =>
+            ParseSymbols(SplitStrings((buffer, cap) => vx_symbols_lookup(name, (uint)maxResults, buffer, cap)));
+
+        private static SymbolInfo[] ParseSymbols(string[] records)
         {
             var result = new List<SymbolInfo>();
-            foreach (string record in SplitStrings((buffer, cap) => vx_symbols_find(query, (uint)maxResults, buffer, cap)))
+            foreach (string record in records)
             {
                 string[] f = record.Split('\t');
                 if (f.Length < 7)
@@ -295,6 +320,7 @@ namespace VisualXtsi.Interop
                     Name = f[4],
                     Scope = f[5],
                     Path = f[6],
+                    Ue = f.Length > 7 && int.TryParse(f[7], out int ue) ? ue : 0,
                 });
             }
             return result.ToArray();
@@ -350,6 +376,9 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_symbols_find(string query, uint maxResults, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_symbols_lookup(string name, uint maxResults, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
         private static extern uint vx_abi_version();

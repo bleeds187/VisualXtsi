@@ -494,6 +494,15 @@ std::u16string label(const std::u16string& scope, const std::u16string& name, co
     return (scope.empty() ? name : scope + u"::" + name) + u" (" + what + u")";
 }
 
+// Whether a symbol's scope from the index and a (possibly more or less qualified) scope agree;
+// an empty `scope` (no semantic information) matches anything.
+bool sameScope(const std::u16string& symbolScope, const std::u16string& scope)
+{
+    return scope.empty() || symbolScope == scope ||
+           (symbolScope.size() > scope.size() && symbolScope.ends_with(u"::" + scope)) ||
+           (scope.size() > symbolScope.size() && !symbolScope.empty() && scope.ends_with(u"::" + symbolScope));
+}
+
 // Definitions the symbol index knows for `name`: same scope (by suffix) first, definitions only
 // when any exist. `scope` may be empty (no semantic information).
 std::vector<Target> indexTargets(const std::u16string& name, const std::u16string& scope, bool wantFunction)
@@ -506,9 +515,7 @@ std::vector<Target> indexTargets(const std::u16string& name, const std::u16strin
             continue;
         Target t{std::u16string(hit.path.begin(), hit.path.end()), s.line, s.column,
                  label(s.scope, s.name, s.definition ? u"definition" : u"declaration")};
-        const bool scopeMatches = scope.empty() || s.scope == scope ||
-                                  (s.scope.size() > scope.size() && s.scope.ends_with(u"::" + scope)) ||
-                                  (scope.size() > s.scope.size() && !s.scope.empty() && scope.ends_with(u"::" + s.scope));
+        const bool scopeMatches = sameScope(s.scope, scope);
         if (!s.definition) {
             if (scopeMatches)
                 declarations.push_back(std::move(t));
@@ -522,6 +529,41 @@ std::vector<Target> indexTargets(const std::u16string& name, const std::u16strin
     if (!others.empty())
         return others;
     return declarations;
+}
+
+// UnrealHeaderTool-split UFUNCTIONs (VX_UE_*): BlueprintNativeEvent and RPC declarations are
+// implemented by Name_Implementation (and Name_Validate with WithValidation); the generated
+// Name itself lives in the .gen.cpp nobody wants to land in.
+std::vector<Target> ueImplementations(const std::u16string& name, const std::u16string& scope)
+{
+    uint8_t flags = 0;
+    for (const vx::symbols::Hit& hit : vx::symbols::lookup(name, 50))
+        if (!hit.symbol.definition && sameScope(hit.symbol.scope, scope))
+            flags |= hit.symbol.ue;
+    std::vector<Target> targets;
+    for (const auto& [flag, suffix] : {std::pair{VX_UE_IMPLEMENTATION, u"_Implementation"}, std::pair{VX_UE_VALIDATE, u"_Validate"}})
+        if (flags & flag)
+            for (Target& t : indexTargets(name + suffix, scope, true))
+                targets.push_back(std::move(t));
+    return targets;
+}
+
+// From Name_Implementation or Name_Validate back to the UFUNCTION declaration of Name.
+std::vector<Target> ueDeclaration(const std::u16string& name, const std::u16string& scope)
+{
+    std::vector<Target> targets;
+    for (const std::u16string_view suffix : {std::u16string_view(u"_Implementation"), std::u16string_view(u"_Validate")}) {
+        if (name.size() <= suffix.size() || !name.ends_with(suffix))
+            continue;
+        const std::u16string base = name.substr(0, name.size() - suffix.size());
+        for (const vx::symbols::Hit& hit : vx::symbols::lookup(base, 50)) {
+            const vx::symbols::Symbol& s = hit.symbol;
+            if (!s.definition && s.ue != 0 && sameScope(s.scope, scope))
+                targets.push_back({std::u16string(hit.path.begin(), hit.path.end()), s.line, s.column,
+                                   label(s.scope, s.name, u"UFUNCTION declaration")});
+        }
+    }
+    return targets;
 }
 
 // The identifier under (or just before) a UTF-16 column on a line of `text`.
@@ -592,6 +634,11 @@ std::vector<Target> definitionsAt(Unit& unit, uint32_t line, uint32_t column)
     const CXCursor def = clang_getCursorDefinition(decl);
     const bool onDefinition = !clang_Cursor_isNull(def) && clang_equalCursors(def, cursor);
     if (onDefinition || (clang_isDeclaration(kind) && clang_isCursorDefinition(cursor))) {
+        if (isFunction) { // Name_Implementation / Name_Validate: back to the UFUNCTION
+            targets = ueDeclaration(name, scope);
+            if (!targets.empty())
+                return targets;
+        }
         // Already on the definition: go to the declaration (header <-> source), if separate.
         const CXCursor canonical = clang_getCanonicalCursor(cursor);
         Target t;
@@ -606,6 +653,11 @@ std::vector<Target> definitionsAt(Unit& unit, uint32_t line, uint32_t column)
                     targets.push_back(std::move(c));
         }
         return targets;
+    }
+    if (isFunction) { // a BlueprintNativeEvent or RPC: its _Implementation (and _Validate)
+        targets = ueImplementations(name, scope);
+        if (!targets.empty())
+            return targets;
     }
     if (!clang_Cursor_isNull(def)) {
         Target t;
@@ -828,8 +880,13 @@ VX_API uint32_t VX_CALL vx_goto_definition(const char16_t* path, uint32_t line, 
         if (text.empty())
             text = readFile16(vx::toUtf8(path));
         const std::u16string word = wordAt(text, line, column);
-        if (!word.empty())
-            targets = indexTargets(word, u"", false);
+        if (!word.empty()) {
+            targets = ueImplementations(word, u"");
+            if (targets.empty())
+                targets = ueDeclaration(word, u"");
+            if (targets.empty())
+                targets = indexTargets(word, u"", false);
+        }
     }
     std::u16string result;
     for (const Target& t : targets) {

@@ -200,6 +200,38 @@ static int32 FileStatic = 3;
         std::printf("FAIL Helper column %u\n", helper ? helper->column : 0);
     }
 
+    // UnrealHeaderTool-split UFUNCTIONs carry how they are implemented.
+    {
+        const auto ue = vx::symbols::scan(uR"(UCLASS()
+class AGame : public AActor
+{
+    GENERATED_BODY()
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="Game")
+    void Travel();
+    UFUNCTION(Server, Reliable, WithValidation)
+    void ServerScore(int32 Score);
+    UFUNCTION(NetMulticast, Unreliable) void Boom();
+    UFUNCTION(BlueprintCallable)
+    void Plain();
+    void NoMarkup();
+};
+)");
+        const struct { const char16_t* name; uint8_t flags; } cases[] = {
+            {u"Travel", vx::symbols::UeImplementation},
+            {u"ServerScore", vx::symbols::UeImplementation | vx::symbols::UeValidate},
+            {u"Boom", vx::symbols::UeImplementation},
+            {u"Plain", 0},
+            {u"NoMarkup", 0},
+        };
+        for (const auto& c : cases) {
+            const auto* f = findSymbol(ue, c.name, Kind::Method, u"AGame");
+            if (!f || f->ue != c.flags) {
+                ++failures;
+                std::printf("FAIL %s ue flags %d, expected %d\n", narrow(c.name).c_str(), f ? int(f->ue) : -1, int(c.flags));
+            }
+        }
+    }
+
     if (failures == 0)
         std::printf("all tests passed\n");
     return failures == 0 ? 0 : 1;

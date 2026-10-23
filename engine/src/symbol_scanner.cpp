@@ -79,6 +79,25 @@ std::vector<Tok> strip(const std::vector<Tok>& in)
     return std::vector<Tok>(in.begin() + static_cast<ptrdiff_t>(std::min(i, in.size())), in.end());
 }
 
+// UeSplit flags from a UFUNCTION(...) among the markup before a declaration.
+uint8_t ueSplit(const std::vector<Tok>& t)
+{
+    for (size_t i = 0; i + 1 < t.size(); ++i) {
+        if (!is(t[i], u"UFUNCTION") || !is(t[i + 1], u"("))
+            continue;
+        uint8_t flags = 0;
+        const size_t end = skipGroup(t, i + 1);
+        for (size_t k = i + 2; k < end; ++k) {
+            if (is(t[k], u"BlueprintNativeEvent") || is(t[k], u"Server") || is(t[k], u"Client") || is(t[k], u"NetMulticast"))
+                flags |= UeImplementation;
+            else if (is(t[k], u"WithValidation"))
+                flags |= UeValidate;
+        }
+        return flags;
+    }
+    return 0;
+}
+
 // Position of the first "(" outside <...>, or npos.
 size_t topLevelParen(const std::vector<Tok>& t, size_t until = std::u16string::npos)
 {
@@ -137,11 +156,11 @@ private:
         bool keepStatement = false; // a brace group inside a statement (e.g. default argument)
     };
 
-    void add(Kind kind, const Tok& at, std::u16string name, std::u16string scope, bool definition)
+    void add(Kind kind, const Tok& at, std::u16string name, std::u16string scope, bool definition, uint8_t ue = 0)
     {
         const auto it = std::upper_bound(lineStarts_.begin(), lineStarts_.end(), at.offset);
         const uint32_t line = static_cast<uint32_t>(it - lineStarts_.begin());
-        symbols_.push_back({std::move(name), std::move(scope), kind, definition, line, at.offset - *(it - 1) + 1});
+        symbols_.push_back({std::move(name), std::move(scope), kind, definition, line, at.offset - *(it - 1) + 1, ue});
     }
 
     std::u16string scopeName() const
@@ -301,7 +320,7 @@ private:
             return;
         }
         if (paren != std::u16string::npos) {
-            function(s, paren, true);
+            function(s, paren, true, ueSplit(statement_));
         } else {
             variable(s); // brace initializer
         }
@@ -346,7 +365,7 @@ private:
             return; // forward declaration
         const size_t paren = topLevelParen(s);
         if (paren != std::u16string::npos) {
-            function(s, paren, false);
+            function(s, paren, false, ueSplit(statement_));
             return;
         }
         variable(s);
@@ -375,7 +394,7 @@ private:
         return false;
     }
 
-    void function(const std::vector<Tok>& s, size_t paren, bool definition)
+    void function(const std::vector<Tok>& s, size_t paren, bool definition, uint8_t ue)
     {
         if (paren == 0)
             return;
@@ -388,7 +407,7 @@ private:
                     end = paren + 2; // operator()
                 for (size_t k = i + 1; k < end; ++k)
                     name += s[k].text;
-                emitFunction(s, i, name, definition);
+                emitFunction(s, i, name, definition, ue);
                 return;
             }
         }
@@ -401,12 +420,12 @@ private:
             name.insert(name.begin(), u'~');
             --nameStart;
         }
-        emitFunction(s, nameStart, name, definition);
+        emitFunction(s, nameStart, name, definition, ue);
     }
 
     // Records a function or method whose name starts at s[nameStart]; "A::B::" before it is
     // the class of an out-of-line member definition.
-    void emitFunction(const std::vector<Tok>& s, size_t nameStart, const std::u16string& name, bool definition)
+    void emitFunction(const std::vector<Tok>& s, size_t nameStart, const std::u16string& name, bool definition, uint8_t ue)
     {
         std::u16string qualifier;
         size_t i = nameStart;
@@ -431,7 +450,7 @@ private:
         }
         const bool inClass = scopes_.back().kind == ScopeKind::Class;
         const Kind kind = inClass || !qualifier.empty() ? Kind::Method : Kind::Function;
-        add(kind, s[nameStart], name, join(scopeName(), qualifier), definition);
+        add(kind, s[nameStart], name, join(scopeName(), qualifier), definition, ue);
     }
 
     void variable(const std::vector<Tok>& s)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -69,6 +70,18 @@ namespace VisualXtsi.QuickInfo
                     return new QuickInfoItem(point.Snapshot.CreateTrackingSpan(at, SpanTrackingMode.EdgeInclusive), SpecifierContent(at.GetText(), help));
                 }
             }
+            // A BlueprintNativeEvent or RPC: where UnrealHeaderTool expects its body. From the symbol
+            // index, so it works without a parse too.
+            if (VxSettings.Current.SpecifierTooltip)
+            {
+                string name = word.Value.GetText();
+                List<SymbolInfo> implementations = await Task.Run(() => UeImplementations(name), cancellationToken).ConfigureAwait(false);
+                if (implementations.Count > 0)
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+                    return new QuickInfoItem(point.Snapshot.CreateTrackingSpan(word.Value, SpanTrackingMode.EdgeInclusive), ImplementationContent(implementations));
+                }
+            }
             if (!VxSettings.Current.MacroTooltip)
                 return null;
 
@@ -116,6 +129,47 @@ namespace VisualXtsi.QuickInfo
                 if (span.Start == word.Start.Position)
                     return span.Kind == VxKind.UeSpecifier;
             return false;
+        }
+
+        // Definitions of Name_Implementation / Name_Validate when Name is a split UFUNCTION declaration.
+        private static List<SymbolInfo> UeImplementations(string name)
+        {
+            var found = new List<SymbolInfo>();
+            int ue = 0;
+            foreach (SymbolInfo s in Engine.LookupSymbols(name, 20))
+                if (!s.Definition)
+                    ue |= s.Ue;
+            if ((ue & SymbolInfo.UeImplementation) != 0)
+                found.AddRange(Engine.LookupSymbols(name + "_Implementation", 20).Where(s => s.Definition));
+            if ((ue & SymbolInfo.UeValidate) != 0)
+                found.AddRange(Engine.LookupSymbols(name + "_Validate", 20).Where(s => s.Definition));
+            return found;
+        }
+
+        // "Implemented by AClass::Name_Implementation (File.cpp:123)", the location a link.
+        private static UIElement ImplementationContent(List<SymbolInfo> implementations)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var panel = new StackPanel { MaxWidth = 1000 };
+            foreach (SymbolInfo s in implementations)
+            {
+                bool validate = s.Name.EndsWith("_Validate", StringComparison.Ordinal);
+                var block = Text(validate ? "Validated by " : "Implemented by ");
+                block.Inlines.Add(new Run((string.IsNullOrEmpty(s.Scope) ? "" : s.Scope + "::") + s.Name + " ("));
+                var link = new Hyperlink(new Run($"{Path.GetFileName(s.Path)}:{s.Line}")) { ToolTip = s.Path };
+                link.SetResourceReference(TextElement.ForegroundProperty, EnvironmentColors.ControlLinkTextBrushKey);
+                string file = s.Path;
+                int line = s.Line;
+                link.Click += (o, e) =>
+                {
+                    ThreadHelper.ThrowIfNotOnUIThread();
+                    OpenAt(file, line);
+                };
+                block.Inlines.Add(link);
+                block.Inlines.Add(new Run(")"));
+                panel.Children.Add(block);
+            }
+            return panel;
         }
 
         private static UIElement SpecifierContent(string name, string help)

@@ -4,6 +4,19 @@ A C++ and Unreal Engine productivity extension for Visual Studio 2022 and later,
 multi-platform (including console) codebases, with first-class support for Unreal Engine C++
 (UE 4.27 and all UE5 versions).
 
+What it focuses on:
+
+- **Unreal-aware parsing**: Unreal's macros and reflection markup (UCLASS, UPROPERTY,
+  GENERATED_BODY, ...) and the code UnrealHeaderTool generates are understood rather than guessed,
+  including BlueprintNativeEvent and RPC functions implemented by Name_Implementation.
+- **Project settings from Unreal Build Tool**: compile arguments come from the project files UBT
+  generates (UE 4.27 and UE5 layouts, forced includes included) or a compile_commands.json, with no
+  manual setup.
+- **Background parsing with per-module PCHs**: files are parsed off the UI thread, and each
+  module's shared headers are precompiled once and reused.
+- **Navigation and indexing at engine scale**: file and symbol indexes that keep up with whole
+  projects and, if wanted, the engine source.
+
 ## Architecture
 
 - **engine/**: a native C++ DLL that holds all of the real logic (parsing, classification,
@@ -72,7 +85,14 @@ Alt+O, Shift+Alt+O and Alt+G are bound in the Text Editor scope: Visual Studio b
 globally (File.OpenWebSite, Edit.BriefBrowse), other extensions often take Alt+O and Alt+G, and in an
 editor a Text Editor binding outranks global ones. If another tool still takes a key, rebind the
 command under Tools > Options > Environment > Keyboard (Extensions > VisualXtsi > Help >
-Keyboard Shortcuts opens it filtered to VisualXtsi's commands). The engine source can be
+Keyboard Shortcuts opens it filtered to VisualXtsi's commands).
+
+Unreal's split UFUNCTIONs are understood: a BlueprintNativeEvent or Server/Client/NetMulticast RPC
+is implemented by Name_Implementation (and, with WithValidation, Name_Validate). Go to Definition
+on the declaration or a call goes there (a list when there are both), and from those back to the
+UFUNCTION declaration; hovering the declaration shows "Implemented by ..." with a link; Find
+Symbol labels the declaration and its implementations. The symbol index records the split from the
+UFUNCTION specifiers lexically (cache format 2). The engine source can be
 indexed as well (Options > VisualXtsi > Navigation; off by default, ~0.8 GB).
 
 ## Menus and dialogs
