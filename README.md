@@ -71,9 +71,28 @@ Environment > Fonts and Colors (names start with "VisualXtsi"); defaults suit th
 Alt+O, Shift+Alt+O and Alt+G are bound in the Text Editor scope: Visual Studio binds the last two
 globally (File.OpenWebSite, Edit.BriefBrowse), other extensions often take Alt+O and Alt+G, and in an
 editor a Text Editor binding outranks global ones. If another tool still takes a key, rebind the
-command under Tools > Options > Environment > Keyboard. All four commands, plus Options..., are
-under Extensions > VisualXtsi; the four are in the Edit menu too. The engine source can be
+command under Tools > Options > Environment > Keyboard (Extensions > VisualXtsi > Help >
+Keyboard Shortcuts opens it filtered to VisualXtsi's commands). The engine source can be
 indexed as well (Options > VisualXtsi > Navigation; off by default, ~0.8 GB).
+
+## Menus and dialogs
+
+Extensions > VisualXtsi groups the commands by task: Open File in Solution and Toggle
+Header/Source | Find Symbol in Solution | Go to Definition | Tools (Rebuild Symbol Index,
+Clear PCH Cache, Open Log File) and Help (About, Keyboard Shortcuts) | Enable/Disable VisualXtsi
+and Options. Every item has an icon, an access key and its shortcut; editor commands are disabled
+(not hidden) where they cannot run. The navigation commands are also in the Edit menu and the
+code editor's context menu. Enable/Disable (checked while on) stops coloring, tooltips, parsing,
+indexing of newly opened projects and the navigation commands without unloading anything.
+
+The search dialogs (Open File, Find Symbol, the Go to Definition picker) are keyboard-first:
+focus starts in the search box, Up/Down/PageUp/PageDown move through the results from there,
+Enter opens and closes, Ctrl+Enter opens and keeps the dialog open, Esc closes, and labels have
+access keys. Results show an icon, the matched characters in bold, and sortable columns (header
+click or the "Sort by" box); rows expose name, kind and location to screen readers, and the
+result count is announced as a live region. The dialogs follow the Visual Studio theme
+(including high contrast), the environment font and the Windows text size, and remember their
+size, position, column widths and sorting.
 
 ## Options
 

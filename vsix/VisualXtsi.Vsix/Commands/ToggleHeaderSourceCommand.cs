@@ -20,7 +20,7 @@ namespace VisualXtsi.Commands
                 () =>
                 {
                     ThreadHelper.ThrowIfNotOnUIThread();
-                    return EditorCommands.ActiveCppDocument(package) != null;
+                    return EditorCommands.VisualXtsiEnabled && EditorCommands.ActiveCppDocument(package) != null;
                 });
         }
 

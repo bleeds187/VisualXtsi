@@ -48,6 +48,12 @@ namespace VisualXtsi.Options
 
         public static VxSettings Current { get; private set; } = new VxSettings();
 
+        /// <summary>
+        /// Extensions > VisualXtsi > Enable/Disable: off stops coloring, tooltips, parsing, new
+        /// indexing and the navigation commands without unloading anything; the other settings
+        /// keep their values.
+        /// </summary>
+        public bool Enabled { get; set; } = true;
         public bool MacroTooltip { get; set; } = true;
         public bool SkipHeaderBodies { get; set; } = true;
         public bool SharedPch { get; set; } = true;
@@ -55,7 +61,14 @@ namespace VisualXtsi.Options
         public bool IndexEngineSource { get; set; } = false;
         public HashSet<string> DisabledColors { get; set; } = new HashSet<string>();
 
-        public bool IsColorEnabled(string classificationName) => !DisabledColors.Contains(classificationName);
+        /// <summary>Whether a coloring category is switched on in the options (ignores <see cref="Enabled"/>).</summary>
+        public bool IsColorOn(string classificationName) => !DisabledColors.Contains(classificationName);
+
+        /// <summary>Whether a coloring category is applied right now.</summary>
+        public bool IsColorEnabled(string classificationName) => Enabled && IsColorOn(classificationName);
+
+        /// <summary>Whether the macro QuickInfo is shown right now.</summary>
+        public bool ShowMacroTooltip => Enabled && MacroTooltip;
 
         public VxSettings Clone()
         {
@@ -84,6 +97,7 @@ namespace VisualXtsi.Options
                 SettingsStore store = new ShellSettingsManager(ServiceProvider.GlobalProvider).GetReadOnlySettingsStore(SettingsScope.UserSettings);
                 if (!store.CollectionExists(Collection))
                     return settings;
+                settings.Enabled = store.GetBoolean(Collection, nameof(Enabled), settings.Enabled);
                 settings.MacroTooltip = store.GetBoolean(Collection, nameof(MacroTooltip), settings.MacroTooltip);
                 settings.SkipHeaderBodies = store.GetBoolean(Collection, nameof(SkipHeaderBodies), settings.SkipHeaderBodies);
                 settings.SharedPch = store.GetBoolean(Collection, nameof(SharedPch), settings.SharedPch);
@@ -107,6 +121,7 @@ namespace VisualXtsi.Options
                 WritableSettingsStore store = new ShellSettingsManager(ServiceProvider.GlobalProvider).GetWritableSettingsStore(SettingsScope.UserSettings);
                 if (!store.CollectionExists(Collection))
                     store.CreateCollection(Collection);
+                store.SetBoolean(Collection, nameof(Enabled), settings.Enabled);
                 store.SetBoolean(Collection, nameof(MacroTooltip), settings.MacroTooltip);
                 store.SetBoolean(Collection, nameof(SkipHeaderBodies), settings.SkipHeaderBodies);
                 store.SetBoolean(Collection, nameof(SharedPch), settings.SharedPch);
@@ -122,7 +137,7 @@ namespace VisualXtsi.Options
             Current = settings.Clone();
             ApplyToEngine(Current);
             List<IVxSettingsListener> listeners = LiveListeners();
-            Log.Write($"Settings saved (tooltip {settings.MacroTooltip}, skip bodies {settings.SkipHeaderBodies}, " +
+            Log.Write($"Settings saved (enabled {settings.Enabled}, tooltip {settings.MacroTooltip}, skip bodies {settings.SkipHeaderBodies}, " +
                       $"shared PCH {settings.SharedPch}, cache {settings.PchCacheMb} MB, colors off: " +
                       $"{(settings.DisabledColors.Count == 0 ? "none" : string.Join(", ", settings.DisabledColors))}); " +
                       $"updating {listeners.Count} classifiers");

@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 10u
+#define VX_ABI_VERSION 11u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -136,6 +136,10 @@ VX_API void VX_CALL vx_configure(const vx_config* config);
  * the number of bytes freed. */
 VX_API uint64_t VX_CALL vx_clear_pch_cache(void);
 
+/* libclang's version string ("clang version 19.1.5"), NUL-terminated; returns the
+ * number of char16_t needed (0: libclang unavailable). */
+VX_API uint32_t VX_CALL vx_clang_version(char16_t* out, uint32_t cap);
+
 /* Files to switch to from `path`: sources for a header, headers for a source,
  * best first (same folder; Unreal's mirrored Public/Classes <-> Private layout;
  * elsewhere in the module, i.e. under the folder holding its *.Build.cs; for a
@@ -196,6 +200,9 @@ VX_API uint32_t VX_CALL vx_symbols_find(const char16_t* query, uint32_t max_resu
 VX_API void VX_CALL vx_symbols_status(uint32_t* files, uint32_t* pending, uint32_t* symbols);
 /* Writes the cache now (it is also written whenever the scan queue drains). */
 VX_API void VX_CALL vx_symbols_save(void);
+/* Forgets every symbol and deletes the cache, then rescans every indexed file
+ * in the background (starting the index if needed). */
+VX_API void VX_CALL vx_symbols_rebuild(void);
 
 /* Where the symbol at a 1-based line and UTF-16 column of `path` is defined:
  * macros go to their #define; otherwise the parsed file's definition if libclang

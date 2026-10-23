@@ -36,6 +36,9 @@ Status status();
 // Writes the cache now (it is also written whenever the work queue drains).
 void save();
 
+// Forgets every symbol and the cache file, then rescans every indexed file.
+void rebuild();
+
 // Stops following the file index and forgets everything (tests).
 void reset();
 

@@ -107,6 +107,12 @@ int main()
     expect(waitFor([] { return vx::symbols::status().files == 2 && idle(); }), "restart indexes from the cache");
     expect(top(u"thingmethod") == u"ThingMethod", "symbols available after restart");
 
+    // Rebuild: drops the cache and rescans every indexed file.
+    vx::symbols::rebuild();
+    expect(waitFor([] { return vx::symbols::status().files == 2 && idle(); }), "rebuild rescans the indexed files");
+    expect(top(u"athing") == u"AThing", "symbols available after a rebuild");
+    expect(waitFor([&] { return fs::exists(cache); }), "rebuild writes a new cache");
+
     vx::symbols::reset();
     vx::files::reset();
     if (failures == 0)

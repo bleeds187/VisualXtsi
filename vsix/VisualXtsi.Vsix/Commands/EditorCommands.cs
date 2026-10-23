@@ -27,7 +27,10 @@ namespace VisualXtsi.Commands
             return CppExtensions.Contains(ext) ? path : null;
         }
 
-        public static void Add(OleMenuCommandService commands, int id, Func<Task> execute, Func<bool> enabled)
+        /// <summary>Whether VisualXtsi is switched on (Extensions > VisualXtsi > Enable/Disable).</summary>
+        public static bool VisualXtsiEnabled => Options.VxSettings.Current.Enabled;
+
+        public static OleMenuCommand Add(OleMenuCommandService commands, int id, Func<Task> execute, Func<bool> enabled)
         {
             var command = new OleMenuCommand((s, e) => _ = RunAsync(execute), new CommandID(CommandIds.CommandSet, id));
             command.BeforeQueryStatus += (s, e) =>
@@ -36,6 +39,17 @@ namespace VisualXtsi.Commands
                 command.Enabled = enabled();
             };
             commands.AddCommand(command);
+            return command;
+        }
+
+        /// <summary>Adds a command that runs on the UI thread.</summary>
+        public static OleMenuCommand Add(OleMenuCommandService commands, int id, Action execute, Func<bool> enabled)
+        {
+            return Add(commands, id, async () =>
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                execute();
+            }, enabled);
         }
 
         /// <summary>Opens a file, optionally at a 1-based line and column (UTF-16 units).</summary>

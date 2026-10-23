@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel.Design;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using VisualXtsi.Commands;
 using VisualXtsi.Options;
@@ -16,6 +17,9 @@ namespace VisualXtsi
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuid)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
+    // Loaded in the background at startup, so menu items show their real state (the Enable/Disable
+    // check mark, disabled editor commands) before any of them is first used.
+    [ProvideAutoLoad(VSConstants.UICONTEXT.ShellInitialized_string, PackageAutoLoadFlags.BackgroundLoad)]
     [ProvideOptionPage(typeof(OptionsPage), "VisualXtsi", "General", 0, 0, true)]
     public sealed class VisualXtsiPackage : AsyncPackage
     {
@@ -31,6 +35,7 @@ namespace VisualXtsi
                 OpenFileInSolutionCommand.Register(this, commands);
                 FindSymbolCommand.Register(this, commands);
                 GoToDefinitionCommand.Register(this, commands);
+                ToolCommands.Register(this, commands);
                 // Extensions > VisualXtsi > Options...
                 EditorCommands.Add(commands, CommandIds.ShowOptions,
                     async () =>

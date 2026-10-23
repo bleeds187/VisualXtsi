@@ -868,6 +868,19 @@ VX_API void VX_CALL vx_configure(const vx_config* config)
     vx::config::pchCacheMb = config->pch_cache_mb;
 }
 
+VX_API uint32_t VX_CALL vx_clang_version(char16_t* out, uint32_t cap)
+{
+    if (!ensureLibclang())
+        return 0;
+    CXString version = clang_getClangVersion();
+    std::u16string text = vx::toUtf16(clang_getCString(version));
+    clang_disposeString(version);
+    text.push_back(u'\0');
+    if (out)
+        std::copy_n(text.begin(), std::min<size_t>(text.size(), cap), out);
+    return static_cast<uint32_t>(text.size());
+}
+
 VX_API uint64_t VX_CALL vx_clear_pch_cache(void)
 {
     return vx::pch::clearCache();

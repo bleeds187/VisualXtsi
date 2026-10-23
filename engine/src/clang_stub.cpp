@@ -38,6 +38,11 @@ VX_API uint64_t VX_CALL vx_clear_pch_cache(void)
     return 0;
 }
 
+VX_API uint32_t VX_CALL vx_clang_version(char16_t*, uint32_t)
+{
+    return 0;
+}
+
 VX_API uint32_t VX_CALL vx_discover_args(const char16_t*, char16_t*, uint32_t, uint32_t* source)
 {
     if (source)

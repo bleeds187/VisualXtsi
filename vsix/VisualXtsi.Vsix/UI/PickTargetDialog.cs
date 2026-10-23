@@ -9,16 +9,26 @@ namespace VisualXtsi.UI
     {
         private readonly IReadOnlyList<SearchResult> _targets;
 
-        public PickTargetDialog(string title, IReadOnlyList<SearchResult> targets) : base(title, "")
+#pragma warning disable VSTHRD010 // dialogs are created on the UI thread
+        public PickTargetDialog(string title, IReadOnlyList<SearchResult> targets, Action<SearchResult> openKeepingDialog)
+            : base(title, "PickTarget", "_Filter", "Type to filter the targets by name or file.", "",
+                   new[]
+                   {
+                       new SearchColumn("Name", nameof(SearchResult.Name), 320, isName: true),
+                       new SearchColumn("File", nameof(SearchResult.Location), 200),
+                       new SearchColumn("Folder", nameof(SearchResult.Folder), 300),
+                   },
+                   openKeepingDialog)
         {
             _targets = targets;
         }
+#pragma warning restore VSTHRD010
 
         protected override IReadOnlyList<SearchResult> Search(string query)
         {
             if (query.Length == 0)
                 return _targets;
-            return _targets.Where(t => IsSubsequence(query, t.Name + " " + t.Detail)).ToList();
+            return _targets.Where(t => IsSubsequence(query, t.Name + " " + t.Location + " " + t.Folder)).ToList();
         }
 
         protected override string Status(string query, int resultCount) =>

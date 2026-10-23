@@ -17,7 +17,7 @@ namespace VisualXtsi.Commands
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                     await ExecuteAsync();
                 },
-                () => true);
+                () => EditorCommands.VisualXtsiEnabled);
         }
 
         private static async Task ExecuteAsync()
@@ -28,7 +28,7 @@ namespace VisualXtsi.Commands
             var dte = Package.GetGlobalService(typeof(DTE)) as DTE;
             string selected = (dte?.ActiveDocument?.Selection as TextSelection)?.Text;
             string seed = !string.IsNullOrWhiteSpace(selected) && selected.IndexOf('\n') < 0 ? selected.Trim() : null;
-            var dialog = new FindSymbolDialog(seed);
+            var dialog = new FindSymbolDialog(seed, r => EditorCommands.OpenDocument(r.Path, r.Line, r.Column));
             if (dialog.ShowModal() == true && dialog.Selected != null)
                 EditorCommands.OpenDocument(dialog.Selected.Path, dialog.Selected.Line, dialog.Selected.Column);
         }

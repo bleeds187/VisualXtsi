@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using Microsoft.VisualStudio.Imaging;
+using Microsoft.VisualStudio.Imaging.Interop;
 using VisualXtsi.Interop;
 
 namespace VisualXtsi.UI
@@ -13,10 +15,23 @@ namespace VisualXtsi.UI
     {
         private static string _lastQuery = "";
 
-        public FindSymbolDialog(string initialQuery)
-            : base("Find Symbol in Solution (VisualXtsi)", string.IsNullOrEmpty(initialQuery) ? _lastQuery : initialQuery)
+#pragma warning disable VSTHRD010 // dialogs are created on the UI thread
+        public FindSymbolDialog(string initialQuery, Action<SearchResult> openKeepingDialog)
+            : base("Find Symbol in Solution - VisualXtsi", "FindSymbol", "_Symbol",
+                   "Part of a symbol name; word starts count. \"Scope::name\" narrows by class or namespace.",
+                   string.IsNullOrEmpty(initialQuery) ? _lastQuery : initialQuery,
+                   new[]
+                   {
+                       new SearchColumn("Name", nameof(SearchResult.Name), 240, isName: true),
+                       new SearchColumn("Kind", nameof(SearchResult.Kind), 110),
+                       new SearchColumn("Scope", nameof(SearchResult.Scope), 150),
+                       new SearchColumn("File", nameof(SearchResult.Location), 190),
+                       new SearchColumn("Folder", nameof(SearchResult.Folder), 300),
+                   },
+                   openKeepingDialog)
         {
         }
+#pragma warning restore VSTHRD010
 
         protected override IReadOnlyList<SearchResult> Search(string query)
         {
@@ -25,12 +40,19 @@ namespace VisualXtsi.UI
                 {
                     Name = s.Name,
                     Kind = s.KindLabel,
-                    Detail = (string.IsNullOrEmpty(s.Scope) ? "" : s.Scope + "   ") + $"{Path.GetFileName(s.Path)}({s.Line})",
+                    Scope = s.Scope ?? "",
                     Path = s.Path,
                     Line = s.Line,
                     Column = s.Column,
+                    Icon = KindIcon(s.Kind),
                 })
                 .ToList();
+        }
+
+        protected override string NamePart(string query)
+        {
+            int sep = query.LastIndexOf("::", StringComparison.Ordinal);
+            return sep < 0 ? query : query.Substring(sep + 2);
         }
 
         protected override string Status(string query, int resultCount)
@@ -43,5 +65,27 @@ namespace VisualXtsi.UI
         }
 
         protected override void OnAccepted() => _lastQuery = QueryText;
+
+        // Mirrors vx_symbol_kind.
+        private static ImageMoniker KindIcon(int kind)
+        {
+            switch (kind)
+            {
+                case 1: return KnownMonikers.Namespace;
+                case 2: return KnownMonikers.Class;
+                case 3: return KnownMonikers.Structure;
+                case 4: return KnownMonikers.Union;
+                case 5: return KnownMonikers.Enumeration;
+                case 6: return KnownMonikers.EnumerationItemPublic;
+                case 7: return KnownMonikers.TypeDefinition;
+                case 8: return KnownMonikers.Method;
+                case 9: return KnownMonikers.MethodPublic;
+                case 10: return KnownMonikers.FieldPublic;
+                case 11: return KnownMonikers.Field;
+                case 12: return KnownMonikers.MacroPublic;
+                case 13: return KnownMonikers.DelegatePublic;
+                default: return KnownMonikers.QuestionMark;
+            }
+        }
     }
 }

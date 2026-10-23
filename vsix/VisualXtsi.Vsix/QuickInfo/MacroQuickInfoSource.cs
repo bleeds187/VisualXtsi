@@ -49,7 +49,7 @@ namespace VisualXtsi.QuickInfo
         public async Task<QuickInfoItem> GetQuickInfoItemAsync(IAsyncQuickInfoSession session, CancellationToken cancellationToken)
         {
             SnapshotPoint? trigger = session.GetTriggerPoint(_buffer.CurrentSnapshot);
-            if (trigger == null || !VxSettings.Current.MacroTooltip)
+            if (trigger == null || !VxSettings.Current.ShowMacroTooltip)
                 return null;
             SnapshotPoint point = trigger.Value;
             SnapshotSpan? word = IdentifierAt(point);

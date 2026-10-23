@@ -63,14 +63,19 @@
     <Compile Include="Commands\GoToDefinitionCommand.cs" />
     <Compile Include="Commands\OpenFileInSolutionCommand.cs" />
     <Compile Include="Commands\ToggleHeaderSourceCommand.cs" />
+    <Compile Include="Commands\ToolCommands.cs" />
     <Compile Include="Interop\Engine.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Options\OptionsPage.cs" />
     <Compile Include="Options\VxSettings.cs" />
+    <Compile Include="UI\AboutDialog.cs" />
+    <Compile Include="UI\DialogLayout.cs" />
+    <Compile Include="UI\DialogTheme.cs" />
     <Compile Include="UI\FindSymbolDialog.cs" />
     <Compile Include="UI\OpenFileDialog.cs" />
     <Compile Include="UI\PickTargetDialog.cs" />
     <Compile Include="UI\SearchDialog.cs" />
+    <Compile Include="UI\SystemInfo.cs" />
     <Compile Include="VisualXtsiPackage.cs" />
     <Compile Include="Parsing\DocumentParser.cs" />
     <Compile Include="Parsing\IDocumentParserListener.cs" />
@@ -106,6 +111,8 @@
     <Reference Include="PresentationFramework" />
     <Reference Include="System.Xaml" />
     <Reference Include="System.Drawing" />
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationTypes" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.0.32112.339" ExcludeAssets="runtime" />

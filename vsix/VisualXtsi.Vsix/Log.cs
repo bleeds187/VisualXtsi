@@ -15,7 +15,7 @@ namespace VisualXtsi
     {
         private static readonly Guid PaneGuid = new Guid("3c1f7a52-9d4e-4b6a-8f0d-5e2b7c9a4d16");
         private static readonly object Gate = new object();
-        private static readonly string FilePath = System.IO.Path.Combine(
+        public static readonly string FilePath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VisualXtsi", "VisualXtsi.log");
         private static volatile IVsOutputWindowPane _pane;
 

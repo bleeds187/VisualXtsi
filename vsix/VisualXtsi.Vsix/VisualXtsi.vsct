@@ -1,75 +1,192 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- VisualXtsi commands. Every command has a canonical name (VisualXtsi.*), so its shortcut can be
-     changed under Tools > Options > Environment > Keyboard. -->
+     changed under Tools > Options > Environment > Keyboard. Every menu item has an icon (a
+     KnownMonikers image, so it follows the theme and DPI) and an access key unique within its menu. -->
 <CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <Extern href="stdidcmd.h" />
   <Extern href="vsshlids.h" />
+  <Include href="KnownImageIds.vsct" />
 
   <Commands package="guidVisualXtsiPackage">
-    <!-- Extensions > VisualXtsi -->
+    <!-- Extensions > VisualXtsi, grouped by task: open | find | go to |
+         tools and help | enable and options. -->
     <Menus>
       <Menu guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" priority="0x0100" type="Menu">
         <Parent guid="guidVisualXtsiCmdSet" id="ExtensionsGroup" />
         <Strings>
-          <ButtonText>VisualXtsi</ButtonText>
-          <CommandName>VisualXtsi</CommandName>
+          <ButtonText>&amp;VisualXtsi</ButtonText>
+          <CommandName>&amp;VisualXtsi</CommandName>
+        </Strings>
+      </Menu>
+      <Menu guid="guidVisualXtsiCmdSet" id="ToolsMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidVisualXtsiCmdSet" id="SubmenuMoreGroup" />
+        <Strings>
+          <ButtonText>&amp;Tools</ButtonText>
+          <CommandName>&amp;Tools</CommandName>
+        </Strings>
+      </Menu>
+      <Menu guid="guidVisualXtsiCmdSet" id="HelpMenu" priority="0x0200" type="Menu">
+        <Parent guid="guidVisualXtsiCmdSet" id="SubmenuMoreGroup" />
+        <Strings>
+          <ButtonText>&amp;Help</ButtonText>
+          <CommandName>&amp;Help</CommandName>
         </Strings>
       </Menu>
     </Menus>
 
     <Groups>
+      <!-- Edit menu -->
       <Group guid="guidVisualXtsiCmdSet" id="NavigationGroup" priority="0x0600">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_EDIT" />
+      </Group>
+      <!-- Code editor context menu -->
+      <Group guid="guidVisualXtsiCmdSet" id="ContextGroup" priority="0x0201">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
       </Group>
       <Group guid="guidVisualXtsiCmdSet" id="ExtensionsGroup" priority="0x0600">
         <Parent guid="guidVsMainMenu" id="IDM_VS_MENU_EXTENSIONS" />
       </Group>
-      <Group guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" priority="0x0100">
+      <Group guid="guidVisualXtsiCmdSet" id="SubmenuOpenGroup" priority="0x0100">
         <Parent guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" />
       </Group>
-      <Group guid="guidVisualXtsiCmdSet" id="SubmenuSettingsGroup" priority="0x0200">
+      <Group guid="guidVisualXtsiCmdSet" id="SubmenuFindGroup" priority="0x0200">
         <Parent guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="SubmenuGoToGroup" priority="0x0300">
+        <Parent guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="SubmenuMoreGroup" priority="0x0400">
+        <Parent guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="SubmenuSettingsGroup" priority="0x0500">
+        <Parent guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="ToolsGroup" priority="0x0100">
+        <Parent guid="guidVisualXtsiCmdSet" id="ToolsMenu" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="HelpGroup" priority="0x0100">
+        <Parent guid="guidVisualXtsiCmdSet" id="HelpMenu" />
       </Group>
     </Groups>
 
+    <!-- The editor commands stay visible everywhere and are disabled (not hidden) where they
+         cannot run; the first use loads the package, which then decides. -->
     <Buttons>
-      <Button guid="guidVisualXtsiCmdSet" id="cmdidToggleHeaderSource" priority="0x0100" type="Button">
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" priority="0x0100" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="NavigationGroup" />
-        <!-- Enabled by default: the first use loads the package, which then decides (C/C++ only). -->
+        <Icon guid="ImageCatalogGuid" id="OpenDocumentFromCollection" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <Strings>
-          <ButtonText>Toggle Header/Source (VisualXtsi)</ButtonText>
-          <CanonicalName>.VisualXtsi.ToggleHeaderSource</CanonicalName>
-          <LocCanonicalName>.VisualXtsi.ToggleHeaderSource</LocCanonicalName>
-        </Strings>
-      </Button>
-      <Button guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" priority="0x0101" type="Button">
-        <Parent guid="guidVisualXtsiCmdSet" id="NavigationGroup" />
-        <Strings>
-          <ButtonText>Open File in Solution... (VisualXtsi)</ButtonText>
+          <ButtonText>Open &amp;File in Solution...</ButtonText>
+          <ToolTipText>Open a file of the solution or Unreal project by typing part of its name</ToolTipText>
           <CanonicalName>.VisualXtsi.OpenFileInSolution</CanonicalName>
           <LocCanonicalName>.VisualXtsi.OpenFileInSolution</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidToggleHeaderSource" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="NavigationGroup" />
+        <Icon guid="ImageCatalogGuid" id="SwitchSourceOrTarget" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>To&amp;ggle Header/Source</ButtonText>
+          <ToolTipText>Switch between the header and the source file of the active document</ToolTipText>
+          <CanonicalName>.VisualXtsi.ToggleHeaderSource</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.ToggleHeaderSource</LocCanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidFindSymbolInSolution" priority="0x0102" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="NavigationGroup" />
+        <Icon guid="ImageCatalogGuid" id="FindSymbol" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <Strings>
-          <ButtonText>Find Symbol in Solution... (VisualXtsi)</ButtonText>
+          <ButtonText>Find &amp;Symbol in Solution...</ButtonText>
+          <ToolTipText>Search the declarations of the solution and Unreal project by name</ToolTipText>
           <CanonicalName>.VisualXtsi.FindSymbolInSolution</CanonicalName>
           <LocCanonicalName>.VisualXtsi.FindSymbolInSolution</LocCanonicalName>
         </Strings>
       </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" priority="0x0103" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="NavigationGroup" />
+        <Icon guid="ImageCatalogGuid" id="GoToDefinition" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <Strings>
-          <ButtonText>Go to Definition (VisualXtsi)</ButtonText>
+          <ButtonText>Go to &amp;Definition (VisualXtsi)</ButtonText>
+          <ToolTipText>Go to the definition of the symbol at the caret (on a definition: its declaration)</ToolTipText>
           <CanonicalName>.VisualXtsi.GoToDefinition</CanonicalName>
           <LocCanonicalName>.VisualXtsi.GoToDefinition</LocCanonicalName>
         </Strings>
       </Button>
-      <Button guid="guidVisualXtsiCmdSet" id="cmdidShowOptions" priority="0x0100" type="Button">
-        <Parent guid="guidVisualXtsiCmdSet" id="SubmenuSettingsGroup" />
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidRebuildSymbolIndex" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="ToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Refresh" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <Strings>
-          <ButtonText>Options...</ButtonText>
+          <ButtonText>&amp;Rebuild Symbol Index</ButtonText>
+          <ToolTipText>Discard the symbol index and its cache, and rescan every indexed file</ToolTipText>
+          <CanonicalName>.VisualXtsi.RebuildSymbolIndex</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.RebuildSymbolIndex</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidClearPchCache" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="ToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="CleanData" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>&amp;Clear PCH Cache</ButtonText>
+          <ToolTipText>Delete the cached shared precompiled headers that are not in use</ToolTipText>
+          <CanonicalName>.VisualXtsi.ClearPchCache</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.ClearPchCache</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidOpenLog" priority="0x0102" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="ToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Log" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>Open &amp;Log File</ButtonText>
+          <ToolTipText>Open VisualXtsi.log in the editor</ToolTipText>
+          <CanonicalName>.VisualXtsi.OpenLogFile</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.OpenLogFile</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidAbout" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="HelpGroup" />
+        <Icon guid="ImageCatalogGuid" id="AboutBox" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>&amp;About VisualXtsi</ButtonText>
+          <CanonicalName>.VisualXtsi.About</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.About</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidKeyboardShortcuts" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="HelpGroup" />
+        <Icon guid="ImageCatalogGuid" id="Keyboard" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>&amp;Keyboard Shortcuts...</ButtonText>
+          <ToolTipText>Show the VisualXtsi commands under Tools > Options > Environment > Keyboard</ToolTipText>
+          <CanonicalName>.VisualXtsi.KeyboardShortcuts</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.KeyboardShortcuts</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidToggleEnabled" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="SubmenuSettingsGroup" />
+        <Icon guid="ImageCatalogGuid" id="ShutDown" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>&amp;Enable/Disable VisualXtsi</ButtonText>
+          <ToolTipText>Checked while VisualXtsi colors, shows tooltips, parses and indexes</ToolTipText>
+          <CanonicalName>.VisualXtsi.EnableDisable</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.EnableDisable</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidShowOptions" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="SubmenuSettingsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Settings" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>&amp;Options...</ButtonText>
           <CanonicalName>.VisualXtsi.Options</CanonicalName>
           <LocCanonicalName>.VisualXtsi.Options</LocCanonicalName>
         </Strings>
@@ -77,23 +194,33 @@
     </Buttons>
   </Commands>
 
-  <!-- The navigation commands appear in the Edit menu and in Extensions > VisualXtsi. -->
+  <!-- The navigation commands also appear in Extensions > VisualXtsi and the code editor's context menu. -->
   <CommandPlacements>
-    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidToggleHeaderSource" priority="0x0100">
-      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" />
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" priority="0x0100">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuOpenGroup" />
     </CommandPlacement>
-    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" priority="0x0101">
-      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" />
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidToggleHeaderSource" priority="0x0101">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuOpenGroup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidFindSymbolInSolution" priority="0x0100">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuFindGroup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" priority="0x0100">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuGoToGroup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" priority="0x0100">
+      <Parent guid="guidVisualXtsiCmdSet" id="ContextGroup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidToggleHeaderSource" priority="0x0101">
+      <Parent guid="guidVisualXtsiCmdSet" id="ContextGroup" />
     </CommandPlacement>
     <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidFindSymbolInSolution" priority="0x0102">
-      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" />
-    </CommandPlacement>
-    <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" priority="0x0103">
-      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuNavigationGroup" />
+      <Parent guid="guidVisualXtsiCmdSet" id="ContextGroup" />
     </CommandPlacement>
   </CommandPlacements>
 
-  <!-- Defaults chosen to avoid Visual Studio's own bindings. -->
+  <!-- Defaults chosen to avoid Visual Studio's own bindings. Declared bindings also make the
+       shortcut text appear next to each menu item. -->
   <KeyBindings>
     <!-- Text Editor scope: in an editor it outranks global bindings of Alt+O (other extensions'
          header/source commands), and a global binding of ours can be removed by tools that claim
@@ -111,15 +238,29 @@
     <GuidSymbol name="guidVisualXtsiPackage" value="{b9a4e6d2-7c31-4f8e-a5d0-3e6c1f9b2a87}" />
     <GuidSymbol name="guidVisualXtsiCmdSet" value="{3d8c5e21-6a4f-4b7e-9c12-7f0a8e3b5d64}">
       <IDSymbol name="NavigationGroup" value="0x1000" />
+      <IDSymbol name="ExtensionsGroup" value="0x1001" />
+      <IDSymbol name="SubmenuOpenGroup" value="0x1002" />
+      <IDSymbol name="SubmenuSettingsGroup" value="0x1003" />
+      <IDSymbol name="SubmenuFindGroup" value="0x1004" />
+      <IDSymbol name="SubmenuGoToGroup" value="0x1005" />
+      <IDSymbol name="SubmenuMoreGroup" value="0x1006" />
+      <IDSymbol name="ToolsGroup" value="0x1007" />
+      <IDSymbol name="HelpGroup" value="0x1008" />
+      <IDSymbol name="ContextGroup" value="0x1009" />
       <IDSymbol name="cmdidToggleHeaderSource" value="0x0100" />
       <IDSymbol name="cmdidOpenFileInSolution" value="0x0101" />
       <IDSymbol name="cmdidFindSymbolInSolution" value="0x0102" />
       <IDSymbol name="cmdidGoToDefinition" value="0x0103" />
       <IDSymbol name="cmdidShowOptions" value="0x0104" />
+      <IDSymbol name="cmdidRebuildSymbolIndex" value="0x0105" />
+      <IDSymbol name="cmdidClearPchCache" value="0x0106" />
+      <IDSymbol name="cmdidOpenLog" value="0x0107" />
+      <IDSymbol name="cmdidAbout" value="0x0108" />
+      <IDSymbol name="cmdidKeyboardShortcuts" value="0x0109" />
+      <IDSymbol name="cmdidToggleEnabled" value="0x010A" />
       <IDSymbol name="VisualXtsiMenu" value="0x2000" />
-      <IDSymbol name="ExtensionsGroup" value="0x1001" />
-      <IDSymbol name="SubmenuNavigationGroup" value="0x1002" />
-      <IDSymbol name="SubmenuSettingsGroup" value="0x1003" />
+      <IDSymbol name="ToolsMenu" value="0x2001" />
+      <IDSymbol name="HelpMenu" value="0x2002" />
     </GuidSymbol>
     <!-- guidSHLMainMenu's Extensions menu: the VSSDK build tools' vsshlids.h lacks IDM_VS_MENU_EXTENSIONS
          (Visual Studio's own copy defines it as 0x0091). -->

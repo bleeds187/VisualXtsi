@@ -91,7 +91,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 10;
+        private const uint ExpectedAbiVersion = 11;
 
         static Engine()
         {
@@ -257,6 +257,16 @@ namespace VisualXtsi.Interop
 
         public static void SymbolsStart() => vx_symbols_start();
 
+        /// <summary>Forgets every symbol and the cache, then rescans in the background.</summary>
+        public static void SymbolsRebuild() => vx_symbols_rebuild();
+
+        /// <summary>libclang's version ("clang version 19.1.5"), or null when libclang is unavailable.</summary>
+        public static string ClangVersion()
+        {
+            string[] text = SplitStrings((buffer, cap) => vx_clang_version(buffer, cap));
+            return text.Length > 0 ? text[0] : null;
+        }
+
         public static void SymbolStatus(out int files, out int pending, out int symbols)
         {
             vx_symbols_status(out uint f, out uint p, out uint s);
@@ -326,6 +336,12 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
         private static extern void vx_symbols_start();
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void vx_symbols_rebuild();
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_clang_version([Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
         private static extern void vx_symbols_status(out uint files, out uint pending, out uint symbols);

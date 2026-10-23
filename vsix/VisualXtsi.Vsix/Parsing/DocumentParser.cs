@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Text;
 using VisualXtsi.Interop;
+using VisualXtsi.Options;
 
 namespace VisualXtsi.Parsing
 {
@@ -12,7 +13,7 @@ namespace VisualXtsi.Parsing
     /// parses when the document opens and reparses shortly after edits stop. Consumers read
     /// <see cref="ParsedSnapshot"/> and never wait for a parse.
     /// </summary>
-    internal sealed class DocumentParser
+    internal sealed class DocumentParser : IVxSettingsListener
     {
         private const int ReparseDelayMs = 750;
 
@@ -23,6 +24,7 @@ namespace VisualXtsi.Parsing
         private bool _running;
         private bool _pending;
         private bool _unavailable;
+        private bool _skipped; // a parse was due while VisualXtsi was disabled
         private int _views;
         private volatile ITextSnapshot _parsedSnapshot;
         private volatile SemanticResult _semantic;
@@ -31,6 +33,20 @@ namespace VisualXtsi.Parsing
         {
             _buffer = buffer;
             _path = path;
+            VxSettings.AddListener(this);
+        }
+
+        /// <summary>Catches up on the parse skipped while VisualXtsi was disabled.</summary>
+        public void SettingsChanged(VxSettings settings)
+        {
+            bool due;
+            lock (_gate)
+            {
+                due = settings.Enabled && _skipped;
+                _skipped = false;
+            }
+            if (due)
+                StartParse();
         }
 
         /// <summary>The snapshot the engine's translation unit was built from, or null before the first parse.</summary>
@@ -101,6 +117,11 @@ namespace VisualXtsi.Parsing
             {
                 if (_unavailable || _views == 0)
                     return;
+                if (!VxSettings.Current.Enabled)
+                {
+                    _skipped = true;
+                    return;
+                }
                 if (_running)
                 {
                     _pending = true;

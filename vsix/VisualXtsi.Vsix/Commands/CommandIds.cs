@@ -12,5 +12,11 @@ namespace VisualXtsi.Commands
         public const int FindSymbolInSolution = 0x0102;
         public const int GoToDefinition = 0x0103;
         public const int ShowOptions = 0x0104;
+        public const int RebuildSymbolIndex = 0x0105;
+        public const int ClearPchCache = 0x0106;
+        public const int OpenLog = 0x0107;
+        public const int About = 0x0108;
+        public const int KeyboardShortcuts = 0x0109;
+        public const int ToggleEnabled = 0x010A;
     }
 }

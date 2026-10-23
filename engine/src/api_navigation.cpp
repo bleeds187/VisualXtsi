@@ -124,4 +124,9 @@ VX_API void VX_CALL vx_symbols_save(void)
     vx::symbols::save();
 }
 
+VX_API void VX_CALL vx_symbols_rebuild(void)
+{
+    vx::symbols::rebuild();
+}
+
 } // extern "C"

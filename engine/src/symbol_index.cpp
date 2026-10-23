@@ -427,6 +427,15 @@ void save()
     g_index.save();
 }
 
+void rebuild()
+{
+    // Restarting replays every indexed file (setListener), and with no cache all are scanned.
+    g_index.stop();
+    std::error_code ec;
+    fs::remove(cachePath(), ec);
+    g_index.start();
+}
+
 void reset()
 {
     g_index.stop();

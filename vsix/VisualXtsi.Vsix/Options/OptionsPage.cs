@@ -30,6 +30,12 @@ namespace VisualXtsi.Options
         private TextBox _cacheMb;
         private TextBlock _clearStatus;
 
+        public bool Enabled
+        {
+            get => _working.Enabled;
+            set { ThreadHelper.ThrowIfNotOnUIThread(); _working.Enabled = value; SaveIfAutomated(); }
+        }
+
         public bool MacroTooltip
         {
             get => _working.MacroTooltip;
@@ -179,7 +185,7 @@ namespace VisualXtsi.Options
             if (_root == null)
                 return;
             foreach (var pair in _colorBoxes)
-                pair.Value.IsChecked = _working.IsColorEnabled(pair.Key);
+                pair.Value.IsChecked = _working.IsColorOn(pair.Key);
             _tooltip.IsChecked = _working.MacroTooltip;
             _skipBodies.IsChecked = _working.SkipHeaderBodies;
             _sharedPch.IsChecked = _working.SharedPch;

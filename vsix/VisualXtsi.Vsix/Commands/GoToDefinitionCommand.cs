@@ -31,7 +31,7 @@ namespace VisualXtsi.Commands
                 () =>
                 {
                     ThreadHelper.ThrowIfNotOnUIThread();
-                    return EditorCommands.ActiveCppDocument(package) != null;
+                    return EditorCommands.VisualXtsiEnabled && EditorCommands.ActiveCppDocument(package) != null;
                 });
         }
 
@@ -60,16 +60,17 @@ namespace VisualXtsi.Commands
             Engine.Target chosen = targets[0];
             if (targets.Length > 1)
             {
-                var picker = new PickTargetDialog("Go to Definition (VisualXtsi)", targets
+                var picker = new PickTargetDialog("Go to Definition - VisualXtsi", targets
                     .Select(t => new SearchResult
                     {
                         Name = t.Label,
-                        Detail = $"{Path.GetFileName(t.Path)}({t.Line})   {Path.GetDirectoryName(t.Path)}",
                         Path = t.Path,
                         Line = t.Line,
                         Column = t.Column,
+                        Icon = SearchDialog.FileIcon(t.Path),
                     })
-                    .ToList());
+                    .ToList(),
+                    r => EditorCommands.OpenDocument(r.Path, r.Line, r.Column));
                 if (picker.ShowModal() != true || picker.Selected == null)
                     return;
                 chosen = new Engine.Target { Path = picker.Selected.Path, Line = picker.Selected.Line, Column = picker.Selected.Column };

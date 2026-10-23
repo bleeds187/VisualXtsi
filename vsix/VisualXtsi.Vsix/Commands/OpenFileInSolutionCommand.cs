@@ -19,7 +19,7 @@ namespace VisualXtsi.Commands
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                     await ExecuteAsync();
                 },
-                () => true);
+                () => EditorCommands.VisualXtsiEnabled);
         }
 
         /// <summary>
@@ -29,6 +29,8 @@ namespace VisualXtsi.Commands
         public static void EnsureRoots()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+            if (!Options.VxSettings.Current.Enabled)
+                return;
             var dte = Package.GetGlobalService(typeof(DTE)) as DTE;
             string solution = dte?.Solution?.FullName;
             string active = dte?.ActiveDocument?.FullName;
@@ -45,6 +47,8 @@ namespace VisualXtsi.Commands
         /// <summary>Indexes the Unreal project of a document, and its engine source if enabled. Background thread.</summary>
         public static void IndexDocument(string path)
         {
+            if (!Options.VxSettings.Current.Enabled)
+                return;
             Engine.SymbolsStart();
             if (Engine.IndexAddProjectOf(path) && Options.VxSettings.Current.IndexEngineSource)
                 Engine.IndexAddEngineOf(path);
@@ -54,7 +58,7 @@ namespace VisualXtsi.Commands
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             EnsureRoots();
-            var dialog = new OpenFileDialog();
+            var dialog = new OpenFileDialog(r => EditorCommands.OpenDocument(r.Path, r.Line));
             if (dialog.ShowModal() == true && dialog.Selected != null)
                 EditorCommands.OpenDocument(dialog.Selected.Path, dialog.Selected.Line);
         }
