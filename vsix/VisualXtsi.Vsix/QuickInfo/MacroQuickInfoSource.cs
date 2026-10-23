@@ -49,11 +49,27 @@ namespace VisualXtsi.QuickInfo
         public async Task<QuickInfoItem> GetQuickInfoItemAsync(IAsyncQuickInfoSession session, CancellationToken cancellationToken)
         {
             SnapshotPoint? trigger = session.GetTriggerPoint(_buffer.CurrentSnapshot);
-            if (trigger == null || !VxSettings.Current.ShowMacroTooltip)
+            if (trigger == null || !VxSettings.Current.Enabled)
                 return null;
             SnapshotPoint point = trigger.Value;
             SnapshotSpan? word = IdentifierAt(point);
             if (word == null)
+                return null;
+
+            // An Unreal reflection specifier (UPROPERTY(EditAnywhere, ...)): what it does. Lexical,
+            // so it works before (and without) a parse.
+            if (VxSettings.Current.SpecifierTooltip)
+            {
+                SnapshotSpan at = word.Value;
+                string help = await Task.Run(() => IsSpecifier(at) ? UeSpecifiers.Describe(at.GetText()) : null, cancellationToken)
+                    .ConfigureAwait(false);
+                if (help != null)
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+                    return new QuickInfoItem(point.Snapshot.CreateTrackingSpan(at, SpanTrackingMode.EdgeInclusive), SpecifierContent(at.GetText(), help));
+                }
+            }
+            if (!VxSettings.Current.MacroTooltip)
                 return null;
 
             // Never parse here: use whatever the background parser last finished, mapping the
@@ -93,6 +109,23 @@ namespace VisualXtsi.QuickInfo
         }
 
         private static bool IsIdentChar(char c) => c == '_' || char.IsLetterOrDigit(c);
+
+        private static bool IsSpecifier(SnapshotSpan word)
+        {
+            foreach (VxSpan span in Engine.Classify(word.Snapshot.GetText()))
+                if (span.Start == word.Start.Position)
+                    return span.Kind == VxKind.UeSpecifier;
+            return false;
+        }
+
+        private static UIElement SpecifierContent(string name, string help)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var panel = new StackPanel { MaxWidth = 600 };
+            panel.Children.Add(Text($"Unreal specifier {name}", bold: true));
+            panel.Children.Add(Text(help));
+            return panel;
+        }
 
         private static UIElement BuildContent(MacroInfo info)
         {

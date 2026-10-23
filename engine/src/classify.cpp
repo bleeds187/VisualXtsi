@@ -2,6 +2,7 @@
 
 #include "lexer.h"
 
+#include <algorithm>
 #include <string>
 #include <unordered_set>
 
@@ -37,6 +38,15 @@ std::unordered_set<std::u16string> collectDefines(std::u16string_view text)
     return defines;
 }
 
+// Unreal reflection markup: its arguments are specifiers for UnrealHeaderTool, and the macros
+// expand to nothing for the compiler.
+bool isReflectionMacro(std::u16string_view name)
+{
+    static const std::u16string_view macros[] = {u"UCLASS", u"USTRUCT", u"UENUM", u"UINTERFACE", u"UPROPERTY",
+                                                 u"UFUNCTION", u"UPARAM", u"UMETA", u"UDELEGATE"};
+    return std::find(std::begin(macros), std::end(macros), name) != std::end(macros);
+}
+
 } // namespace
 
 extern "C" {
@@ -60,15 +70,41 @@ VX_API uint32_t VX_CALL vx_classify(const char16_t* text, uint32_t len, vx_span*
         ++count;
     };
 
+    // Inside UCLASS(...) and friends: specifier keys (not values after '=', not strings), at any
+    // depth, so meta=(Key=...) keys count too.
+    int depth = 0;           // parenthesis depth inside a reflection macro's arguments
+    bool reflection = false; // the previous token was a reflection macro name
+    bool afterEquals = false;
     vx::Lexer lexer(view);
     for (vx::Token t = lexer.next(); t.kind != vx::TokenKind::End; t = lexer.next()) {
+        const auto tok = lexer.slice(t.start, t.length);
         if (t.kind == vx::TokenKind::Directive) {
             emit(t.start, t.length, VX_KIND_PREPROCESSOR);
-        } else if (t.kind == vx::TokenKind::Identifier) {
-            const auto name = lexer.slice(t.start, t.length);
-            if (looksLikeMacro(name) || defines.contains(std::u16string(name)))
-                emit(t.start, t.length, VX_KIND_MACRO);
+            depth = 0;
+            reflection = false;
+            continue;
         }
+        if (t.kind == vx::TokenKind::Identifier) {
+            if (depth > 0) {
+                if (!afterEquals)
+                    emit(t.start, t.length, VX_KIND_UE_SPECIFIER);
+            } else if (isReflectionMacro(tok)) {
+                emit(t.start, t.length, VX_KIND_MACRO);
+                reflection = true;
+                afterEquals = false;
+                continue;
+            } else if (looksLikeMacro(tok) || defines.contains(std::u16string(tok))) {
+                emit(t.start, t.length, VX_KIND_MACRO);
+            }
+        } else if (tok == u"(" && (depth > 0 || reflection)) {
+            ++depth;
+        } else if (tok == u")" && depth > 0) {
+            --depth;
+        } else if (tok == u";" || tok == u"{" || tok == u"}") {
+            depth = 0; // unbalanced markup never swallows the rest of the file
+        }
+        afterEquals = depth > 0 && tok == u"=";
+        reflection = false;
     }
     return count;
 }

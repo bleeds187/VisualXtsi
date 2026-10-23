@@ -29,6 +29,7 @@ namespace VisualXtsi.Options
         {
             (ClassificationNames.Preprocessor, "Preprocessor directives"),
             (ClassificationNames.Macro, "Macros"),
+            (ClassificationNames.UeSpecifier, "Unreal reflection specifiers"),
             (SemanticNames.Local, "Local variables"),
             (SemanticNames.Parameter, "Parameters"),
             (SemanticNames.Field, "Member fields"),
@@ -55,6 +56,9 @@ namespace VisualXtsi.Options
         /// </summary>
         public bool Enabled { get; set; } = true;
         public bool MacroTooltip { get; set; } = true;
+
+        /// <summary>QuickInfo describes well-known Unreal reflection specifiers.</summary>
+        public bool SpecifierTooltip { get; set; } = true;
         public bool SkipHeaderBodies { get; set; } = true;
         public bool SharedPch { get; set; } = true;
         public int PchCacheMb { get; set; } = 4096;
@@ -136,6 +140,7 @@ namespace VisualXtsi.Options
                     return settings;
                 settings.Enabled = store.GetBoolean(Collection, nameof(Enabled), settings.Enabled);
                 settings.MacroTooltip = store.GetBoolean(Collection, nameof(MacroTooltip), settings.MacroTooltip);
+                settings.SpecifierTooltip = store.GetBoolean(Collection, nameof(SpecifierTooltip), settings.SpecifierTooltip);
                 settings.SkipHeaderBodies = store.GetBoolean(Collection, nameof(SkipHeaderBodies), settings.SkipHeaderBodies);
                 settings.SharedPch = store.GetBoolean(Collection, nameof(SharedPch), settings.SharedPch);
                 settings.PchCacheMb = store.GetInt32(Collection, nameof(PchCacheMb), settings.PchCacheMb);
@@ -171,6 +176,7 @@ namespace VisualXtsi.Options
                     store.CreateCollection(Collection);
                 store.SetBoolean(Collection, nameof(Enabled), settings.Enabled);
                 store.SetBoolean(Collection, nameof(MacroTooltip), settings.MacroTooltip);
+                store.SetBoolean(Collection, nameof(SpecifierTooltip), settings.SpecifierTooltip);
                 store.SetBoolean(Collection, nameof(SkipHeaderBodies), settings.SkipHeaderBodies);
                 store.SetBoolean(Collection, nameof(SharedPch), settings.SharedPch);
                 store.SetInt32(Collection, nameof(PchCacheMb), settings.PchCacheMb);

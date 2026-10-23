@@ -11,6 +11,7 @@ namespace VisualXtsi.Interop
     {
         Preprocessor = 1,
         Macro = 2,
+        UeSpecifier = 3,
 
         Local = 10,
         Parameter = 11,
@@ -91,7 +92,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 12;
+        private const uint ExpectedAbiVersion = 13;
 
         static Engine()
         {

@@ -17,6 +17,7 @@ namespace VisualXtsi.Classification
         private readonly ITextBuffer _buffer;
         private readonly IClassificationType _preprocessor;
         private readonly IClassificationType _macro;
+        private readonly IClassificationType _specifier;
 
         private ITextSnapshot _cachedSnapshot;
         private VxSpan[] _cachedSpans = Array.Empty<VxSpan>();
@@ -26,6 +27,7 @@ namespace VisualXtsi.Classification
             _buffer = buffer;
             _preprocessor = registry.GetClassificationType(ClassificationNames.Preprocessor);
             _macro = registry.GetClassificationType(ClassificationNames.Macro);
+            _specifier = registry.GetClassificationType(ClassificationNames.UeSpecifier);
             _buffer.Changed += OnBufferChanged;
             VxSettings.AddListener(this);
         }
@@ -44,7 +46,8 @@ namespace VisualXtsi.Classification
             VxSettings settings = VxSettings.Current;
             bool preprocessorOn = settings.IsColorEnabled(ClassificationNames.Preprocessor);
             bool macroOn = settings.IsColorEnabled(ClassificationNames.Macro);
-            if (!preprocessorOn && !macroOn)
+            bool specifierOn = settings.IsColorEnabled(ClassificationNames.UeSpecifier);
+            if (!preprocessorOn && !macroOn && !specifierOn)
                 return result;
             VxSpan[] spans = GetSpans(span.Snapshot);
 
@@ -61,10 +64,16 @@ namespace VisualXtsi.Classification
 
             for (int i = lo; i < spans.Length && spans[i].Start < span.End.Position; i++)
             {
-                bool preprocessor = spans[i].Kind == VxKind.Preprocessor;
-                if (preprocessor ? !preprocessorOn : !macroOn)
+                IClassificationType type;
+                switch (spans[i].Kind)
+                {
+                    case VxKind.Preprocessor: type = preprocessorOn ? _preprocessor : null; break;
+                    case VxKind.Macro: type = macroOn ? _macro : null; break;
+                    case VxKind.UeSpecifier: type = specifierOn ? _specifier : null; break;
+                    default: type = null; break;
+                }
+                if (type == null)
                     continue;
-                IClassificationType type = preprocessor ? _preprocessor : _macro;
                 result.Add(new ClassificationSpan(
                     new SnapshotSpan(span.Snapshot, (int)spans[i].Start, (int)spans[i].Length), type));
             }

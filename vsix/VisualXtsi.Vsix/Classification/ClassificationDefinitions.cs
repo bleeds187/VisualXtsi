@@ -9,6 +9,7 @@ namespace VisualXtsi.Classification
     {
         public const string Preprocessor = "VisualXtsi.Preprocessor";
         public const string Macro = "VisualXtsi.Macro";
+        public const string UeSpecifier = "VisualXtsi.UeSpecifier";
     }
 
     internal static class ClassificationDefinitions
@@ -20,6 +21,10 @@ namespace VisualXtsi.Classification
         [Export(typeof(ClassificationTypeDefinition))]
         [Name(ClassificationNames.Macro)]
         internal static ClassificationTypeDefinition Macro = null;
+
+        [Export(typeof(ClassificationTypeDefinition))]
+        [Name(ClassificationNames.UeSpecifier)]
+        internal static ClassificationTypeDefinition UeSpecifier = null;
     }
 
     // Formats appear under Tools > Options > Fonts and Colors > Text Editor.
@@ -50,6 +55,22 @@ namespace VisualXtsi.Classification
         {
             DisplayName = "VisualXtsi Macro";
             ForegroundColor = Color.FromRgb(0xE0, 0x6C, 0x2B);
+        }
+    }
+
+    // Keys inside UCLASS(...), UPROPERTY(...) and the other Unreal reflection macros, which expand
+    // to nothing, so only this lexical pass can color them.
+    [Export(typeof(EditorFormatDefinition))]
+    [ClassificationType(ClassificationTypeNames = ClassificationNames.UeSpecifier)]
+    [Name(ClassificationNames.UeSpecifier)]
+    [UserVisible(true)]
+    [Order(After = Priority.High)]
+    internal sealed class UeSpecifierFormat : ClassificationFormatDefinition
+    {
+        public UeSpecifierFormat()
+        {
+            DisplayName = "VisualXtsi Unreal Reflection Specifier";
+            ForegroundColor = Color.FromRgb(0x86, 0xC6, 0x91);
         }
     }
 }

@@ -56,6 +56,7 @@ void check(const char* name, std::u16string_view src, const std::vector<Expected
 
 constexpr uint32_t P = VX_KIND_PREPROCESSOR;
 constexpr uint32_t M = VX_KIND_MACRO;
+constexpr uint32_t S = VX_KIND_UE_SPECIFIER;
 
 } // namespace
 
@@ -79,6 +80,16 @@ int main()
 
     check("all caps heuristic", u"UCLASS() class AFoo { GENERATED_BODY() int X; int A1; };",
           {{u"UCLASS", M}, {u"GENERATED_BODY", M}, {u"A1", M}});
+
+    check("reflection specifiers",
+          u"UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=\"Saw|Session\", meta=(ClampMin=\"0\", EditCondition=bUse))\n"
+          u"int32 Port;\nUFUNCTION(Server, Reliable, WithValidation) void Go();\nUSTRUCT(BlueprintType) struct FInfo { GENERATED_BODY() };",
+          {{u"UPROPERTY", M}, {u"EditAnywhere", S}, {u"BlueprintReadWrite", S}, {u"Category", S}, {u"meta", S},
+           {u"ClampMin", S}, {u"EditCondition", S}, {u"UFUNCTION", M}, {u"Server", S}, {u"Reliable", S},
+           {u"WithValidation", S}, {u"USTRUCT", M}, {u"BlueprintType", S}, {u"GENERATED_BODY", M}});
+
+    check("unbalanced reflection markup stops at ;", u"UPROPERTY(EditAnywhere;\nint Value; FOO_BAR",
+          {{u"UPROPERTY", M}, {u"EditAnywhere", S}, {u"FOO_BAR", M}});
 
     check("comments and strings skipped",
           u"// NOT_ME\n/* NOR_ME\n#define NOPE */ \"STR_LIT\" 'C' L\"WIDE_X\" u8\"U8_X\" int Y2;",

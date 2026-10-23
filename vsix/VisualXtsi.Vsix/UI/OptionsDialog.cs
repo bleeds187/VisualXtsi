@@ -39,6 +39,7 @@ namespace VisualXtsi.UI
         private const string Sample =
             "«pp|#include» «str|\"ScoreActor.h\"»\n" +
             "«pp|#define» «mac|LOG_SCORE»(Text) «mac|UE_LOG»(LogTemp, Log, Text)\n\n" +
+            "«mac|USTRUCT»(«ue|BlueprintType»)\nstruct «ty|FScoreRules» { «mac|GENERATED_BODY»()\n    «mac|UPROPERTY»(«ue|EditAnywhere», «ue|Category»=«str|\"Score\"») «ty|int32» «fi|Bonus»; };\n\n" +
             "«kw|namespace» «ns|Scoring»\n{\n" +
             "«kw|enum class» «ty|EBonus» : «ty|uint8» { «en|None», «en|Double» };\n" +
             "«ty|int32» «gl|GTotalScore» = «num|0»;\n\n" +
@@ -55,7 +56,7 @@ namespace VisualXtsi.UI
         private static readonly Dictionary<string, string> PreviewCategory = new Dictionary<string, string>
         {
             ["pp"] = ClassificationNames.Preprocessor, ["mac"] = ClassificationNames.Macro, ["ns"] = SemanticNames.Namespace,
-            ["ty"] = SemanticNames.Type, ["en"] = SemanticNames.EnumConstant, ["gl"] = SemanticNames.Global,
+            ["ty"] = SemanticNames.Type, ["ue"] = ClassificationNames.UeSpecifier, ["en"] = SemanticNames.EnumConstant, ["gl"] = SemanticNames.Global,
             ["fn"] = SemanticNames.Function, ["me"] = SemanticNames.Method, ["pa"] = SemanticNames.Parameter,
             ["lo"] = SemanticNames.Local, ["fi"] = SemanticNames.Field, ["vm"] = SemanticNames.VirtualMethod,
             ["sm"] = SemanticNames.StaticMethod, ["kw"] = "keyword", ["str"] = "string", ["num"] = "number", ["cm"] = "comment",
@@ -356,6 +357,8 @@ namespace VisualXtsi.UI
                 "Hovering a macro shows its full expansion, laid out one statement per line, with a link to its #define.");
             Option(page, "_Color macros in the expansion", _working.ColorQuickInfo, v => _working.ColorQuickInfo = v,
                 "Uses the Macro and Preprocessor directive colors inside the expansion (also under Coloring and Attributes).");
+            Option(page, "Describe Unreal _specifiers (EditAnywhere, BlueprintCallable, Server, ...)", _working.SpecifierTooltip, v => _working.SpecifierTooltip = v,
+                "Hovering a specifier inside UCLASS(...), UPROPERTY(...), UFUNCTION(...) and the like shows what it does.");
             return page;
         }
 

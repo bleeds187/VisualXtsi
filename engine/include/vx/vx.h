@@ -1,4 +1,4 @@
-﻿/* VisualXtsi engine: flat C ABI.
+/* VisualXtsi engine: flat C ABI.
  * All text offsets and lengths are in UTF-16 code units. */
 #ifndef VX_VX_H
 #define VX_VX_H
@@ -21,11 +21,12 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 12u
+#define VX_ABI_VERSION 13u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
     VX_KIND_MACRO = 2,        /* identifier #defined in the file, or ALL_CAPS */
+    VX_KIND_UE_SPECIFIER = 3, /* key inside UCLASS(...), UPROPERTY(...) and the other Unreal reflection macros */
 
     /* Semantic kinds (vx_semantic_tokens) */
     VX_KIND_LOCAL = 10,          /* local variable */

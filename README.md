@@ -56,7 +56,7 @@ Two classifiers feed the editor. A lexical one (instant, no parsing) colors prep
 directives and macro-like names. A semantic one colors identifiers by what they name (locals,
 parameters, member fields, globals and statics, types, enum constants, namespaces, functions,
 methods, static and virtual methods), using the last background parse; edits only recolor the
-spans whose classification changed. Every category has its own entry under Tools > Options >
+spans whose classification changed. Keys inside Unreal reflection markup (UCLASS(...), UPROPERTY(EditAnywhere, meta=(ClampMin=...)), UFUNCTION(...) and the like) get their own "Unreal reflection specifier" color, lexically, since the macros expand to nothing; hovering a well-known specifier shows a one-line description. Every category has its own entry under Tools > Options >
 Environment > Fonts and Colors (names start with "VisualXtsi"); defaults suit the dark theme.
 
 ## Navigation
