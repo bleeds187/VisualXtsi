@@ -30,6 +30,9 @@ namespace VisualXtsi.UI
         public int Column { get; set; }         // 1-based; 0 = none
         public ImageMoniker Icon { get; set; }
 
+        /// <summary>The name's color (a coloring category's); null: the list's text color.</summary>
+        public System.Windows.Media.Brush NameBrush { get; set; }
+
         /// <summary>The part of the query that matched <see cref="Name"/>, for highlighting.</summary>
         public string Match { get; set; } = "";
 
@@ -74,7 +77,8 @@ namespace VisualXtsi.UI
     /// </summary>
     internal abstract class SearchDialog : DialogWindow
     {
-        protected const int MaxResults = 100;
+        /// <summary>Most results listed (Options > Navigation).</summary>
+        protected static int MaxResults => Options.VxSettings.Current.MaxResults;
         private const string Relevance = "Relevance";
         private static readonly Regex LineSuffix = new Regex(@"^(.*?):(\d+)$");
 
@@ -292,6 +296,7 @@ namespace VisualXtsi.UI
             var name = new FrameworkElementFactory(typeof(HighlightedText));
             name.SetBinding(HighlightedText.SourceProperty, new Binding(nameof(SearchResult.Name)));
             name.SetBinding(HighlightedText.MatchProperty, new Binding(nameof(SearchResult.Match)));
+            name.SetBinding(HighlightedText.NameBrushProperty, new Binding(nameof(SearchResult.NameBrush)));
             name.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
             panel.AppendChild(name);
             return new DataTemplate { VisualTree = panel };
@@ -480,6 +485,15 @@ namespace VisualXtsi.UI
         public static readonly DependencyProperty MatchProperty = DependencyProperty.Register(
             nameof(Match), typeof(string), typeof(HighlightedText), new PropertyMetadata("", (d, e) => ((HighlightedText)d).Rebuild()));
 
+        public static readonly DependencyProperty NameBrushProperty = DependencyProperty.Register(
+            nameof(NameBrush), typeof(System.Windows.Media.Brush), typeof(HighlightedText), new PropertyMetadata(null, (d, e) => ((HighlightedText)d).Rebuild()));
+
+        public System.Windows.Media.Brush NameBrush
+        {
+            get => (System.Windows.Media.Brush)GetValue(NameBrushProperty);
+            set => SetValue(NameBrushProperty, value);
+        }
+
         public string Source
         {
             get => (string)GetValue(SourceProperty);
@@ -505,6 +519,8 @@ namespace VisualXtsi.UI
                 var run = new Run(text.Substring(start, i - start));
                 if (hit[start])
                     run.FontWeight = FontWeights.Bold;
+                if (NameBrush != null)
+                    run.Foreground = NameBrush;
                 Inlines.Add(run);
                 start = i;
             }

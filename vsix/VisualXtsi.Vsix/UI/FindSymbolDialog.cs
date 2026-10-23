@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows;
+using System.Windows.Media;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
+using VisualXtsi.Classification;
 using VisualXtsi.Interop;
 
 namespace VisualXtsi.UI
@@ -14,12 +17,13 @@ namespace VisualXtsi.UI
     internal sealed class FindSymbolDialog : SearchDialog
     {
         private static string _lastQuery = "";
+        private readonly Dictionary<int, Brush> _kindBrushes = new Dictionary<int, Brush>();
 
 #pragma warning disable VSTHRD010 // dialogs are created on the UI thread
         public FindSymbolDialog(string initialQuery, Action<SearchResult> openKeepingDialog)
             : base("Find Symbol in Solution - VisualXtsi", "FindSymbol", "_Symbol",
                    "Part of a symbol name; word starts count. \"Scope::name\" narrows by class or namespace.",
-                   string.IsNullOrEmpty(initialQuery) ? _lastQuery : initialQuery,
+                   string.IsNullOrEmpty(initialQuery) ? (Options.VxSettings.Current.RememberQueries ? _lastQuery : "") : initialQuery,
                    new[]
                    {
                        new SearchColumn("Name", nameof(SearchResult.Name), 240, isName: true),
@@ -30,6 +34,12 @@ namespace VisualXtsi.UI
                    },
                    openKeepingDialog)
         {
+            // Names in the editor's colors for their kind (Options > Coloring > Apply coloring to);
+            // not in high contrast, where the system colors must stay.
+            if (Options.VxSettings.Current.ColorSearchResults && !SystemParameters.HighContrast)
+                foreach (var (kind, category) in KindCategories)
+                    if (Options.VxSettings.Current.IsCategoryActive(category) && EditorColors.Properties(category) is var p && p != null && !p.ForegroundBrushEmpty)
+                        _kindBrushes[kind] = p.ForegroundBrush.GetAsFrozen() as Brush;
         }
 #pragma warning restore VSTHRD010
 
@@ -45,6 +55,7 @@ namespace VisualXtsi.UI
                     Line = s.Line,
                     Column = s.Column,
                     Icon = KindIcon(s.Kind),
+                    NameBrush = _kindBrushes.TryGetValue(s.Kind, out Brush brush) ? brush : null,
                 })
                 .ToList();
         }
@@ -65,6 +76,15 @@ namespace VisualXtsi.UI
         }
 
         protected override void OnAccepted() => _lastQuery = QueryText;
+
+        // Mirrors vx_symbol_kind: the coloring category each kind of symbol is drawn with.
+        private static readonly (int Kind, string Category)[] KindCategories =
+        {
+            (1, SemanticNames.Namespace), (2, SemanticNames.Type), (3, SemanticNames.Type), (4, SemanticNames.Type),
+            (5, SemanticNames.Type), (6, SemanticNames.EnumConstant), (7, SemanticNames.Type), (8, SemanticNames.Function),
+            (9, SemanticNames.Method), (10, SemanticNames.Field), (11, SemanticNames.Global), (12, ClassificationNames.Macro),
+            (13, SemanticNames.Type),
+        };
 
         // Mirrors vx_symbol_kind.
         private static ImageMoniker KindIcon(int kind)

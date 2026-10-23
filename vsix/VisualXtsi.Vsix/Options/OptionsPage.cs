@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -78,7 +78,14 @@ namespace VisualXtsi.Options
             }
         }
 
-        protected override UIElement Child => _root ?? (_root = BuildUi());
+        protected override UIElement Child
+        {
+            get
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                return _root ?? (_root = BuildUi());
+            }
+        }
 
         public override void LoadSettingsFromStorage()
         {
@@ -122,6 +129,24 @@ namespace VisualXtsi.Options
             var root = new StackPanel { Margin = new Thickness(4) };
             root.SetResourceReference(Panel.BackgroundProperty, SystemColors.ControlBrushKey);
             root.SetResourceReference(TextElement.ForegroundProperty, SystemColors.ControlTextBrushKey);
+
+            // The full dialog has everything, colors and shortcuts included; this page is the compact version.
+            var full = new Button
+            {
+                Content = new AccessText { Text = "Open the _VisualXtsi Options dialog (colors, shortcuts, all settings)..." },
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Padding = new Thickness(8, 2, 8, 2),
+                Margin = new Thickness(0, 2, 0, 4),
+            };
+            System.Windows.Automation.AutomationProperties.SetName(full, "Open the VisualXtsi Options dialog");
+            full.Click += (s, e) =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                SaveSettingsToStorage(); // the dialog starts from what this page shows
+                new UI.OptionsDialog().ShowModal();
+                LoadSettingsFromStorage();
+            };
+            root.Children.Add(full);
 
             root.Children.Add(Heading("Coloring"));
             root.Children.Add(Note("Colors and fonts for each category are under Environment > Fonts and Colors (\"VisualXtsi ...\")."));

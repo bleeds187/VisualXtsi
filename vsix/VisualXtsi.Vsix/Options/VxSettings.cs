@@ -61,11 +61,47 @@ namespace VisualXtsi.Options
         public bool IndexEngineSource { get; set; } = false;
         public HashSet<string> DisabledColors { get; set; } = new HashSet<string>();
 
+        /// <summary>The master switch for enhanced syntax coloring (all categories).</summary>
+        public bool ColoringEnabled { get; set; } = true;
+
+        /// <summary>Color the code editor (the classifiers).</summary>
+        public bool ColorEditor { get; set; } = true;
+
+        /// <summary>Color macro expansions in QuickInfo with the coloring categories.</summary>
+        public bool ColorQuickInfo { get; set; } = true;
+
+        /// <summary>Color symbol names in Find Symbol results by kind with the coloring categories.</summary>
+        public bool ColorSearchResults { get; set; } = true;
+
+        /// <summary>Categories drawn in italics (Fonts and Colors has no italic setting).</summary>
+        public HashSet<string> ItalicColors { get; set; } = new HashSet<string> { SemanticNames.Parameter, SemanticNames.StaticMethod };
+
+        /// <summary>The italic categories by default (as the format definitions declare); keep in step with <see cref="ItalicColors"/>.</summary>
+        public static IReadOnlyList<string> DefaultItalicColors => new[] { SemanticNames.Parameter, SemanticNames.StaticMethod };
+
+        /// <summary>Note in macro QuickInfo when UnrealHeaderTool's generated code is missing.</summary>
+        public bool GeneratedCodeHint { get; set; } = true;
+
+        /// <summary>Where compile arguments come from: 0 compile_commands.json, else Unreal project files; 1 compile_commands.json only; 2 Unreal project files only.</summary>
+        public int ArgsSource { get; set; } = 0;
+
+        /// <summary>Open File and Find Symbol start with the previous query.</summary>
+        public bool RememberQueries { get; set; } = true;
+
+        /// <summary>Most results Open File and Find Symbol list.</summary>
+        public int MaxResults { get; set; } = 100;
+
+        /// <summary>Go to Definition with several candidates: true shows a picker, false goes to the best one.</summary>
+        public bool PickDefinition { get; set; } = true;
+
         /// <summary>Whether a coloring category is switched on in the options (ignores <see cref="Enabled"/>).</summary>
         public bool IsColorOn(string classificationName) => !DisabledColors.Contains(classificationName);
 
-        /// <summary>Whether a coloring category is applied right now.</summary>
-        public bool IsColorEnabled(string classificationName) => Enabled && IsColorOn(classificationName);
+        /// <summary>Whether a coloring category is in use right now (anywhere it applies).</summary>
+        public bool IsCategoryActive(string classificationName) => Enabled && ColoringEnabled && IsColorOn(classificationName);
+
+        /// <summary>Whether a coloring category is applied in the editor right now.</summary>
+        public bool IsColorEnabled(string classificationName) => IsCategoryActive(classificationName) && ColorEditor;
 
         /// <summary>Whether the macro QuickInfo is shown right now.</summary>
         public bool ShowMacroTooltip => Enabled && MacroTooltip;
@@ -74,6 +110,7 @@ namespace VisualXtsi.Options
         {
             var copy = (VxSettings)MemberwiseClone();
             copy.DisabledColors = new HashSet<string>(DisabledColors);
+            copy.ItalicColors = new HashSet<string>(ItalicColors);
             return copy;
         }
 
@@ -104,6 +141,17 @@ namespace VisualXtsi.Options
                 settings.PchCacheMb = store.GetInt32(Collection, nameof(PchCacheMb), settings.PchCacheMb);
                 settings.IndexEngineSource = store.GetBoolean(Collection, nameof(IndexEngineSource), settings.IndexEngineSource);
                 settings.DisabledColors = ParseList(store.GetString(Collection, nameof(DisabledColors), ""));
+                settings.ColoringEnabled = store.GetBoolean(Collection, nameof(ColoringEnabled), settings.ColoringEnabled);
+                settings.ColorEditor = store.GetBoolean(Collection, nameof(ColorEditor), settings.ColorEditor);
+                settings.ColorQuickInfo = store.GetBoolean(Collection, nameof(ColorQuickInfo), settings.ColorQuickInfo);
+                settings.ColorSearchResults = store.GetBoolean(Collection, nameof(ColorSearchResults), settings.ColorSearchResults);
+                if (store.PropertyExists(Collection, nameof(ItalicColors)))
+                    settings.ItalicColors = ParseList(store.GetString(Collection, nameof(ItalicColors), ""));
+                settings.GeneratedCodeHint = store.GetBoolean(Collection, nameof(GeneratedCodeHint), settings.GeneratedCodeHint);
+                settings.ArgsSource = store.GetInt32(Collection, nameof(ArgsSource), settings.ArgsSource);
+                settings.RememberQueries = store.GetBoolean(Collection, nameof(RememberQueries), settings.RememberQueries);
+                settings.MaxResults = Math.Max(10, Math.Min(1000, store.GetInt32(Collection, nameof(MaxResults), settings.MaxResults)));
+                settings.PickDefinition = store.GetBoolean(Collection, nameof(PickDefinition), settings.PickDefinition);
             }
             catch (Exception ex)
             {
@@ -128,6 +176,16 @@ namespace VisualXtsi.Options
                 store.SetInt32(Collection, nameof(PchCacheMb), settings.PchCacheMb);
                 store.SetBoolean(Collection, nameof(IndexEngineSource), settings.IndexEngineSource);
                 store.SetString(Collection, nameof(DisabledColors), string.Join(";", settings.DisabledColors.OrderBy(n => n)));
+                store.SetBoolean(Collection, nameof(ColoringEnabled), settings.ColoringEnabled);
+                store.SetBoolean(Collection, nameof(ColorEditor), settings.ColorEditor);
+                store.SetBoolean(Collection, nameof(ColorQuickInfo), settings.ColorQuickInfo);
+                store.SetBoolean(Collection, nameof(ColorSearchResults), settings.ColorSearchResults);
+                store.SetString(Collection, nameof(ItalicColors), string.Join(";", settings.ItalicColors.OrderBy(n => n)));
+                store.SetBoolean(Collection, nameof(GeneratedCodeHint), settings.GeneratedCodeHint);
+                store.SetInt32(Collection, nameof(ArgsSource), settings.ArgsSource);
+                store.SetBoolean(Collection, nameof(RememberQueries), settings.RememberQueries);
+                store.SetInt32(Collection, nameof(MaxResults), settings.MaxResults);
+                store.SetBoolean(Collection, nameof(PickDefinition), settings.PickDefinition);
             }
             catch (Exception ex)
             {
@@ -177,7 +235,7 @@ namespace VisualXtsi.Options
         {
             try
             {
-                Engine.Configure(settings.SkipHeaderBodies, settings.SharedPch, settings.PchCacheMb);
+                Engine.Configure(settings.SkipHeaderBodies, settings.SharedPch, settings.PchCacheMb, settings.ArgsSource);
             }
             catch (Exception ex)
             {

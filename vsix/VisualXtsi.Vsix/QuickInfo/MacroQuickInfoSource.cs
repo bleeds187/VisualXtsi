@@ -112,8 +112,8 @@ namespace VisualXtsi.QuickInfo
             panel.Children.Add(Code(Limit(info.Expansion)));
             // Without UnrealHeaderTool's output the chain ends in an undefined CURRENT_FILE_ID or
             // <file id>_<line>_GENERATED_BODY(_LEGACY)/_PROLOG name (UE4 and UE5 alike).
-            if (info.Expansion.Contains("CURRENT_FILE_ID") ||
-                (info.Name.StartsWith("GENERATED_") && info.Expansion.Contains("_GENERATED_BODY")))
+            if (VxSettings.Current.GeneratedCodeHint && (info.Expansion.Contains("CURRENT_FILE_ID") ||
+                (info.Name.StartsWith("GENERATED_") && info.Expansion.Contains("_GENERATED_BODY"))))
                 panel.Children.Add(Note("No generated code for this file yet: its .generated.h is missing or stale. Build the project to run UnrealHeaderTool."));
             return panel;
         }
@@ -166,7 +166,14 @@ namespace VisualXtsi.QuickInfo
 
         private static TextBlock Code(string text)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             var block = Text(text);
+            if (VxSettings.Current.ColorQuickInfo)
+            {
+                // Macros and directives in the editor's colors (Options > Coloring > Apply coloring to).
+                block.Text = "";
+                Classification.EditorColors.AddClassifiedRuns(block.Inlines, text);
+            }
             block.FontFamily = CodeFont;
             block.TextWrapping = TextWrapping.NoWrap;
             return block;

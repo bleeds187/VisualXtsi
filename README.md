@@ -96,7 +96,22 @@ size, position, column widths and sorting.
 
 ## Options
 
-Tools > Options > VisualXtsi > General holds what Fonts and Colors cannot: switching each
+Extensions > VisualXtsi > Options... opens the VisualXtsi Options dialog, which has every setting
+in one place: Coloring and Attributes, Tooltips, Navigation, Parsing and Performance, Unreal
+Engine, Keyboard and System Info, with a description of the focused or hovered setting at the
+bottom. The coloring page has a master switch, where coloring applies (editor, QuickInfo, Find
+Symbol results), and per category an on/off switch, foreground and background colors
+(theme-aware named colors, a hex value or the Windows color dialog), bold, italic and a reset
+to the theme default, plus a live preview. Colors and bold are the Fonts and Colors > Text
+Editor entries themselves (read and written through IVsFontAndColorStorage), so both always
+agree; italic is a VisualXtsi setting because Fonts and Colors has none. The Keyboard page
+changes shortcuts through Visual Studio's binding API and shows which commands already use a
+key. OK and Apply apply; Cancel restores everything as it was when the dialog opened, including
+changes already applied. Compile arguments can be limited to compile_commands.json or to the
+Unreal project files (engine `vx_config.args_source`).
+
+Tools > Options > VisualXtsi > General is the compact version (with a button that opens the
+dialog). It holds what Fonts and Colors cannot: switching each
 coloring category and the macro tooltip on or off, skipping function bodies in included headers,
 the shared PCH and its cache size limit, and a button that clears the PCH cache. Settings are
 stored in the Visual Studio user settings store (collection "VisualXtsi") and are also

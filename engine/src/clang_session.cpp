@@ -379,12 +379,14 @@ fs::path widePath(const std::string& path8)
 }
 
 // Arguments for `path8`: compile_commands.json in a parent directory that lists the
-// file, else the generated .vcxproj of the Unreal project (or engine) containing it.
+// file, else the generated .vcxproj of the Unreal project (or engine) containing it;
+// vx::config::argsSource can restrict this to either source.
 vx_args_source discoverArgs(const std::string& path8, std::vector<std::string>& out,
                             vx::VcxprojArgs* projectOut = nullptr)
 {
+    const uint32_t only = vx::config::argsSource;
     std::error_code ec;
-    for (fs::path dir = widePath(path8).parent_path(); !dir.empty(); dir = dir.parent_path()) {
+    for (fs::path dir = widePath(path8).parent_path(); only != 2 && !dir.empty(); dir = dir.parent_path()) {
         if (fs::exists(dir / L"compile_commands.json", ec)) {
             const std::wstring w = dir.wstring();
             std::vector<std::string> args;
@@ -397,7 +399,7 @@ vx_args_source discoverArgs(const std::string& path8, std::vector<std::string>& 
             break;
     }
     vx::VcxprojArgs project;
-    if (vx::argsFromUnrealProject(path8, project)) {
+    if (only != 1 && vx::argsFromUnrealProject(path8, project)) {
         out = project.args;
         if (projectOut)
             *projectOut = std::move(project);
@@ -866,6 +868,7 @@ VX_API void VX_CALL vx_configure(const vx_config* config)
     vx::config::skipHeaderBodies = config->skip_header_bodies != 0;
     vx::config::sharedPch = config->shared_pch != 0;
     vx::config::pchCacheMb = config->pch_cache_mb;
+    vx::config::argsSource = config->args_source;
 }
 
 VX_API uint32_t VX_CALL vx_clang_version(char16_t* out, uint32_t cap)

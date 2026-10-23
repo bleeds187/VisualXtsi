@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 11u
+#define VX_ABI_VERSION 12u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -126,6 +126,9 @@ typedef struct vx_config {
     uint32_t skip_header_bodies; /* nonzero: skip function bodies in included headers (default 1) */
     uint32_t shared_pch;         /* nonzero: build and use per-module shared PCHs (default 1) */
     uint32_t pch_cache_mb;       /* PCH cache size limit in MB; 0 keeps the default (4096) */
+    uint32_t args_source;        /* where discovered arguments come from: 0 compile_commands.json,
+                                    else Unreal project files (default); 1 compile_commands.json
+                                    only; 2 Unreal project files only */
 } vx_config;
 
 /* Applies settings to parses started afterwards. Environment variables override

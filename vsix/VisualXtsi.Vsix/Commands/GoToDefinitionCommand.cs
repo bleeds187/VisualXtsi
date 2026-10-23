@@ -58,7 +58,7 @@ namespace VisualXtsi.Commands
                 return;
             }
             Engine.Target chosen = targets[0];
-            if (targets.Length > 1)
+            if (targets.Length > 1 && Options.VxSettings.Current.PickDefinition)
             {
                 var picker = new PickTargetDialog("Go to Definition - VisualXtsi", targets
                     .Select(t => new SearchResult

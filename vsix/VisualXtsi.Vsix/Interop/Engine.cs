@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -91,7 +91,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 11;
+        private const uint ExpectedAbiVersion = 12;
 
         static Engine()
         {
@@ -105,14 +105,15 @@ namespace VisualXtsi.Interop
                 throw new InvalidOperationException($"{Dll} ABI version {abi}, expected {ExpectedAbiVersion}");
         }
 
-        /// <summary>Applies parse settings to parses started afterwards (environment variables still override).</summary>
-        public static void Configure(bool skipHeaderBodies, bool sharedPch, int pchCacheMb)
+        /// <summary>Applies parse settings to parses started afterwards (environment variables still override); argsSource as vx_config.args_source.</summary>
+        public static void Configure(bool skipHeaderBodies, bool sharedPch, int pchCacheMb, int argsSource)
         {
             var config = new VxConfig
             {
                 SkipHeaderBodies = skipHeaderBodies ? 1u : 0u,
                 SharedPch = sharedPch ? 1u : 0u,
                 PchCacheMb = (uint)Math.Max(0, pchCacheMb),
+                ArgsSource = (uint)Math.Max(0, argsSource),
             };
             vx_configure(ref config);
         }
@@ -379,6 +380,7 @@ namespace VisualXtsi.Interop
             public uint SkipHeaderBodies;
             public uint SharedPch;
             public uint PchCacheMb;
+            public uint ArgsSource;
         }
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]

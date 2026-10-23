@@ -18,7 +18,7 @@ namespace VisualXtsi.UI
             : base("Open File in Solution - VisualXtsi", "OpenFile", "_File name",
                    "Part of a file name; word starts count (\"lhc\" finds LyraHeroComponent). " +
                    "\"name:123\" opens at line 123; a / or \\ searches whole paths.",
-                   _lastQuery,
+                   Options.VxSettings.Current.RememberQueries ? _lastQuery : "",
                    new[]
                    {
                        new SearchColumn("Name", nameof(SearchResult.Name), 280, isName: true),

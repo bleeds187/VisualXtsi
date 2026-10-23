@@ -63,7 +63,16 @@ namespace VisualXtsi.Classification
                 if (ours && current != wanted)
                     map.SetExplicitTextProperties(type, properties.SetForeground(wanted));
             }
+            EditorColors.ApplyItalics(Options.VxSettings.Current.ItalicColors);
         }
+
+        /// <summary>The default foreground of a category for a light or dark theme.</summary>
+        public static Color For(string name, bool light) =>
+            Defaults.TryGetValue(name, out var pair) ? (light ? pair.Light : pair.Dark) : Colors.Gray;
+
+        /// <summary>Whether a color is one of a category's two theme defaults.</summary>
+        public static bool IsDefault(string name, Color color) =>
+            Defaults.TryGetValue(name, out var pair) && (color == pair.Dark || color == pair.Light);
 
         private static Color Rgb(byte r, byte g, byte b) => Color.FromRgb(r, g, b);
     }

@@ -41,7 +41,7 @@ namespace VisualXtsi
                     async () =>
                     {
                         await JoinableTaskFactory.SwitchToMainThreadAsync();
-                        ShowOptionPage(typeof(OptionsPage));
+                        new UI.OptionsDialog().ShowModal();
                     },
                     () => true);
             }

@@ -128,6 +128,14 @@ int main()
     uint32_t source = 0;
     expect(vx_discover_args(ue5Header.c_str(), nullptr, 0, &source) > 0 && source == VX_ARGS_VCXPROJ,
            "vx_discover_args finds the vcxproj");
+    {
+        vx_config compdbOnly{1, 1, 0, 1};
+        vx_configure(&compdbOnly);
+        expect(vx_discover_args(ue5Header.c_str(), nullptr, 0, &source) == 0 && source == VX_ARGS_NONE,
+               "args_source 1 (compile_commands.json only) skips Unreal project files");
+        vx_config defaults{1, 1, 0, 0};
+        vx_configure(&defaults);
+    }
     status = vx_parse(ue5Header.c_str(), nullptr, 0, nullptr, nullptr, 0);
     ok = status == VX_OK && query(ue5Header, 5, 2, info);
     expect(ok && info.name == "FAKEGAME_API" && contains(info.location, "Definitions.FakeGame.h") &&
