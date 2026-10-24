@@ -17,6 +17,8 @@ namespace VisualXtsi
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuid)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
+    // Options...: a floating tool window (non-blocking; not reopened at the next start).
+    [ProvideToolWindow(typeof(UI.OptionsToolWindow), Style = VsDockStyle.Float, PositionX = 160, PositionY = 100, Width = 1100, Height = 780, Transient = true)]
     // Loaded in the background at startup, so menu items show their real state (the Enable/Disable
     // check mark, disabled editor commands) before any of them is first used.
     [ProvideAutoLoad(VSConstants.UICONTEXT.ShellInitialized_string, PackageAutoLoadFlags.BackgroundLoad)]
@@ -41,7 +43,7 @@ namespace VisualXtsi
                     async () =>
                     {
                         await JoinableTaskFactory.SwitchToMainThreadAsync();
-                        new UI.OptionsDialog().ShowModal();
+                        UI.OptionsToolWindow.ShowOptions(this);
                     },
                     () => true);
             }

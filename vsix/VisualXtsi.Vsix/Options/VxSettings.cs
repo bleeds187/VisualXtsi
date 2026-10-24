@@ -83,6 +83,12 @@ namespace VisualXtsi.Options
         /// <summary>The italic categories by default (as the format definitions declare); keep in step with <see cref="ItalicColors"/>.</summary>
         public static IReadOnlyList<string> DefaultItalicColors => new[] { SemanticNames.Parameter, SemanticNames.StaticMethod };
 
+        /// <summary>The coloring theme last applied (Options > Coloring and Attributes); empty: none.</summary>
+        public string ColorTheme { get; set; } = "";
+
+        /// <summary>Which variant of the theme: 0 follows Visual Studio's light or dark theme, 1 always dark, 2 always light.</summary>
+        public int ThemeVariant { get; set; } = 0;
+
         /// <summary>Note in macro QuickInfo when UnrealHeaderTool's generated code is missing.</summary>
         public bool GeneratedCodeHint { get; set; } = true;
 
@@ -153,6 +159,8 @@ namespace VisualXtsi.Options
                 if (store.PropertyExists(Collection, nameof(ItalicColors)))
                     settings.ItalicColors = ParseList(store.GetString(Collection, nameof(ItalicColors), ""));
                 settings.GeneratedCodeHint = store.GetBoolean(Collection, nameof(GeneratedCodeHint), settings.GeneratedCodeHint);
+                settings.ColorTheme = store.GetString(Collection, nameof(ColorTheme), settings.ColorTheme);
+                settings.ThemeVariant = store.GetInt32(Collection, nameof(ThemeVariant), settings.ThemeVariant);
                 settings.ArgsSource = store.GetInt32(Collection, nameof(ArgsSource), settings.ArgsSource);
                 settings.RememberQueries = store.GetBoolean(Collection, nameof(RememberQueries), settings.RememberQueries);
                 settings.MaxResults = Math.Max(10, Math.Min(1000, store.GetInt32(Collection, nameof(MaxResults), settings.MaxResults)));
@@ -188,6 +196,8 @@ namespace VisualXtsi.Options
                 store.SetBoolean(Collection, nameof(ColorSearchResults), settings.ColorSearchResults);
                 store.SetString(Collection, nameof(ItalicColors), string.Join(";", settings.ItalicColors.OrderBy(n => n)));
                 store.SetBoolean(Collection, nameof(GeneratedCodeHint), settings.GeneratedCodeHint);
+                store.SetString(Collection, nameof(ColorTheme), settings.ColorTheme ?? "");
+                store.SetInt32(Collection, nameof(ThemeVariant), settings.ThemeVariant);
                 store.SetInt32(Collection, nameof(ArgsSource), settings.ArgsSource);
                 store.SetBoolean(Collection, nameof(RememberQueries), settings.RememberQueries);
                 store.SetInt32(Collection, nameof(MaxResults), settings.MaxResults);
@@ -206,6 +216,19 @@ namespace VisualXtsi.Options
                       $"{(settings.DisabledColors.Count == 0 ? "none" : string.Join(", ", settings.DisabledColors))}); " +
                       $"updating {listeners.Count} classifiers");
             foreach (IVxSettingsListener listener in listeners)
+                listener.SettingsChanged(Current);
+        }
+
+        /// <summary>
+        /// Makes <paramref name="settings"/> current for the classifiers without storing it (the
+        /// Options dialog's live preview); <see cref="Load"/> still returns the stored settings.
+        /// </summary>
+        public static void Preview(VxSettings settings)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _loaded = true;
+            Current = settings.Clone();
+            foreach (IVxSettingsListener listener in LiveListeners())
                 listener.SettingsChanged(Current);
         }
 

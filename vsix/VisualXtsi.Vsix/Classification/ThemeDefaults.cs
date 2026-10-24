@@ -51,6 +51,7 @@ namespace VisualXtsi.Classification
 
             System.Drawing.Color background = VSColorTheme.GetThemedColor(EnvironmentColors.ToolWindowBackgroundColorKey);
             bool light = background.GetBrightness() > 0.5f;
+            ApplyActiveTheme(light);
             IClassificationFormatMap map = formatMaps.GetClassificationFormatMap("text");
             foreach (var entry in Defaults)
             {
@@ -65,6 +66,50 @@ namespace VisualXtsi.Classification
                     map.SetExplicitTextProperties(type, properties.SetForeground(wanted));
             }
             EditorColors.ApplyItalics(Options.VxSettings.Current.ItalicColors);
+        }
+
+        /// <summary>
+        /// With a coloring theme chosen (Options > Coloring and Attributes) that follows the editor,
+        /// writes its light or dark variant to Fonts and Colors when that variant is not already there.
+        /// </summary>
+        private static void ApplyActiveTheme(bool light)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            Options.VxSettings settings = Options.VxSettings.Current;
+            if (string.IsNullOrEmpty(settings.ColorTheme) || settings.ThemeVariant != 0)
+                return;
+            Options.ColorTheme theme = Options.ColorThemes.Find(settings.ColorTheme);
+            if (theme == null)
+                return;
+            var updated = settings.Clone();
+            foreach (var pair in theme.VariantFor(0, light, Options.ColorThemes.Default))
+            {
+                ColorItem item = ItemFor(pair.Key, pair.Value, light);
+                if (!item.SameAs(EditorColors.Read(pair.Key)))
+                    EditorColors.Write(item);
+                Toggle(updated.ItalicColors, pair.Key, pair.Value.Italic);
+                Toggle(updated.DisabledColors, pair.Key, !pair.Value.Enabled);
+            }
+            if (!updated.ItalicColors.SetEquals(settings.ItalicColors) || !updated.DisabledColors.SetEquals(settings.DisabledColors))
+                Options.VxSettings.Save(updated);
+            Log.Write($"Coloring theme {theme.Name}: applied its {(light ? "light" : "dark")} variant");
+        }
+
+        /// <summary>A theme style as a Fonts and Colors entry; a theme-default color reads as the default.</summary>
+        public static ColorItem ItemFor(string name, Options.ThemeStyle style, bool light)
+        {
+            Color? foreground = style.Foreground;
+            if (foreground is Color c && IsDefault(name, c))
+                foreground = null;
+            return new ColorItem { Name = name, Foreground = foreground, Background = style.Background, Bold = style.Bold };
+        }
+
+        private static void Toggle(HashSet<string> set, string name, bool on)
+        {
+            if (on)
+                set.Add(name);
+            else
+                set.Remove(name);
         }
 
         /// <summary>The default foreground of a category for a light or dark theme.</summary>

@@ -28,7 +28,10 @@ namespace VisualXtsi.UI
     /// </summary>
     internal sealed class OptionsDialog : DialogWindow
     {
-        private const string LayoutKey = "Options";
+        // Size and position are remembered per monitor arrangement (the virtual screen); with a new
+        // arrangement the dialog starts centered over Visual Studio.
+        private static string LayoutKey =>
+            FormattableString.Invariant($"Options@{SystemParameters.VirtualScreenLeft},{SystemParameters.VirtualScreenTop},{SystemParameters.VirtualScreenWidth}x{SystemParameters.VirtualScreenHeight}");
 
         private static readonly string[] Pages =
         {
@@ -62,19 +65,18 @@ namespace VisualXtsi.UI
             ["sm"] = SemanticNames.StaticMethod, ["kw"] = "keyword", ["str"] = "string", ["num"] = "number", ["cm"] = "comment",
         };
 
-        private readonly VxSettings _snapshot;
+        private VxSettings _snapshot; // the committed state, which Cancel returns to
         private readonly Dictionary<string, ColorItem> _colorsSnapshot = new Dictionary<string, ColorItem>();
         private readonly Dictionary<string, string[]> _bindingsSnapshot = new Dictionary<string, string[]>();
         private readonly VxSettings _working;
         private readonly Dictionary<string, ColorItem> _colors = new Dictionary<string, ColorItem>();
         private readonly Dictionary<string, string[]> _bindings = new Dictionary<string, string[]>();
-        private readonly bool _light;
+        private bool _light;
         private readonly ListBox _categories;
         private readonly ContentControl _page;
         private readonly TextBlock _description;
         private readonly Grid _root;
         private readonly Dictionary<int, FrameworkElement> _built = new Dictionary<int, FrameworkElement>();
-        private bool _applied;
         private TextBlock _preview;
         private StackPanel _colorRows;
         private ListView _keyList;
@@ -155,12 +157,20 @@ namespace VisualXtsi.UI
             ok.Click += (s, e) =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
-                if (Apply())
+                if (!Apply())
+                    return;
+                _accepted = true;
+                if (_modeless)
+                    _closeHost();
+                else
                     DialogResult = true;
             };
             Describe(ok, "Applies the changes and closes the dialog (Enter).");
+            // IsCancel only closes a modal window; the modeless one closes itself.
+            var cancelClick = new RoutedEventHandler((s, e) => { if (_modeless) _closeHost(); });
             var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(10, 2, 10, 2) };
-            Describe(cancel, "Closes the dialog and restores every setting as it was when the dialog opened, including changes already applied (Esc).");
+            cancel.Click += cancelClick;
+            Describe(cancel, "Closes the dialog and discards the changes since it opened or since the last Apply; the editors go back to the applied colors (Esc).");
             var apply = new Button { Content = new AccessText { Text = "_Apply" }, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(10, 2, 10, 2) };
             AutomationProperties.SetName(apply, "Apply");
             apply.Click += (s, e) =>
@@ -178,21 +188,39 @@ namespace VisualXtsi.UI
             Content = root;
 
             DialogLayout.Restore(this, LayoutKey);
-            int.TryParse(DialogLayout.Get(LayoutKey + ".Page"), out int page);
+            int.TryParse(DialogLayout.Get("Options.Page"), out int page);
             _categories.SelectedIndex = Math.Max(0, Math.Min(Pages.Length - 1, page));
             Loaded += (s, e) =>
             {
                 if (_categories.ItemContainerGenerator.ContainerFromIndex(_categories.SelectedIndex) is ListBoxItem item)
                     item.Focus();
             };
+            // F6 hands the keyboard to Visual Studio; Options... (or a click) comes back.
+            Activated += (s, e) =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                SyncFromStorage();
+            };
+            VSColorTheme.ThemeChanged += OnThemeChanged;
             Closing += (s, e) =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
-                if (DialogResult != true && _applied)
-                    Restore();
+                OnHostClosing();
                 DialogLayout.Save(this, LayoutKey);
-                DialogLayout.Set(LayoutKey + ".Page", _categories.SelectedIndex.ToString(CultureInfo.InvariantCulture));
             };
+        }
+
+        // Closing, whichever the host: back to the committed colors unless OK was pressed.
+        private void OnHostClosing()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (_closed)
+                return;
+            _closed = true;
+            VSColorTheme.ThemeChanged -= OnThemeChanged;
+            if (!_accepted)
+                RevertPreview();
+            DialogLayout.Set("Options.Page", _categories.SelectedIndex.ToString(CultureInfo.InvariantCulture));
         }
 
         /// <summary>Opens the dialog on a page ("Keyboard"), or the last one shown.</summary>
@@ -236,7 +264,18 @@ namespace VisualXtsi.UI
                             "Tools > Options > Environment > Fonts and Colors > Text Editor > \"VisualXtsi ...\", so changes show in both.");
             CheckBox master = Option(page, "_Enable enhanced syntax coloring", _working.ColoringEnabled, v => { _working.ColoringEnabled = v; Refresh(); },
                 "Turns all VisualXtsi coloring on or off. Off, the editor shows Visual Studio's own C++ colors.");
-            master.Margin = new Thickness(0, 0, 0, 6);
+            master.Margin = new Thickness(0, 0, 0, 2);
+            CheckBox live = Option(page, "Live _preview in the editor", _livePreview, v =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                _livePreview = v;
+                if (v)
+                    SchedulePreview();
+                else
+                    RevertPreview();
+            }, "Shows color and theme changes in the open editors right away, before OK or Apply. The dialog does not block Visual Studio: switch tabs and scroll to judge the colors. Cancel puts the applied colors back.");
+            live.Margin = new Thickness(0, 0, 0, 6);
+            ThemeBar(page);
 
             page.Children.Add(Heading("Apply coloring to"));
             var targets = new WrapPanel { Margin = new Thickness(12, 0, 0, 6) };
@@ -291,23 +330,23 @@ namespace VisualXtsi.UI
                     _working.DisabledColors.Remove(name);
                 else
                     _working.DisabledColors.Add(name);
-                Refresh();
+                Edited();
             };
             Describe(enabled, $"Colors {label.ToLowerInvariant()} in the editor. Off, they keep Visual Studio's own color.");
             row.Children.Add(Cell(enabled, CategoryWidth));
 
             var foreground = new ColorPicker($"Foreground of {label}", "Default", ThemeDefaults.For(name, _light), _light) { Value = item.Foreground, Margin = new Thickness(0, 2, 10, 2) };
-            foreground.Changed += () => { item.Foreground = foreground.Value; Refresh(); };
+            foreground.Changed += () => { item.Foreground = foreground.Value; Edited(); };
             Describe(foreground, $"Text color of {label.ToLowerInvariant()}. Default follows the light or dark theme; pick a named color, type a hex value, or choose Custom....");
             row.Children.Add(Cell(foreground, PickerWidth));
 
             var background = new ColorPicker($"Background of {label}", "None", null, _light) { Value = item.Background, Margin = new Thickness(0, 2, 10, 2) };
-            background.Changed += () => { item.Background = background.Value; Refresh(); };
+            background.Changed += () => { item.Background = background.Value; Edited(); };
             Describe(background, $"Background behind {label.ToLowerInvariant()}. None keeps the editor background.");
 
             var bold = new CheckBox { Content = "Bold", IsChecked = item.Bold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
             AutomationProperties.SetName(bold, $"Bold {label}");
-            bold.Click += (s, e) => { item.Bold = bold.IsChecked == true; Refresh(); };
+            bold.Click += (s, e) => { item.Bold = bold.IsChecked == true; Edited(); };
             Describe(bold, $"Draws {label.ToLowerInvariant()} in bold (the Fonts and Colors \"Bold\" setting).");
 
             var italic = new CheckBox { Content = "Italic", IsChecked = _working.ItalicColors.Contains(name), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
@@ -318,7 +357,7 @@ namespace VisualXtsi.UI
                     _working.ItalicColors.Add(name);
                 else
                     _working.ItalicColors.Remove(name);
-                Refresh();
+                Edited();
             };
             Describe(italic, $"Draws {label.ToLowerInvariant()} in italics (a VisualXtsi setting: Fonts and Colors has none).");
             var style = new StackPanel { Orientation = Orientation.Horizontal };
@@ -343,10 +382,18 @@ namespace VisualXtsi.UI
                     _working.ItalicColors.Add(name);
                 else
                     _working.ItalicColors.Remove(name);
-                Refresh();
+                Edited();
             };
             Describe(reset, $"Puts {label.ToLowerInvariant()} back to the theme's default color, no background, and the default font style.");
             row.Children.Add(Cell(reset, ResetWidth));
+            _rowSync.Add(() =>
+            {
+                enabled.IsChecked = _working.IsColorOn(name);
+                foreground.Value = item.Foreground;
+                background.Value = item.Background;
+                bold.IsChecked = item.Bold;
+                italic.IsChecked = _working.ItalicColors.Contains(name);
+            });
             return row;
         }
 
@@ -583,8 +630,9 @@ namespace VisualXtsi.UI
             return page;
         }
 
-        // ---- Apply / restore ----
+        // ---- Apply / cancel / live preview ----
 
+        // OK and Apply commit; the committed state is then the one Cancel goes back to.
         private bool Apply()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
@@ -597,23 +645,181 @@ namespace VisualXtsi.UI
             foreach (KeyBindings.CommandInfo command in KeyBindings.Commands)
                 if (!_bindings[command.Name].SequenceEqual(KeyBindings.Get(command.Name)))
                     KeyBindings.Set(command.Name, _bindings[command.Name]);
-            _applied = true;
+            _previewing = false;
+            TakeSnapshot();
             _description.Text = "Applied.";
             return true;
         }
 
-        private void Restore()
+        private void TakeSnapshot()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            foreach (var pair in _colorsSnapshot)
-                if (!pair.Value.SameAs(EditorColors.Read(pair.Key)))
-                    EditorColors.Write(pair.Value);
-            VxSettings.Save(_snapshot.Clone());
-            EditorColors.ApplyItalics(_snapshot.ItalicColors);
-            foreach (var pair in _bindingsSnapshot)
-                if (!pair.Value.SequenceEqual(KeyBindings.Get(pair.Key)))
-                    KeyBindings.Set(pair.Key, pair.Value);
-            Log.Write("Options dialog cancelled: applied changes were restored");
+            _snapshot = VxSettings.Load();
+            foreach (var (name, _) in VxSettings.ColorCategories)
+                _colorsSnapshot[name] = EditorColors.Read(name);
+            foreach (KeyBindings.CommandInfo command in KeyBindings.Commands)
+                _bindingsSnapshot[command.Name] = KeyBindings.Get(command.Name);
+        }
+
+        // The live preview only ever touches the editors' in-memory formats and the in-memory
+        // settings, never Fonts and Colors or the settings store, so nothing of it can outlive
+        // Visual Studio; going back means showing the committed state again.
+        private void RevertPreview()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!_previewing)
+                return;
+            _previewing = false;
+            VxSettings.Preview(VxSettings.Load());
+            EditorColors.Preview(VxSettings.ColorCategories.Select(c => EditorColors.Read(c.Name)), VxSettings.Current.ItalicColors);
+            Log.Write("Options dialog: live preview reverted to the committed colors");
+        }
+
+        // Coalesces the edits of one burst (a theme switch changes every row) into one update.
+        private void SchedulePreview()
+        {
+            if (!_livePreview || _previewScheduled)
+                return;
+            _previewScheduled = true;
+            Later(() =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                _previewScheduled = false;
+                if (_livePreview && !_closed)
+                    PushPreview();
+            });
+        }
+
+        // Runs on the UI thread once the current input and layout are done.
+        private static void Later(Action action)
+        {
+#pragma warning disable VSSDK007 // fire and forget: FileAndForget reports a failure
+            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(alwaysYield: true);
+                action();
+            }).FileAndForget("VisualXtsi/OptionsDialog");
+#pragma warning restore VSSDK007
+        }
+
+        private void PushPreview()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            VxSettings preview = VxSettings.Load(); // committed, with the pending coloring switches
+            preview.ColoringEnabled = _working.ColoringEnabled;
+            preview.ColorEditor = _working.ColorEditor;
+            preview.DisabledColors = new HashSet<string>(_working.DisabledColors);
+            preview.ItalicColors = new HashSet<string>(_working.ItalicColors);
+            VxSettings.Preview(preview);
+            EditorColors.Preview(_colors.Values, _working.ItalicColors);
+            _previewing = true;
+        }
+
+        // While the dialog stays open: Visual Studio switched light/dark, or Fonts and Colors was
+        // changed elsewhere. Pending edits win; untouched rows follow.
+        private void OnThemeChanged(ThemeChangedEventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            Later(() =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                if (_closed)
+                    return;
+                _light = EditorColors.IsLightTheme();
+                if (_theme != null && !_themeModified && _working.ThemeVariant == 0)
+                    ApplyTheme(_theme); // the theme's other variant
+                else
+                    SyncFromStorage();
+                Refresh();
+                _description.Text = $"Visual Studio switched to a {(_light ? "light" : "dark")} theme; the preview follows.";
+            });
+        }
+
+        private void SyncFromStorage()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            bool changed = false;
+            foreach (var (name, label) in VxSettings.ColorCategories)
+            {
+                ColorItem stored = EditorColors.Read(name);
+                if (stored.SameAs(_colorsSnapshot[name]))
+                    continue; // nothing new outside the dialog
+                if (_colors[name].SameAs(_colorsSnapshot[name]))
+                {
+                    _colors[name] = stored.Clone(); // untouched here: take the outside change
+                    changed = true;
+                }
+                _colorsSnapshot[name] = stored;
+            }
+            if (!changed)
+                return;
+            foreach (Action sync in _rowSync)
+                sync();
+            Refresh();
+            _description.Text = "Fonts and Colors changed while this dialog was open; categories you had not edited here were updated.";
+        }
+
+        private bool _livePreview = true;
+        private bool _previewing;
+        private bool _previewScheduled;
+        private bool _modeless;
+        private bool _accepted;
+        private bool _closed;
+        private Action _closeHost = () => { };
+
+        /// <summary>
+        /// The dialog's content for <see cref="OptionsToolWindow"/>: a floating Visual Studio tool
+        /// window, so the editors stay usable (switch tabs, scroll) and Visual Studio routes the
+        /// keyboard to it like to any tool window. <paramref name="close"/> closes the host.
+        /// </summary>
+        public FrameworkElement TakeContentForToolWindow(Action close, Action<bool> onFocus)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _modeless = true;
+            _closeHost = close;
+            var content = (FrameworkElement)Content;
+            Content = null;
+            // What the window gave its content: theme, fonts, dialog styles.
+            ThemedDialogStyleLoader.SetUseDefaultThemedDialogStyles(content, true);
+            content.SetResourceReference(Control.BackgroundProperty, ThemedDialogColors.WindowPanelBrushKey);
+            if (content is Panel panel)
+                panel.SetResourceReference(Panel.BackgroundProperty, ThemedDialogColors.WindowPanelBrushKey);
+            content.SetResourceReference(TextElement.ForegroundProperty, ThemedDialogColors.WindowPanelTextBrushKey);
+            content.SetResourceReference(TextElement.FontFamilyProperty, VsFonts.EnvironmentFontFamilyKey);
+            TextElement.SetFontSize(content, FontSize);
+            content.IsKeyboardFocusWithinChanged += (s, e) =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                if ((bool)e.NewValue)
+                    SyncFromStorage();
+                onFocus?.Invoke((bool)e.NewValue);
+            };
+            // Esc is Cancel while the options have the keyboard (Visual Studio would move to the editor).
+            content.PreviewKeyDown += (s, e) =>
+            {
+                if (e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None && !(Keyboard.FocusedElement is ComboBox box && box.IsDropDownOpen))
+                {
+                    e.Handled = true;
+                    _closeHost();
+                }
+            };
+            content.Loaded += (s, e) =>
+            {
+                if (_categories.ItemContainerGenerator.ContainerFromIndex(_categories.SelectedIndex) is ListBoxItem item)
+                    item.Focus();
+            };
+            return content;
+        }
+
+        /// <summary>Whether a drop-down list in the dialog is open (Esc closes it, not the dialog).</summary>
+        public bool IsDropDownOpen => Keyboard.FocusedElement is DependencyObject focused &&
+            (FindParent<ComboBox>(focused)?.IsDropDownOpen == true || (focused as ComboBoxItem) != null);
+
+        /// <summary>The tool window is closing (Cancel, OK, its close box, or Visual Studio exiting).</summary>
+        public void HostClosing()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            OnHostClosing();
         }
 
         // A number box or color text being edited commits when it loses focus; make sure it has.
@@ -633,11 +839,403 @@ namespace VisualXtsi.UI
             return null;
         }
 
+        // ---- Coloring themes ----
+
+        private readonly List<ColorTheme> _themes = new List<ColorTheme>();
+        private readonly List<Action> _rowSync = new List<Action>();
+        private ColorTheme _theme;
+        private bool _themeModified;
+        private bool _themeUpdating;
+        private ComboBox _themeBox;
+        private TextBlock _themeStatus;
+
+        // The theme bar: pick a theme (it previews right away), choose which variant, and manage
+        // user themes. Theme files are written as soon as a button says so; colors, as always,
+        // only when the dialog applies.
+        private void ThemeBar(StackPanel page)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            page.Children.Add(Heading("Theme"));
+            var bar = new StackPanel { Margin = new Thickness(12, 0, 0, 6) };
+            var pick = new WrapPanel();
+            _themeBox = new ComboBox { MinWidth = 260 * FontSize / 12, Margin = new Thickness(0, 2, 12, 2) };
+            pick.Children.Add(Label("T_heme", _themeBox));
+            ((Label)pick.Children[0]).Padding = new Thickness(0, 0, 8, 0);
+            ((Label)pick.Children[0]).VerticalAlignment = VerticalAlignment.Center;
+            pick.Children.Add(_themeBox);
+            Describe(_themeBox, "A named set of colors and font attributes for all categories. Choosing one previews it below; OK or Apply writes it to Fonts and Colors.");
+            var variant = new ComboBox { MinWidth = 170 * FontSize / 12, Margin = new Thickness(0, 2, 12, 2) };
+            variant.Items.Add("Follow Visual Studio");
+            variant.Items.Add("Always dark variant");
+            variant.Items.Add("Always light variant");
+            variant.SelectedIndex = Math.Max(0, Math.Min(2, _working.ThemeVariant));
+            var variantLabel = Label("Varia_nt", variant);
+            variantLabel.Padding = new Thickness(0, 0, 8, 0);
+            variantLabel.VerticalAlignment = VerticalAlignment.Center;
+            pick.Children.Add(variantLabel);
+            pick.Children.Add(variant);
+            Describe(variant, "Which of the theme's variants to use: the one matching Visual Studio's light or dark theme (and switching with it), or always the same one.");
+            bar.Children.Add(pick);
+            _themeStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 4) };
+            AutomationProperties.SetLiveSetting(_themeStatus, AutomationLiveSetting.Polite);
+            bar.Children.Add(_themeStatus);
+
+            var buttons = new WrapPanel();
+            Button Action(string text, string description, Action click)
+            {
+                var button = new Button { Content = new AccessText { Text = text }, Padding = new Thickness(8, 1, 8, 1), Margin = new Thickness(0, 2, 6, 2) };
+                AutomationProperties.SetName(button, text.Replace("_", "").TrimEnd('.'));
+                button.Click += (s, e) =>
+                {
+                    ThreadHelper.ThrowIfNotOnUIThread();
+                    click();
+                };
+                Describe(button, description);
+                buttons.Children.Add(button);
+                return button;
+            }
+            Action("Ne_w...", "Saves the colors shown now as a new theme.", () => SaveThemeAs("New theme", "New Theme"));
+            Button save = Action("_Save", "Saves the changes to the selected theme. Built-in themes are read-only, so this saves a copy.", SaveTheme);
+            Action("Sa_ve As...", "Saves the colors shown now, with the selected theme's other variant, under a new name.", () => SaveThemeAs("Save theme as", _theme?.Name + " copy"));
+            Button rename = Action("Rena_me...", "Renames the selected theme (not for built-in themes).", RenameTheme);
+            Button delete = Action("De_lete", "Deletes the selected theme's file (not for built-in themes).", DeleteTheme);
+            Action("_Import...", "Adds a theme from a .xtsitheme file.", ImportTheme);
+            Action("E_xport...", "Writes the selected theme, with any changes shown now, to a .xtsitheme file to share.", ExportTheme);
+            Action("_Reset to Theme", "Discards changes since the theme was chosen and shows its colors again.", () => ApplyTheme(_theme));
+            bar.Children.Add(buttons);
+            page.Children.Add(bar);
+
+            _themeBox.SelectionChanged += (s, e) =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                if (_themeUpdating || _themeBox.SelectedIndex < 0)
+                    return;
+                ApplyTheme(_themes[_themeBox.SelectedIndex]);
+            };
+            variant.SelectionChanged += (s, e) =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                _working.ThemeVariant = variant.SelectedIndex;
+                if (_theme != null && !_themeModified)
+                    ApplyTheme(_theme);
+                else
+                    UpdateThemeStatus();
+            };
+            LoadThemes(_working.ColorTheme);
+            _theme = _themes.FirstOrDefault(t => string.Equals(t.Name, _working.ColorTheme, StringComparison.OrdinalIgnoreCase));
+            _themeModified = _theme == null || !Matches(_theme);
+            void Buttons() { rename.IsEnabled = delete.IsEnabled = _theme?.BuiltIn == false; save.IsEnabled = _theme != null; }
+            _themeChanged = Buttons;
+            Buttons();
+            UpdateThemeStatus();
+        }
+
+        private Action _themeChanged;
+
+        private bool DisplayedLight => _working.ThemeVariant == 2 || (_working.ThemeVariant == 0 && _light);
+
+        private void LoadThemes(string select)
+        {
+            var errors = new List<string>();
+            _themes.Clear();
+            _themes.AddRange(ColorThemes.BuiltIn);
+            _themes.AddRange(ColorThemes.LoadUserThemes(ColorThemes.UserFolder, errors));
+            _themeUpdating = true;
+            _themeBox.Items.Clear();
+            foreach (ColorTheme t in _themes)
+                _themeBox.Items.Add($"{t.Name}  ({(t.BuiltIn ? "built-in" : "yours")}, {t.Variants})");
+            _themeBox.SelectedIndex = _themes.FindIndex(t => string.Equals(t.Name, select, StringComparison.OrdinalIgnoreCase));
+            _themeUpdating = false;
+            if (errors.Count > 0)
+                _description.Text = "Some theme files could not be read: " + string.Join("; ", errors);
+        }
+
+        private void UpdateThemeStatus()
+        {
+            if (_themeStatus == null)
+                return;
+            string which = DisplayedLight ? "light" : "dark";
+            if (_theme == null)
+                _themeStatus.Text = "No theme: the colors below are your own. Save them as a theme with New.";
+            else
+            {
+                bool own = (DisplayedLight ? _theme.Light : _theme.Dark) != null;
+                _themeStatus.Text = $"{_theme.Name}{(_themeModified ? " (modified *)" : "")}: showing its {which} variant" +
+                                    (own ? "" : $" (it has none; {ColorThemes.DefaultName}'s is used)") +
+                                    (string.IsNullOrEmpty(_theme.Description) ? "." : $". {_theme.Description}") +
+                                    (string.IsNullOrEmpty(_theme.Author) ? "" : $" {_theme.Author}.");
+            }
+            _themeChanged?.Invoke();
+        }
+
+        // Shows a theme's variant in the category rows and the preview (pending until OK or Apply).
+        private void ApplyTheme(ColorTheme theme)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (theme == null)
+                return;
+            bool light = DisplayedLight;
+            foreach (var pair in theme.VariantFor(_working.ThemeVariant, _light, ColorThemes.Default))
+            {
+                if (!_colors.ContainsKey(pair.Key))
+                    continue;
+                ColorItem item = ThemeDefaults.ItemFor(pair.Key, pair.Value, light);
+                _colors[pair.Key].Foreground = item.Foreground;
+                _colors[pair.Key].Background = item.Background;
+                _colors[pair.Key].Bold = item.Bold;
+                if (pair.Value.Italic)
+                    _working.ItalicColors.Add(pair.Key);
+                else
+                    _working.ItalicColors.Remove(pair.Key);
+                if (pair.Value.Enabled)
+                    _working.DisabledColors.Remove(pair.Key);
+                else
+                    _working.DisabledColors.Add(pair.Key);
+            }
+            _theme = theme;
+            _themeModified = false;
+            _working.ColorTheme = theme.Name;
+            _themeUpdating = true;
+            _themeBox.SelectedIndex = _themes.IndexOf(theme);
+            _themeUpdating = false;
+            foreach (Action sync in _rowSync)
+                sync();
+            Refresh();
+            UpdateThemeStatus();
+        }
+
+        // A category row was edited by hand.
+        private void Edited()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!_themeModified)
+            {
+                _themeModified = true;
+                UpdateThemeStatus();
+            }
+            Refresh();
+        }
+
+        // The rows as a theme variant (explicit colors, so the file stands on its own).
+        private Dictionary<string, ThemeStyle> CaptureVariant()
+        {
+            bool light = DisplayedLight;
+            var variant = new Dictionary<string, ThemeStyle>();
+            foreach (var (name, _) in VxSettings.ColorCategories)
+                variant[name] = new ThemeStyle
+                {
+                    Foreground = _colors[name].Foreground ?? ThemeDefaults.For(name, light),
+                    Background = _colors[name].Background,
+                    Bold = _colors[name].Bold,
+                    Italic = _working.ItalicColors.Contains(name),
+                    Enabled = _working.IsColorOn(name),
+                };
+            return variant;
+        }
+
+        private bool Matches(ColorTheme theme)
+        {
+            bool light = DisplayedLight;
+            foreach (var pair in theme.VariantFor(_working.ThemeVariant, _light, ColorThemes.Default))
+            {
+                if (!_colors.TryGetValue(pair.Key, out ColorItem current))
+                    continue;
+                if (!ThemeDefaults.ItemFor(pair.Key, pair.Value, light).SameAs(current) ||
+                    pair.Value.Italic != _working.ItalicColors.Contains(pair.Key) || pair.Value.Enabled != _working.IsColorOn(pair.Key))
+                    return false;
+            }
+            return true;
+        }
+
+        // The selected theme with what the rows show now in the displayed variant.
+        private ColorTheme CurrentAsTheme(string name)
+        {
+            ColorTheme theme = (_theme ?? ColorThemes.Default).Clone(name);
+            if (_theme == null)
+                theme.Description = "";
+            theme.Author = _theme == null || _theme.BuiltIn ? Environment.UserName : _theme.Author;
+            if (DisplayedLight)
+                theme.Light = CaptureVariant();
+            else
+                theme.Dark = CaptureVariant();
+            return theme;
+        }
+
+        private string AskName(string title, string initial, ColorTheme except)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var taken = _themes.Where(t => t != except).Select(t => t.Name).ToList();
+            var dialog = new NameDialog(title, "Theme _name:", initial, n => ColorTheme.ValidateName(n, taken));
+            return dialog.ShowModal() == true ? dialog.Value : null;
+        }
+
+        private void SaveThemeAs(string title, string initial)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            string name = AskName(title, initial, null);
+            if (name == null)
+                return;
+            ColorTheme theme = CurrentAsTheme(name);
+            if (Store(theme))
+                Select(theme.Name, $"Saved the theme {theme.Name}.");
+        }
+
+        private void SaveTheme()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (_theme == null || _theme.BuiltIn)
+            {
+                SaveThemeAs("Save theme as", (_theme?.Name ?? "My theme") + " copy");
+                return;
+            }
+            ColorTheme theme = CurrentAsTheme(_theme.Name);
+            theme.FilePath = _theme.FilePath;
+            if (Store(theme))
+                Select(theme.Name, $"Saved {theme.Name}.");
+        }
+
+        private void RenameTheme()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (_theme == null || _theme.BuiltIn)
+                return;
+            string name = AskName("Rename theme", _theme.Name, _theme);
+            if (name == null || name == _theme.Name)
+                return;
+            bool modified = _themeModified;
+            ColorTheme theme = _theme.Clone(name);
+            theme.FilePath = _theme.FilePath;
+            if (Store(theme))
+            {
+                Select(theme.Name, $"Renamed the theme to {name}.", reapply: false);
+                _themeModified = modified;
+                UpdateThemeStatus();
+            }
+        }
+
+        private void DeleteTheme()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (_theme == null || _theme.BuiltIn)
+                return;
+            int answer = VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
+                $"Delete the theme \"{_theme.Name}\"? Its file is removed; colors already applied stay as they are.", "VisualXtsi",
+                Microsoft.VisualStudio.Shell.Interop.OLEMSGICON.OLEMSGICON_QUERY, Microsoft.VisualStudio.Shell.Interop.OLEMSGBUTTON.OLEMSGBUTTON_YESNO,
+                Microsoft.VisualStudio.Shell.Interop.OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_SECOND);
+            if (answer != 6) // IDYES
+                return;
+            try
+            {
+                if (_theme.FilePath != null)
+                    System.IO.File.Delete(_theme.FilePath);
+            }
+            catch (Exception ex)
+            {
+                _description.Text = "The theme could not be deleted: " + ex.Message;
+                return;
+            }
+            string deleted = _theme.Name;
+            _theme = null;
+            _working.ColorTheme = "";
+            LoadThemes(null);
+            _themeModified = true;
+            UpdateThemeStatus();
+            _description.Text = $"Deleted the theme {deleted}. The colors shown are unchanged; pick another theme or keep them as they are.";
+        }
+
+        private void ImportTheme()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var open = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Import a VisualXtsi theme",
+                Filter = "VisualXtsi themes (*.xtsitheme)|*.xtsitheme|JSON files (*.json)|*.json|All files (*.*)|*.*",
+            };
+            if (open.ShowDialog(this) != true)
+                return;
+            ColorTheme theme;
+            try
+            {
+                theme = ColorTheme.FromJson(System.IO.File.ReadAllText(open.FileName));
+            }
+            catch (Exception ex) when (ex is FormatException || ex is System.IO.IOException || ex is UnauthorizedAccessException)
+            {
+                VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
+                    $"{System.IO.Path.GetFileName(open.FileName)} could not be imported.\n\n{ex.Message}", "VisualXtsi",
+                    Microsoft.VisualStudio.Shell.Interop.OLEMSGICON.OLEMSGICON_WARNING, Microsoft.VisualStudio.Shell.Interop.OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                    Microsoft.VisualStudio.Shell.Interop.OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                return;
+            }
+            if (ColorTheme.ValidateName(theme.Name, _themes.Select(t => t.Name)) != null)
+            {
+                string name = AskName($"A theme called \"{theme.Name}\" exists already", theme.Name + " (imported)", null);
+                if (name == null)
+                    return;
+                theme.Name = name;
+            }
+            if (Store(theme))
+                Select(theme.Name, $"Imported the theme {theme.Name}.");
+        }
+
+        private void ExportTheme()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            ColorTheme theme = _themeModified || _theme == null ? CurrentAsTheme(_theme?.Name ?? "My theme") : _theme;
+            var save = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Export a VisualXtsi theme",
+                FileName = theme.Name + ColorTheme.Extension,
+                DefaultExt = ColorTheme.Extension,
+                Filter = "VisualXtsi themes (*.xtsitheme)|*.xtsitheme",
+            };
+            if (save.ShowDialog(this) != true)
+                return;
+            try
+            {
+                System.IO.File.WriteAllText(save.FileName, theme.ToJson(), new System.Text.UTF8Encoding(false));
+                _description.Text = $"Exported {theme.Name} to {save.FileName}.";
+            }
+            catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException)
+            {
+                _description.Text = "The theme could not be exported: " + ex.Message;
+            }
+        }
+
+        private bool Store(ColorTheme theme)
+        {
+            try
+            {
+                ColorThemes.Save(theme, ColorThemes.UserFolder);
+                return true;
+            }
+            catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException || ex is InvalidOperationException)
+            {
+                _description.Text = "The theme could not be saved: " + ex.Message;
+                return false;
+            }
+        }
+
+        private void Select(string name, string message, bool reapply = true)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            LoadThemes(name);
+            ColorTheme theme = _themes.FirstOrDefault(t => t.Name == name);
+            if (reapply)
+                ApplyTheme(theme);
+            else
+            {
+                _theme = theme;
+                _working.ColorTheme = name;
+            }
+            _description.Text = message;
+        }
+
         // ---- Coloring preview ----
 
         private void Refresh()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+            SchedulePreview();
             if (_colorRows != null)
                 foreach (UIElement child in _colorRows.Children)
                     child.IsEnabled = _working.ColoringEnabled;
