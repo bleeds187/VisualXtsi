@@ -153,4 +153,4 @@ file and prints macro information: `vxcli <file> [@args.rsp] [line:col ...]`.
 
 ## License
 
-MIT. See [LICENSE](LICENSE). This repository must not contain Unreal Engine source code.
+MIT. See [LICENSE](LICENSE).
