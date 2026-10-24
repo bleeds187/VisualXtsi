@@ -116,7 +116,10 @@ size, position, column widths and sorting.
 
 ## Options
 
-Extensions > VisualXtsi > Options... opens the VisualXtsi Options dialog, which has every setting
+Extensions > VisualXtsi > Options... opens the VisualXtsi Options window, a floating tool window
+that does not block Visual Studio (switch editor tabs and scroll while it is open, on any monitor;
+color and theme changes show in the editors right away with "Live preview in the editor", and
+Cancel or Esc goes back to the applied colors). It has every setting
 in one place: Coloring and Attributes, Tooltips, Navigation, Parsing and Performance, Unreal
 Engine, Keyboard and System Info, with a description of the focused or hovered setting at the
 bottom. The coloring page has a master switch, where coloring applies (editor, QuickInfo, Find
@@ -129,6 +132,14 @@ changes shortcuts through Visual Studio's binding API and shows which commands a
 key. OK and Apply apply; Cancel restores everything as it was when the dialog opened, including
 changes already applied. Compile arguments can be limited to compile_commands.json or to the
 Unreal project files (engine `vx_config.args_source`).
+
+Coloring themes are named sets of colors and font attributes for all categories, each with a dark
+and a light variant; the variant follows Visual Studio's light or dark theme (and switches with it)
+unless set to always dark or always light. The built-in themes are Xtsi Default, Xtsi Muted, Xtsi
+Vivid, High Contrast (at least 4.5:1 on the editor background) and palettes adapted from Solarized,
+Nord, gruvbox, Dracula and One (see THIRD_PARTY_NOTICES.md). Your own themes (New, Save, Save As,
+Rename, Delete, Import, Export) are JSON files in `%LOCALAPPDATA%\VisualXtsi\themes\*.xtsitheme`, easy
+to share with a team.
 
 Tools > Options > VisualXtsi > General is the compact version (with a button that opens the
 dialog). It holds what Fonts and Colors cannot: switching each

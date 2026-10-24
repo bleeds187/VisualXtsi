@@ -46,6 +46,11 @@ Run cmake @('--build', $engineBuild, '--config', 'Release', '--parallel')
 Step 'Engine tests'
 Run ctest @('--test-dir', $engineBuild, '-C', 'Release', '--output-on-failure')
 
+Step 'Theme tests'
+$themeTests = Join-Path $repo 'tests\vsix\ThemeTests\ThemeTests.csproj'
+Run $msbuild @($themeTests, '-nologo', '-v:m', '-nodeReuse:false', '-p:UseSharedCompilation=false', '-p:Configuration=Release')
+Run (Join-Path $repo 'tests\vsix\ThemeTests\bin\Release\ThemeTests.exe') @()
+
 Step "VSIX $version (Release)"
 $project = Join-Path $repo 'vsix\VisualXtsi.Vsix\VisualXtsi.Vsix.csproj'
 # Rebuild: an incremental build can reuse a stale extension.vsixmanifest (e.g. after a version bump).
@@ -64,7 +69,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::OpenRead($output)
 try {
     $entries = $zip.Entries | ForEach-Object { $_.FullName }
-    foreach ($required in 'VisualXtsi.dll', 'VisualXtsi.pkgdef', 'vxengine.dll', 'libclang.dll', 'clang-resource/include/stddef.h', 'extension.vsixmanifest') {
+    foreach ($required in 'THIRD_PARTY_NOTICES.md', 'VisualXtsi.dll', 'VisualXtsi.pkgdef', 'vxengine.dll', 'libclang.dll', 'clang-resource/include/stddef.h', 'extension.vsixmanifest') {
         if ($entries -notcontains $required) { throw "The package is missing $required" }
     }
     $packedVersion = ([xml](New-Object IO.StreamReader($zip.GetEntry('extension.vsixmanifest').Open())).ReadToEnd()).PackageManifest.Metadata.Identity.Version

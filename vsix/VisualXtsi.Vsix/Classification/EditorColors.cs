@@ -110,6 +110,55 @@ namespace VisualXtsi.Classification
             }
         }
 
+        /// <summary>
+        /// Shows colors in the open editors without writing Fonts and Colors: the editor format
+        /// map is in memory only, so a preview never outlives Visual Studio. Showing the stored
+        /// entries again (<see cref="Read"/>) undoes it exactly.
+        /// </summary>
+        public static void Preview(IEnumerable<ColorItem> items, ICollection<string> italic)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            IEditorFormatMap map = EditorFormatMap();
+            if (map == null)
+                return;
+            bool light = IsLightTheme();
+            map.BeginBatchUpdate();
+            try
+            {
+                foreach (ColorItem item in items)
+                {
+                    ResourceDictionary properties = map.GetProperties(item.Name);
+                    Color foreground = item.Foreground ?? ThemeDefaults.For(item.Name, light);
+                    properties[EditorFormatDefinition.ForegroundColorId] = foreground;
+                    properties[EditorFormatDefinition.ForegroundBrushId] = Frozen(foreground);
+                    if (item.Background is Color background)
+                    {
+                        properties[EditorFormatDefinition.BackgroundColorId] = background;
+                        properties[EditorFormatDefinition.BackgroundBrushId] = Frozen(background);
+                    }
+                    else
+                    {
+                        properties.Remove(EditorFormatDefinition.BackgroundColorId);
+                        properties.Remove(EditorFormatDefinition.BackgroundBrushId);
+                    }
+                    properties[ClassificationFormatDefinition.IsBoldId] = item.Bold;
+                    properties[ClassificationFormatDefinition.IsItalicId] = italic.Contains(item.Name);
+                    map.SetProperties(item.Name, properties);
+                }
+            }
+            finally
+            {
+                map.EndBatchUpdate();
+            }
+        }
+
+        private static SolidColorBrush Frozen(Color color)
+        {
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
+        }
+
         /// <summary>Applies italics to the editor's format map (Fonts and Colors has no italic setting).</summary>
         public static void ApplyItalics(ICollection<string> italic)
         {
