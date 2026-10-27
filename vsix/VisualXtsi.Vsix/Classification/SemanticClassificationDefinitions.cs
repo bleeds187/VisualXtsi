@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.Composition;
+using System.ComponentModel.Composition;
 using System.Windows.Media;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Utilities;
@@ -19,6 +19,14 @@ namespace VisualXtsi.Classification
         public const string Method = "VisualXtsi.Method";
         public const string StaticMethod = "VisualXtsi.StaticMethod";
         public const string VirtualMethod = "VisualXtsi.VirtualMethod";
+
+        // Kinds C# has and C++ does not (C# coloring only).
+        public const string Property = "VisualXtsi.Property";
+        public const string Event = "VisualXtsi.Event";
+        public const string Interface = "VisualXtsi.Interface";
+        public const string Delegate = "VisualXtsi.Delegate";
+        public const string TypeParameter = "VisualXtsi.TypeParameter";
+        public const string Attribute = "VisualXtsi.Attribute";
 
         public static string For(VxKind kind)
         {
@@ -53,6 +61,12 @@ namespace VisualXtsi.Classification
         [Export, Name(SemanticNames.Method)] internal static ClassificationTypeDefinition Method = null;
         [Export, Name(SemanticNames.StaticMethod)] internal static ClassificationTypeDefinition StaticMethod = null;
         [Export, Name(SemanticNames.VirtualMethod)] internal static ClassificationTypeDefinition VirtualMethod = null;
+        [Export, Name(SemanticNames.Property)] internal static ClassificationTypeDefinition Property = null;
+        [Export, Name(SemanticNames.Event)] internal static ClassificationTypeDefinition Event = null;
+        [Export, Name(SemanticNames.Interface)] internal static ClassificationTypeDefinition Interface = null;
+        [Export, Name(SemanticNames.Delegate)] internal static ClassificationTypeDefinition Delegate = null;
+        [Export, Name(SemanticNames.TypeParameter)] internal static ClassificationTypeDefinition TypeParameter = null;
+        [Export, Name(SemanticNames.Attribute)] internal static ClassificationTypeDefinition Attribute = null;
     }
 
     // Fonts and Colors entries, ordered after the lexical macro format so the parser's answer wins\r
@@ -144,5 +158,47 @@ namespace VisualXtsi.Classification
     internal sealed class VirtualMethodFormat : SemanticFormat
     {
         public VirtualMethodFormat() : base("Virtual Method", 0xF2, 0xB8, 0x6B) { }
+    }
+
+    [Export(typeof(EditorFormatDefinition)), ClassificationType(ClassificationTypeNames = SemanticNames.Property)]
+    [Name(SemanticNames.Property), UserVisible(true), Order(After = ClassificationNames.Macro)]
+    internal sealed class PropertyFormat : SemanticFormat
+    {
+        public PropertyFormat() : base("Property", 0xB9, 0xA3, 0xE3) { }
+    }
+
+    [Export(typeof(EditorFormatDefinition)), ClassificationType(ClassificationTypeNames = SemanticNames.Event)]
+    [Name(SemanticNames.Event), UserVisible(true), Order(After = ClassificationNames.Macro)]
+    internal sealed class EventFormat : SemanticFormat
+    {
+        public EventFormat() : base("Event", 0xE8, 0xA3, 0xD4) { }
+    }
+
+    [Export(typeof(EditorFormatDefinition)), ClassificationType(ClassificationTypeNames = SemanticNames.Interface)]
+    [Name(SemanticNames.Interface), UserVisible(true), Order(After = ClassificationNames.Macro)]
+    internal sealed class InterfaceFormat : SemanticFormat
+    {
+        public InterfaceFormat() : base("Interface", 0x9F, 0xD8, 0xC2) { }
+    }
+
+    [Export(typeof(EditorFormatDefinition)), ClassificationType(ClassificationTypeNames = SemanticNames.Delegate)]
+    [Name(SemanticNames.Delegate), UserVisible(true), Order(After = ClassificationNames.Macro)]
+    internal sealed class DelegateFormat : SemanticFormat
+    {
+        public DelegateFormat() : base("Delegate", 0x6C, 0xD3, 0xBC) { }
+    }
+
+    [Export(typeof(EditorFormatDefinition)), ClassificationType(ClassificationTypeNames = SemanticNames.TypeParameter)]
+    [Name(SemanticNames.TypeParameter), UserVisible(true), Order(After = ClassificationNames.Macro)]
+    internal sealed class TypeParameterFormat : SemanticFormat
+    {
+        public TypeParameterFormat() : base("Type Parameter", 0x7E, 0xC8, 0xC8, italic: true) { }
+    }
+
+    [Export(typeof(EditorFormatDefinition)), ClassificationType(ClassificationTypeNames = SemanticNames.Attribute)]
+    [Name(SemanticNames.Attribute), UserVisible(true), Order(After = ClassificationNames.Macro)]
+    internal sealed class AttributeFormat : SemanticFormat
+    {
+        public AttributeFormat() : base("Attribute", 0x6F, 0xC3, 0xB2) { }
     }
 }

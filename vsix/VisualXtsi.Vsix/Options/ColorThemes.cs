@@ -28,7 +28,8 @@ namespace VisualXtsi.Options
     /// </summary>
     internal sealed class ColorTheme
     {
-        public const int SchemaVersion = 1;
+        /// <summary>2 added the C# categories; files written for 1 still load (those are derived).</summary>
+        public const int SchemaVersion = 2;
         public const string Extension = ".xtsitheme";
 
         /// <summary>The coloring categories, by classification name; keys in files drop the "VisualXtsi." prefix.</summary>
@@ -37,7 +38,36 @@ namespace VisualXtsi.Options
             "VisualXtsi.Preprocessor", "VisualXtsi.Macro", "VisualXtsi.UeSpecifier", "VisualXtsi.Local", "VisualXtsi.Parameter",
             "VisualXtsi.Field", "VisualXtsi.Global", "VisualXtsi.Type", "VisualXtsi.EnumConstant", "VisualXtsi.Namespace",
             "VisualXtsi.Function", "VisualXtsi.Method", "VisualXtsi.StaticMethod", "VisualXtsi.VirtualMethod",
+            // C# only (schema 2)
+            "VisualXtsi.Property", "VisualXtsi.Event", "VisualXtsi.Interface", "VisualXtsi.Delegate", "VisualXtsi.TypeParameter",
+            "VisualXtsi.Attribute",
         };
+
+        /// <summary>Where a category missing from a theme takes its style from (older or partial themes).</summary>
+        public static readonly IReadOnlyDictionary<string, string> DerivedFrom = new Dictionary<string, string>
+        {
+            ["VisualXtsi.Property"] = "VisualXtsi.Field",
+            ["VisualXtsi.Event"] = "VisualXtsi.Field",
+            ["VisualXtsi.Interface"] = "VisualXtsi.Type",
+            ["VisualXtsi.Delegate"] = "VisualXtsi.Type",
+            ["VisualXtsi.TypeParameter"] = "VisualXtsi.Type",
+            ["VisualXtsi.Attribute"] = "VisualXtsi.Type",
+        };
+
+        /// <summary>Fills categories a theme lacks from the ones they derive from (italic for type parameters).</summary>
+        public static void Complete(Dictionary<string, ThemeStyle> variant)
+        {
+            if (variant == null)
+                return;
+            foreach (var pair in DerivedFrom)
+                if (!variant.ContainsKey(pair.Key) && variant.TryGetValue(pair.Value, out ThemeStyle source))
+                {
+                    ThemeStyle derived = source.Clone();
+                    if (pair.Key == "VisualXtsi.TypeParameter")
+                        derived.Italic = true;
+                    variant[pair.Key] = derived;
+                }
+        }
 
         public string Name = "";
         public string Author = "";
@@ -121,6 +151,8 @@ namespace VisualXtsi.Options
                 throw new FormatException("The theme's name is not usable: " + problem);
             if (theme.Dark == null && theme.Light == null)
                 throw new FormatException("The theme has neither a \"dark\" nor a \"light\" variant.");
+            Complete(theme.Dark);
+            Complete(theme.Light);
             return theme;
         }
 
@@ -271,14 +303,17 @@ namespace VisualXtsi.Options
         private static readonly string[] Order =
         {
             "pp", "mac", "ue", "lo", "pa", "fi", "gl", "ty", "en", "ns", "fn", "me", "sm", "vm",
+            "pr", "ev", "if", "de", "tp", "at", // optional: derived when a palette leaves them out
         };
 
         public static IReadOnlyList<ColorTheme> BuiltIn { get; } = new[]
         {
             Theme(DefaultName, "The default VisualXtsi colors.",
-                dark: "C586C0 E06C2B 86C691 9CDCFE 8FB8DE C5A5F5 D7BA7D 4EC9B0 B8D7A3 C8C8C8 DCDCAA FFD68F FFD68F F2B86B",
-                light: "8B2D8B B04A00 2E7D5B 1F377F 3B6EA5 6F3FA0 8A5A00 2B91AF 2F7F4F 4F4F4F 74531F 8A6100 8A6100 A0522D",
-                italic: "pa sm"),
+                dark: "C586C0 E06C2B 86C691 9CDCFE 8FB8DE C5A5F5 D7BA7D 4EC9B0 B8D7A3 C8C8C8 DCDCAA FFD68F FFD68F F2B86B" +
+                      " B9A3E3 E8A3D4 9FD8C2 6CD3BC 7EC8C8 6FC3B2",
+                light: "8B2D8B B04A00 2E7D5B 1F377F 3B6EA5 6F3FA0 8A5A00 2B91AF 2F7F4F 4F4F4F 74531F 8A6100 8A6100 A0522D" +
+                       " 6A4BA0 8B3A79 2E8B6E 23806E 2B7F87 267F70",
+                italic: "pa sm tp"),
             Theme("Xtsi Muted", "Low-saturation colors that stay out of the way in long sessions.",
                 dark: "A889A6 C08A6A 8FAF95 A9C4D6 9AAFC2 B3A6C9 C2B08E 8FB8AE A8B89C B4B4B4 C6C6A6 D6C4A0 D6C4A0 CDB08C",
                 light: "7A4F78 8C5A3A 4F6E55 3A4F66 52677D 5E5078 6E5A35 3F6E66 4F6847 5A5A5A 5E5530 6E5A30 6E5A30 7A5538",
@@ -376,12 +411,12 @@ namespace VisualXtsi.Options
             if (colors == null)
                 return null;
             string[] hex = colors.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            if (hex.Length != Order.Length)
-                throw new InvalidOperationException("A built-in palette needs one color per category.");
+            if (hex.Length != Order.Length && hex.Length != 14)
+                throw new InvalidOperationException("A built-in palette needs one color per category (the C# ones may be left out).");
             var italics = new HashSet<string>(italic.Split(' '));
             var bolds = new HashSet<string>(bold.Split(' '));
             var variant = new Dictionary<string, ThemeStyle>();
-            for (int i = 0; i < Order.Length; i++)
+            for (int i = 0; i < hex.Length; i++)
             {
                 uint rgb = uint.Parse(hex[i], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
                 variant[ColorTheme.Categories[i]] = new ThemeStyle
@@ -391,6 +426,7 @@ namespace VisualXtsi.Options
                     Bold = bolds.Contains(Order[i]),
                 };
             }
+            ColorTheme.Complete(variant);
             return variant;
         }
     }

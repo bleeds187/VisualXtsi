@@ -140,7 +140,10 @@ unless set to always dark or always light. The built-in themes are Xtsi Default,
 Vivid, High Contrast (at least 4.5:1 on the editor background) and palettes adapted from Solarized,
 Nord, gruvbox, Dracula and One (see THIRD_PARTY_NOTICES.md). Your own themes (New, Save, Save As,
 Rename, Delete, Import, Export) are JSON files in `%LOCALAPPDATA%\VisualXtsi\themes\*.xtsitheme`, easy
-to share with a team.
+to share with a team. C# adds categories C++ has no use for (properties, events, interfaces,
+delegates, type parameters and attributes); the other categories color both languages, so one
+theme covers a mixed solution. Theme files written before these categories existed (schema 1)
+still load, the missing categories taken from fields and types.
 
 Tools > Options > VisualXtsi > General is the compact version (with a button that opens the
 dialog). It holds what Fonts and Colors cannot: switching each

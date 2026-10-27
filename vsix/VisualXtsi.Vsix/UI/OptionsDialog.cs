@@ -54,7 +54,11 @@ namespace VisualXtsi.UI
             "    «gl|GTotalScore» += «lo|Scaled»;\n" +
             "    «mac|LOG_SCORE»(«mac|TEXT»(«str|\"Score changed\"»));\n" +
             "    «vm|OnScoreChanged»();\n" +
-            "    «ty|UGameplayStatics»::«sm|GetPlayerPawn»(«kw|this», «num|0»);\n}\n}";
+            "    «ty|UGameplayStatics»::«sm|GetPlayerPawn»(«kw|this», «num|0»);\n}\n}\n\n" +
+            "«cm|// C#»\n" +
+            "[«at|Serializable»] «kw|public class» «ty|ScoreBoard»<«tp|T»> : «if|IScored» «kw|where» «tp|T» : «kw|class»\n{\n" +
+            "    «kw|public event» «de|Action»<«ty|int»> «ev|Changed»;\n" +
+            "    «kw|public int» «pr|Total» { «kw|get»; «kw|private set»; }\n}";
 
         private static readonly Dictionary<string, string> PreviewCategory = new Dictionary<string, string>
         {
@@ -62,7 +66,8 @@ namespace VisualXtsi.UI
             ["ty"] = SemanticNames.Type, ["ue"] = ClassificationNames.UeSpecifier, ["en"] = SemanticNames.EnumConstant, ["gl"] = SemanticNames.Global,
             ["fn"] = SemanticNames.Function, ["me"] = SemanticNames.Method, ["pa"] = SemanticNames.Parameter,
             ["lo"] = SemanticNames.Local, ["fi"] = SemanticNames.Field, ["vm"] = SemanticNames.VirtualMethod,
-            ["sm"] = SemanticNames.StaticMethod, ["kw"] = "keyword", ["str"] = "string", ["num"] = "number", ["cm"] = "comment",
+            ["sm"] = SemanticNames.StaticMethod, ["pr"] = SemanticNames.Property, ["ev"] = SemanticNames.Event,
+            ["if"] = SemanticNames.Interface, ["de"] = SemanticNames.Delegate, ["tp"] = SemanticNames.TypeParameter, ["at"] = SemanticNames.Attribute, ["kw"] = "keyword", ["str"] = "string", ["num"] = "number", ["cm"] = "comment",
         };
 
         private VxSettings _snapshot; // the committed state, which Cancel returns to

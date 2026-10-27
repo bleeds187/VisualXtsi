@@ -45,6 +45,12 @@ namespace VisualXtsi.Tests
             Expect(!parsed.Dark["VisualXtsi.Macro"].Enabled && parsed.Dark["VisualXtsi.Type"].Bold, "enabled and bold round-trip");
             Expect(!parsed.BuiltIn, "files never load as built-in");
 
+            // A schema 1 file (before the C# categories) loads, with those derived.
+            ColorTheme old = ColorTheme.FromJson("{\"schema\":1,\"name\":\"Old\",\"dark\":{\"Field\":{\"foreground\":\"#112233\"},\"Type\":{\"foreground\":\"#445566\",\"bold\":true}}}");
+            Expect(old.Dark["VisualXtsi.Property"].Foreground == Color.FromRgb(0x11, 0x22, 0x33) && old.Dark["VisualXtsi.Interface"].Bold &&
+                   old.Dark["VisualXtsi.TypeParameter"].Italic, "schema 1 themes get the C# categories derived");
+            Expect(ColorTheme.FromJson(ColorThemes.Default.ToJson()).Dark.Count == ColorTheme.Categories.Count, "schema 2 round trip keeps every category");
+
             // Name validation.
             string[] taken = { "Xtsi Default", "Mine" };
             Expect(ColorTheme.ValidateName("", taken) != null, "empty name rejected");

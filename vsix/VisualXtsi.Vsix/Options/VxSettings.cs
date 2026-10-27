@@ -33,8 +33,14 @@ namespace VisualXtsi.Options
             (SemanticNames.Local, "Local variables"),
             (SemanticNames.Parameter, "Parameters"),
             (SemanticNames.Field, "Member fields"),
+            (SemanticNames.Property, "Properties (C#)"),
+            (SemanticNames.Event, "Events (C#)"),
             (SemanticNames.Global, "Global and static variables"),
             (SemanticNames.Type, "Types"),
+            (SemanticNames.Interface, "Interfaces (C#)"),
+            (SemanticNames.Delegate, "Delegates (C#)"),
+            (SemanticNames.TypeParameter, "Type parameters (C#)"),
+            (SemanticNames.Attribute, "Attributes (C#)"),
             (SemanticNames.EnumConstant, "Enum constants"),
             (SemanticNames.Namespace, "Namespaces"),
             (SemanticNames.Function, "Functions"),
@@ -78,10 +84,10 @@ namespace VisualXtsi.Options
         public bool ColorSearchResults { get; set; } = true;
 
         /// <summary>Categories drawn in italics (Fonts and Colors has no italic setting).</summary>
-        public HashSet<string> ItalicColors { get; set; } = new HashSet<string> { SemanticNames.Parameter, SemanticNames.StaticMethod };
+        public HashSet<string> ItalicColors { get; set; } = new HashSet<string> { SemanticNames.Parameter, SemanticNames.StaticMethod, SemanticNames.TypeParameter };
 
         /// <summary>The italic categories by default (as the format definitions declare); keep in step with <see cref="ItalicColors"/>.</summary>
-        public static IReadOnlyList<string> DefaultItalicColors => new[] { SemanticNames.Parameter, SemanticNames.StaticMethod };
+        public static IReadOnlyList<string> DefaultItalicColors => new[] { SemanticNames.Parameter, SemanticNames.StaticMethod, SemanticNames.TypeParameter };
 
         /// <summary>The coloring theme last applied (Options > Coloring and Attributes); empty: none.</summary>
         public string ColorTheme { get; set; } = "";
