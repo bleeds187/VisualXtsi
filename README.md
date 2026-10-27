@@ -92,8 +92,9 @@ is implemented by Name_Implementation (and, with WithValidation, Name_Validate).
 on the declaration or a call goes there (a list when there are both), and from those back to the
 UFUNCTION declaration; hovering the declaration shows "Implemented by ..." with a link; Find
 Symbol labels the declaration and its implementations. The symbol index records the split from the
-UFUNCTION specifiers lexically (cache format 2). The engine source can be
-indexed as well (Options > VisualXtsi > Navigation; off by default, ~0.8 GB).
+UFUNCTION specifiers lexically (cache format 2). The engine can be indexed
+as well, with its plugins and platform extensions (Platforms\<Platform>\..., also under
+Restricted): Options > VisualXtsi > Navigation, off by default, about 1 GB or more.
 
 ## Menus and dialogs
 

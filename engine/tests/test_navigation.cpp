@@ -52,6 +52,11 @@ int main()
     expectFirst("Source/NavGame/Private/Impl/Doohickey.cpp", "Source/NavCore/Public/Doohickey.h",
                 {sample("Source/NavCore/Public")});
 
+    // Platform extensions (Platforms/<Platform>/Source/<Module>) without a Build.cs of their own.
+    expectFirst("Platforms/FakeConsole/Source/NavGame/Public/Pad/FakePad.h", "Platforms/FakeConsole/Source/NavGame/Private/Pad/FakePad.cpp");
+    expectFirst("Platforms/FakeConsole/Source/NavGame/Private/Pad/FakePad.cpp", "Platforms/FakeConsole/Source/NavGame/Public/Pad/FakePad.h");
+    expectFirst("Platforms/FakeConsole/Source/NavGame/Public/Deep.h", "Platforms/FakeConsole/Source/NavGame/Private/Sub/Deep.cpp");
+
     if (!vx::nav::counterparts(sample("Source/NavGame/Private/Lonely.cpp"), {}).empty()) {
         ++failures;
         std::printf("FAIL Lonely.cpp should have no counterpart\n");

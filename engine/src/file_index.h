@@ -36,8 +36,9 @@ using Listener = void (*)(const std::wstring& path, Change change);
 // changed on disk. One listener; setting it replays Added for every file already indexed.
 void setListener(Listener listener);
 
-// Adds the engine source tree an Unreal project builds against (from its discovered include
-// paths, the folder ending in Engine\Source). Returns false if none was found.
+// Adds the engine an Unreal project builds against (found from its discovered include paths,
+// the folder ending in Engine\Source): Engine\Source, Plugins, Platforms and Restricted, so platform
+// extensions (Platforms\<Platform>\...) are included. Returns false if none was found.
 bool addEngineOf(const std::wstring& path, const std::vector<std::wstring>& includeDirs);
 
 } // namespace vx::files

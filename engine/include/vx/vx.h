@@ -167,8 +167,9 @@ VX_API uint32_t VX_CALL vx_index_file_count(void);
  * NUL-terminated UTF-16 paths, best first; returns the number of char16_t needed. */
 VX_API uint32_t VX_CALL vx_index_find_files(const char16_t* query, uint32_t max_results, char16_t* out,
                                             uint32_t cap);
-/* Adds the engine source tree (…\Engine\Source) that the Unreal project
- * containing `path` builds against; returns 1 if found. Not done by default. */
+/* Adds the engine that the Unreal project containing `path` builds against:
+ * its Source, Plugins, Platforms and Restricted folders (platform extensions included);
+ * returns 1 if found. Not done by default. */
 VX_API uint32_t VX_CALL vx_index_add_engine_of(const char16_t* path);
 /* Stops watching and forgets all roots, files and symbols. */
 VX_API void VX_CALL vx_index_reset(void);
