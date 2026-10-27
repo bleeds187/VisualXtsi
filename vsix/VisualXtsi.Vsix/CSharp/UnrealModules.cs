@@ -26,6 +26,53 @@ namespace VisualXtsi.CSharp
 
         private static readonly Regex Association = new Regex("\"EngineAssociation\"\\s*:\\s*\"([^\"]*)\"");
 
+        // Where an engine's build rules code lives (ModuleRules, TargetRules, UnrealTargetPlatform, ...):
+        // UnrealBuildTool and the libraries rules files use (UE5: UnrealBuildBase, EpicGames.Build and
+        // EpicGames.Core; UE4: DotNETCommon). Whichever exist.
+        private static readonly string[] RulesFolders =
+        {
+            @"Source\Programs\UnrealBuildTool", @"Source\Programs\UnrealBuildBase", @"Source\Programs\Shared\EpicGames.Build",
+            @"Source\Programs\Shared\EpicGames.Core", @"Source\Programs\DotNETCommon",
+        };
+
+        private static readonly ConcurrentDictionary<string, string[]> RulesRootsByEngine =
+            new ConcurrentDictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Adds the build rules code of the engine a file's project uses to the file and symbol indexes
+        /// (once per engine; small, and independent of indexing the engine), so that Build.cs and
+        /// Target.cs files can navigate to and color UnrealBuildTool's types. Background thread.
+        /// </summary>
+        public static void IndexRulesOf(string file)
+        {
+            string engine = EngineDirectoryFor(file);
+            if (engine == null || RulesRootsByEngine.ContainsKey(engine))
+                return;
+            string[] roots = RulesFolders.Select(f => Path.Combine(engine, f)).Where(Directory.Exists).ToArray();
+            if (!RulesRootsByEngine.TryAdd(engine, roots))
+                return;
+            foreach (string root in roots)
+                Interop.Engine.IndexAddRoot(root);
+            System.Threading.Interlocked.Increment(ref _rulesGeneration);
+            Log.Write($"Build rules code of {engine}: {roots.Length} folders indexed");
+        }
+
+        private static int _rulesGeneration;
+
+        /// <summary>Counts the engines whose build rules code has been added (answers about it may change).</summary>
+        public static int RulesGeneration => _rulesGeneration;
+
+        /// <summary>The indexed build rules folders of the engine a file's project uses (none until indexed).</summary>
+        public static IReadOnlyList<string> RulesRootsFor(string file)
+        {
+            string engine = file == null ? null : EngineDirectoryFor(file);
+            return engine != null && RulesRootsByEngine.TryGetValue(engine, out string[] roots) ? roots : Array.Empty<string>();
+        }
+
+        /// <summary>Whether a file is part of any indexed engine's build rules code.</summary>
+        public static bool IsRulesCode(string path) =>
+            path != null && RulesRootsByEngine.Values.Any(roots => roots.Any(r => path.StartsWith(r + "\\", StringComparison.OrdinalIgnoreCase)));
+
         /// <summary>The Build.cs files of module <paramref name="name"/> in the engine of the project holding <paramref name="file"/>.</summary>
         public static IReadOnlyList<string> FindInEngine(string file, string name)
         {
@@ -36,8 +83,17 @@ namespace VisualXtsi.CSharp
             return modules.TryGetValue(name, out List<string> paths) ? paths : (IReadOnlyList<string>)Array.Empty<string>();
         }
 
-        /// <summary>The Engine folder for a file of a project (or of the engine itself); null if unknown.</summary>
+        private static readonly ConcurrentDictionary<string, string> EngineByFolder =
+            new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>The Engine folder for a file of a project (or of the engine itself); null if unknown. Cached per folder.</summary>
         public static string EngineDirectoryFor(string file)
+        {
+            string folder = Path.GetDirectoryName(file);
+            return folder == null ? null : EngineByFolder.GetOrAdd(folder, _ => FindEngineDirectory(file));
+        }
+
+        private static string FindEngineDirectory(string file)
         {
             string uproject = null;
             for (string dir = Path.GetDirectoryName(file); !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))

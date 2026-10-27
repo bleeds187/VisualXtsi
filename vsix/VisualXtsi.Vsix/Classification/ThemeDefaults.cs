@@ -40,6 +40,17 @@ namespace VisualXtsi.Classification
         };
 
         private static bool _hooked;
+        private static bool _applied;
+
+        /// <summary>Applies the defaults once, for the first classifier of any language. UI thread.</summary>
+        public static void EnsureApplied(IClassificationFormatMapService formatMaps, IClassificationTypeRegistryService registry)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (_applied)
+                return;
+            _applied = true;
+            Apply(formatMaps, registry);
+        }
 
         /// <summary>Applies the defaults for the current theme. Call on the UI thread.</summary>
         public static void Apply(IClassificationFormatMapService formatMaps, IClassificationTypeRegistryService registry)

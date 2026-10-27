@@ -17,17 +17,11 @@ namespace VisualXtsi.Classification
         [Import]
         internal IClassificationFormatMapService FormatMaps = null;
 
-        private bool _themeApplied;
-
         public IClassifier GetClassifier(ITextBuffer buffer)
         {
             ThreadHelper.ThrowIfNotOnUIThread(); // classifier providers are called on the UI thread
             VxSettings.EnsureLoaded(); // before the classifier reads which categories are on
-            if (!_themeApplied)
-            {
-                _themeApplied = true;
-                ThemeDefaults.Apply(FormatMaps, Registry);
-            }
+            ThemeDefaults.EnsureApplied(FormatMaps, Registry);
             return buffer.Properties.GetOrCreateSingletonProperty(() => new SemanticClassifier(buffer, Registry));
         }
     }

@@ -58,7 +58,9 @@
     <Compile Include="Classification\SemanticClassifierProvider.cs" />
     <Compile Include="Classification\EditorColors.cs" />
     <Compile Include="Classification\ThemeDefaults.cs" />
+    <Compile Include="CSharp\CSharpClassifier.cs" />
     <Compile Include="CSharp\CSharpNavigation.cs" />
+    <Compile Include="CSharp\UbtSymbols.cs" />
     <Compile Include="CSharp\UnrealModules.cs" />
     <Compile Include="Commands\CommandIds.cs" />
     <Compile Include="Commands\EditorCommands.cs" />
@@ -135,6 +137,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.0.32112.339" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.14.2094" />
+    <!-- Roslyn, for C#: compile only; Visual Studio's own copy is used at run time (oldest supported: 17.0's 4.0). -->
+    <PackageReference Include="Microsoft.CodeAnalysis.EditorFeatures.Text" Version="4.0.1" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.0.1" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
   <!-- Builds the native engine with CMake so F5 / msbuild produce a complete VSIX. -->
   <Target Name="BuildEngine" BeforeTargets="BeforeBuild" Condition="'$(SkipEngineBuild)' != 'true'">

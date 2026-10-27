@@ -44,13 +44,19 @@ namespace VisualXtsi.Commands
             });
         }
 
-        /// <summary>Indexes the Unreal project of a document, and its engine source if enabled. Background thread.</summary>
+        /// <summary>
+        /// Indexes the Unreal project of a document, its engine's build rules code (for Build.cs and
+        /// Target.cs files) and, if enabled, the engine source. Background thread.
+        /// </summary>
         public static void IndexDocument(string path)
         {
             if (!Options.VxSettings.Current.Enabled)
                 return;
             Engine.SymbolsStart();
-            if (Engine.IndexAddProjectOf(path) && Options.VxSettings.Current.IndexEngineSource)
+            if (!Engine.IndexAddProjectOf(path))
+                return;
+            CSharp.UnrealModules.IndexRulesOf(path);
+            if (Options.VxSettings.Current.IndexEngineSource)
                 Engine.IndexAddEngineOf(path);
         }
 

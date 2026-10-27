@@ -16,6 +16,8 @@ What it focuses on:
   module's shared headers are precompiled once and reused.
 - **Navigation and indexing at engine scale**: file and symbol indexes that keep up with whole
   projects and, if wanted, the engine source.
+- **The C# side of the solution too**: Build.cs and Target.cs files and C# tools get the same keys,
+  coloring themes, Find Symbol and Go to Definition, with Unreal module names navigable.
 
 ## Architecture
 
@@ -69,7 +71,16 @@ Two classifiers feed the editor. A lexical one (instant, no parsing) colors prep
 directives and macro-like names. A semantic one colors identifiers by what they name (locals,
 parameters, member fields, globals and statics, types, enum constants, namespaces, functions,
 methods, static and virtual methods), using the last background parse; edits only recolor the
-spans whose classification changed. Keys inside Unreal reflection markup (UCLASS(...), UPROPERTY(EditAnywhere, meta=(ClampMin=...)), UFUNCTION(...) and the like) get their own "Unreal reflection specifier" color, lexically, since the macros expand to nothing; hovering a well-known specifier shows a one-line description. Every category has its own entry under Tools > Options >
+spans whose classification changed. Keys inside Unreal reflection markup (UCLASS(...), UPROPERTY(EditAnywhere, meta=(ClampMin=...)), UFUNCTION(...) and the like) get their own "Unreal reflection specifier" color, lexically, since the macros expand to nothing; hovering a well-known specifier shows a one-line description.
+
+C# files are colored with the same categories, themes, switches and live preview, from Roslyn's
+own classification of the open document (the Roslyn of the running Visual Studio; nothing is
+shipped): types, interfaces, delegates, type parameters, attributes, fields (static ones as
+globals), properties, events, enum members, locals, parameters, methods (static ones as static
+methods) and namespaces. It runs off the UI thread for the lines on screen only and is cancelled
+by edits; until a range is redone, its previous colors are shown. Go to Definition in C# uses
+Roslyn too: a definition in source opens directly, partial types and methods list their parts,
+and symbols from assemblies go to Visual Studio's own Go to Definition. Every category has its own entry under Tools > Options >
 Environment > Fonts and Colors (names start with "VisualXtsi"); defaults suit the dark theme.
 
 ## Navigation
@@ -98,9 +109,18 @@ Build.cs. Alt+G on a module name in a
 Build.cs or Target.cs string ("Core" in PublicDependencyModuleNames) opens that module's
 Build.cs, from the project or from the engine the project uses (found like UnrealBuildTool finds
 it, an Engine folder above the project or the .uproject's EngineAssociation; its Build.cs files
-are listed once, in about a second). Elsewhere in C#, Alt+G is Visual Studio's Go to Definition;
-in C# files that belong to no C# project, such as Build.cs and Target.cs, the C# symbol index is
-tried first, since Visual Studio knows little about them.
+are listed once, in about a second). Elsewhere in C#, Alt+G resolves the symbol with Roslyn
+(see Coloring); when Roslyn cannot, in C# files that belong to no C# project such as Build.cs and
+Target.cs, the C# symbol index is tried before Visual Studio's own Go to Definition.
+
+Build.cs and Target.cs files are written against UnrealBuildTool (ModuleRules, TargetRules,
+ReadOnlyTargetRules, UnrealTargetPlatform, PCHUsageMode, ...), which Visual Studio cannot see
+from them. So the build rules code of the engine a project uses (UnrealBuildTool and the
+libraries rules files use, in the UE4 and UE5 layouts; a few hundred files) is always indexed,
+whether or not the engine is, and only that engine's is consulted. Alt+G goes to its types and
+members, narrowed by the receiver (Target.Platform: ReadOnlyTargetRules in a Build.cs, TargetRules
+in a Target.cs; PCHUsageMode.X: that type) or, for a bare name such as bUseUnity, by the file's
+rules class; names Roslyn leaves unresolved there are colored from it; and Find Symbol finds it.
 
 Unreal's split UFUNCTIONs are understood: a BlueprintNativeEvent or Server/Client/NetMulticast RPC
 is implemented by Name_Implementation (and, with WithValidation, Name_Validate). Go to Definition

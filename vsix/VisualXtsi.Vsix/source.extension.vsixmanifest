@@ -3,7 +3,7 @@
   <Metadata>
     <Identity Id="VisualXtsi.8f2c6a1e-3b7d-4e59-a0c4-91d5e6f27b30" Version="0.1.6" Language="en-US" Publisher="VisualXtsi" />
     <DisplayName>VisualXtsi</DisplayName>
-    <Description xml:space="preserve">Open-source C++ productivity extension with first-class Unreal Engine support.</Description>
+    <Description xml:space="preserve">Open-source C++ productivity extension with first-class Unreal Engine support, covering the C# of the same solutions.</Description>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,)">
