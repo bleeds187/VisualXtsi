@@ -79,13 +79,28 @@ Environment > Fonts and Colors (names start with "VisualXtsi"); defaults suit th
 | `VisualXtsi.ToggleHeaderSource` | Alt+O (editor) | Header ↔ source: same folder, Unreal Public/Classes ↔ Private, the module, include paths |
 | `VisualXtsi.OpenFileInSolution` | Shift+Alt+O (editor) | Fuzzy file search over the solution folder and Unreal project(s); `name:123` opens at a line |
 | `VisualXtsi.FindSymbolInSolution` | Shift+Alt+S | Fuzzy search over a persisted index of the project's declarations; `Scope::name` narrows |
-| `VisualXtsi.GoToDefinition` | Alt+G (editor) | Definition of the symbol at the caret (libclang, then the symbol index); on a definition, its declaration |
+| `VisualXtsi.GoToDefinition` | Alt+G (editor) | Definition of the symbol at the caret (libclang, then the symbol index); on a definition, its declaration. C#: see below |
 
 Alt+O, Shift+Alt+O and Alt+G are bound in the Text Editor scope: Visual Studio binds the last two
 globally (File.OpenWebSite, Edit.BriefBrowse), other extensions often take Alt+O and Alt+G, and in an
 editor a Text Editor binding outranks global ones. If another tool still takes a key, rebind the
 command under Tools > Options > Environment > Keyboard (Extensions > VisualXtsi > Help >
 Keyboard Shortcuts opens it filtered to VisualXtsi's commands).
+
+The commands work in C# editors too, so the keys stay the same when moving between the C++ and
+C# projects of a solution. Alt+O in C# goes between a form and its Designer.cs and from XAML
+code-behind to its .xaml. From an Unreal module's Name.Build.cs, Alt+O goes to the source that
+implements the module, the .cpp whose IMPLEMENT_MODULE, IMPLEMENT_GAME_MODULE or
+IMPLEMENT_PRIMARY_GAME_MODULE names it (wherever it is and whatever it is called; only without such
+a macro is Name.cpp or NameModule.cpp assumed). If that source has a header, Alt+O goes to the
+header and from there toggles header and source as usual; a header-less one goes back to the
+Build.cs. Alt+G on a module name in a
+Build.cs or Target.cs string ("Core" in PublicDependencyModuleNames) opens that module's
+Build.cs, from the project or from the engine the project uses (found like UnrealBuildTool finds
+it, an Engine folder above the project or the .uproject's EngineAssociation; its Build.cs files
+are listed once, in about a second). Elsewhere in C#, Alt+G is Visual Studio's Go to Definition;
+in C# files that belong to no C# project, such as Build.cs and Target.cs, the C# symbol index is
+tried first, since Visual Studio knows little about them.
 
 Unreal's split UFUNCTIONs are understood: a BlueprintNativeEvent or Server/Client/NetMulticast RPC
 is implemented by Name_Implementation (and, with WithValidation, Name_Validate). Go to Definition

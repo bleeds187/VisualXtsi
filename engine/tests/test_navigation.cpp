@@ -25,6 +25,15 @@ bool endsWith(const std::string& s, const std::string& suffix)
     return a.size() >= b.size() && a.compare(a.size() - b.size(), b.size(), b) == 0;
 }
 
+void expectNone(const char* from)
+{
+    const auto found = vx::nav::counterparts(sample(from), {});
+    if (found.empty())
+        return;
+    ++failures;
+    std::printf("FAIL %s -> expected none, got %s\n", from, found.front().c_str());
+}
+
 void expectFirst(const char* from, const char* expected, const std::vector<std::string>& includeDirs = {})
 {
     const auto found = vx::nav::counterparts(sample(from), includeDirs);
@@ -61,10 +70,27 @@ int main()
         ++failures;
         std::printf("FAIL Lonely.cpp should have no counterpart\n");
     }
-    if (!vx::nav::counterparts(sample("Source/NavGame/NavGame.Build.cs"), {}).empty()) {
-        ++failures;
-        std::printf("FAIL non-C++ files have no counterpart\n");
-    }
+    // A module's Build.cs and the source implementing it (the IMPLEMENT_*MODULE macro naming it).
+    // With a header: Build.cs -> header, then header <-> source as usual.
+    expectFirst("Source/NavGame/NavGame.Build.cs", "Source/NavGame/Public/NavGame.h");
+    expectFirst("Source/NavGame/Public/NavGame.h", "Source/NavGame/Private/NavGame.cpp");
+    expectFirst("Source/NavGame/Private/NavGame.cpp", "Source/NavGame/Public/NavGame.h");
+    expectNone("Source/NavGame/Private/NavGameModule.cpp"); // named like one, implements nothing
+    // Header-less, whatever it is called: Build.cs <-> source.
+    expectFirst("Source/NavTool/NavTool.Build.cs", "Source/NavTool/Private/ToolUnrealModule.cpp");
+    expectFirst("Source/NavTool/Private/ToolUnrealModule.cpp", "Source/NavTool/NavTool.Build.cs");
+    expectNone("Source/NavTool/Private/NavToolLegacy.cpp"); // the macro is commented out
+    // The macro must name this module.
+    expectFirst("Source/NavCore/NavCore.Build.cs", "Source/NavCore/Private/Startup.cpp");
+    expectFirst("Source/NavCore/Private/Startup.cpp", "Source/NavCore/NavCore.Build.cs");
+    expectNone("Source/NavCore/Private/AOtherCore.cpp");
+    // No macro at all: <Name>.cpp or <Name>Module.cpp.
+    expectFirst("Source/NavPlain/NavPlain.Build.cs", "Source/NavPlain/Private/NavPlainModule.cpp");
+
+    // C#: designer and XAML code-behind pairs.
+    expectFirst("Tools/Editor/SettingsForm.cs", "Tools/Editor/SettingsForm.Designer.cs");
+    expectFirst("Tools/Editor/SettingsForm.Designer.cs", "Tools/Editor/SettingsForm.cs");
+    expectFirst("Tools/Editor/MainWindow.xaml.cs", "Tools/Editor/MainWindow.xaml");
 
     if (failures == 0)
         std::printf("all tests passed\n");

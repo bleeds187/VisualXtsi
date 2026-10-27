@@ -16,6 +16,7 @@ namespace VisualXtsi.Commands
     /// <summary>
     /// VisualXtsi.GoToDefinition (Alt+G in the editor): the definition of the symbol at the caret,
     /// or its declaration when the caret is on the definition. Several candidates open a picker.
+    /// C# files go to <see cref="CSharp.CSharpNavigation"/>.
     /// </summary>
     internal static class GoToDefinitionCommand
     {
@@ -31,13 +32,19 @@ namespace VisualXtsi.Commands
                 () =>
                 {
                     ThreadHelper.ThrowIfNotOnUIThread();
-                    return EditorCommands.VisualXtsiEnabled && EditorCommands.ActiveCppDocument(package) != null;
+                    return EditorCommands.VisualXtsiEnabled && EditorCommands.ActiveSourceDocument(package) != null;
                 });
         }
 
         private static async Task ExecuteAsync(AsyncPackage package)
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            string source = EditorCommands.ActiveSourceDocument(package);
+            if (CSharp.CSharpNavigation.IsCSharp(source))
+            {
+                await CSharp.CSharpNavigation.GoToDefinitionAsync(source, ActiveView());
+                return;
+            }
             string path = EditorCommands.ActiveCppDocument(package);
             IWpfTextView view = ActiveView();
             if (path == null || view == null)
@@ -78,7 +85,7 @@ namespace VisualXtsi.Commands
             EditorCommands.OpenDocument(chosen.Path, chosen.Line, chosen.Column);
         }
 
-        private static IWpfTextView ActiveView()
+        internal static IWpfTextView ActiveView()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             if (!(Package.GetGlobalService(typeof(SVsTextManager)) is IVsTextManager textManager) ||

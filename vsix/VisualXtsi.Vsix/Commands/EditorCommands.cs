@@ -10,7 +10,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace VisualXtsi.Commands
 {
-    /// <summary>Shared plumbing for commands that act on the active C/C++ document.</summary>
+    /// <summary>Shared plumbing for commands that act on the active C/C++ or C# document.</summary>
     internal static class EditorCommands
     {
         private static readonly string[] CppExtensions = { ".h", ".hpp", ".hh", ".hxx", ".inl", ".cpp", ".cc", ".cxx", ".c" };
@@ -25,6 +25,14 @@ namespace VisualXtsi.Commands
                 return null;
             string ext = Path.GetExtension(path).ToLowerInvariant();
             return CppExtensions.Contains(ext) ? path : null;
+        }
+
+        /// <summary>Full path of the active document if it is a C/C++ or C# file; null otherwise. UI thread.</summary>
+        public static string ActiveSourceDocument(AsyncPackage package)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            string path = (Package.GetGlobalService(typeof(DTE)) as DTE)?.ActiveDocument?.FullName;
+            return ActiveCppDocument(package) ?? (CSharp.CSharpNavigation.IsCSharp(path) ? path : null);
         }
 
         /// <summary>Whether VisualXtsi is switched on (Extensions > VisualXtsi > Enable/Disable).</summary>
@@ -70,7 +78,7 @@ namespace VisualXtsi.Commands
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             if (Package.GetGlobalService(typeof(SVsStatusbar)) is IVsStatusbar statusBar)
-                statusBar.SetText("VisualXtsi: " + message);
+                statusBar.SetText(string.IsNullOrEmpty(message) ? "" : "VisualXtsi: " + message);
         }
 
         private static async Task RunAsync(Func<Task> execute)

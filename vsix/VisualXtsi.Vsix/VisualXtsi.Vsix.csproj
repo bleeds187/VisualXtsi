@@ -58,6 +58,8 @@
     <Compile Include="Classification\SemanticClassifierProvider.cs" />
     <Compile Include="Classification\EditorColors.cs" />
     <Compile Include="Classification\ThemeDefaults.cs" />
+    <Compile Include="CSharp\CSharpNavigation.cs" />
+    <Compile Include="CSharp\UnrealModules.cs" />
     <Compile Include="Commands\CommandIds.cs" />
     <Compile Include="Commands\EditorCommands.cs" />
     <Compile Include="Commands\FindSymbolCommand.cs" />
