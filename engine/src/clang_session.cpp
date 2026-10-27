@@ -508,7 +508,7 @@ bool sameScope(const std::u16string& symbolScope, const std::u16string& scope)
 std::vector<Target> indexTargets(const std::u16string& name, const std::u16string& scope, bool wantFunction)
 {
     std::vector<Target> exact, others, declarations;
-    for (const vx::symbols::Hit& hit : vx::symbols::lookup(name, 50)) {
+    for (const vx::symbols::Hit& hit : vx::symbols::lookup(name, 50, vx::symbols::Language::Cpp)) {
         const vx::symbols::Symbol& s = hit.symbol;
         const bool isFunction = s.kind == vx::symbols::Kind::Function || s.kind == vx::symbols::Kind::Method;
         if (wantFunction && !isFunction)
@@ -537,7 +537,7 @@ std::vector<Target> indexTargets(const std::u16string& name, const std::u16strin
 std::vector<Target> ueImplementations(const std::u16string& name, const std::u16string& scope)
 {
     uint8_t flags = 0;
-    for (const vx::symbols::Hit& hit : vx::symbols::lookup(name, 50))
+    for (const vx::symbols::Hit& hit : vx::symbols::lookup(name, 50, vx::symbols::Language::Cpp))
         if (!hit.symbol.definition && sameScope(hit.symbol.scope, scope))
             flags |= hit.symbol.ue;
     std::vector<Target> targets;
@@ -556,7 +556,7 @@ std::vector<Target> ueDeclaration(const std::u16string& name, const std::u16stri
         if (name.size() <= suffix.size() || !name.ends_with(suffix))
             continue;
         const std::u16string base = name.substr(0, name.size() - suffix.size());
-        for (const vx::symbols::Hit& hit : vx::symbols::lookup(base, 50)) {
+        for (const vx::symbols::Hit& hit : vx::symbols::lookup(base, 50, vx::symbols::Language::Cpp)) {
             const vx::symbols::Symbol& s = hit.symbol;
             if (!s.definition && s.ue != 0 && sameScope(s.scope, scope))
                 targets.push_back({std::u16string(hit.path.begin(), hit.path.end()), s.line, s.column,

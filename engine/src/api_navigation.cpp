@@ -122,6 +122,22 @@ VX_API uint32_t VX_CALL vx_symbols_lookup(const char16_t* name, uint32_t max_res
     return name ? writeSymbols(vx::symbols::lookup(name, max_results), out, cap) : 0;
 }
 
+VX_API uint32_t VX_CALL vx_symbols_find_in(const char16_t* query, uint32_t language, uint32_t max_results, char16_t* out,
+                                           uint32_t cap)
+{
+    return query && language <= VX_LANGUAGE_CSHARP
+               ? writeSymbols(vx::symbols::find(query, max_results, vx::symbols::Language(language)), out, cap)
+               : 0;
+}
+
+VX_API uint32_t VX_CALL vx_symbols_lookup_in(const char16_t* name, uint32_t language, uint32_t max_results, char16_t* out,
+                                             uint32_t cap)
+{
+    return name && language <= VX_LANGUAGE_CSHARP
+               ? writeSymbols(vx::symbols::lookup(name, max_results, vx::symbols::Language(language)), out, cap)
+               : 0;
+}
+
 VX_API void VX_CALL vx_symbols_status(uint32_t* files, uint32_t* pending, uint32_t* symbols)
 {
     const vx::symbols::Status st = vx::symbols::status();

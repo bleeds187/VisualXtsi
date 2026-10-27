@@ -136,13 +136,13 @@ namespace VisualXtsi.QuickInfo
         {
             var found = new List<SymbolInfo>();
             int ue = 0;
-            foreach (SymbolInfo s in Engine.LookupSymbols(name, 20))
+            foreach (SymbolInfo s in Engine.LookupSymbols(name, 20, SymbolLanguage.Cpp))
                 if (!s.Definition)
                     ue |= s.Ue;
             if ((ue & SymbolInfo.UeImplementation) != 0)
-                found.AddRange(Engine.LookupSymbols(name + "_Implementation", 20).Where(s => s.Definition));
+                found.AddRange(Engine.LookupSymbols(name + "_Implementation", 20, SymbolLanguage.Cpp).Where(s => s.Definition));
             if ((ue & SymbolInfo.UeValidate) != 0)
-                found.AddRange(Engine.LookupSymbols(name + "_Validate", 20).Where(s => s.Definition));
+                found.AddRange(Engine.LookupSymbols(name + "_Validate", 20, SymbolLanguage.Cpp).Where(s => s.Definition));
             return found;
         }
 

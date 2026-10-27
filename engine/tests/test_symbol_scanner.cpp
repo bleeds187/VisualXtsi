@@ -232,6 +232,174 @@ class AGame : public AActor
         }
     }
 
+    // C#: a file-scoped namespace, types of every kind, members, and literals that must not
+    // confuse the scanner (verbatim, interpolated and raw strings with braces and quotes).
+    {
+        const std::u16string cs = uR"cs(using System;
+using Alias = System.Collections.Generic.List<int>;
+[assembly: SomeAttribute("x")]
+namespace Fake.Tools;
+
+/// <summary>Docs { not code }</summary>
+[Serializable, Obsolete("old")]
+public sealed partial class ScoreBoard<T> : IScored, IDisposable where T : class, new()
+{
+    public const int MaxPlayers = 8, MinPlayers = 1;
+    private readonly Dictionary<string, int> _scores = new() { ["a"] = 1 }, _byName = new Dictionary<string, int>();
+    private static string s_path = @"C:\temp\""quoted""{";
+    private string _greeting = $"Hello {Name("}")} {{literal}}";
+    private string _raw = """
+        { "json": "with } braces" }
+        """;
+    private Action<int> _onChange = x => { Console.WriteLine(x); };
+    private char _brace = '{';
+
+    public event EventHandler Changed;
+    public event Action<int> Added, Removed;
+    public event EventHandler Custom { add { } remove { } }
+    public int Total { get; private set; } = 0;
+    public string Label => $"{Total} points";
+    public int this[int index] => index;
+    [JsonIgnore] public T @class { get; init; }
+
+    public ScoreBoard(int capacity) : base() { }
+    ~ScoreBoard() { }
+    public void Add(string name, int points = 1) { _scores[name] = points; }
+    public override string ToString() => $"{Total}";
+    public static ScoreBoard<T> operator +(ScoreBoard<T> a, int b) => a; public static bool operator <(ScoreBoard<T> a, int b) => true;
+    public TResult Map<TResult>(Func<T, TResult> f) where TResult : struct { return default; }
+    int IScored.Score() { return Total; }
+    partial void OnReset();
+    public void Dispose() { }
+
+    private enum Phase : byte { Warmup = 1, [Description("live")] Live, Done }
+    public record struct Entry(string Name, int Points = 0);
+    public interface INested { void Ping(); int Count { get; } }
+}
+
+public interface IScored { int Score(); }
+public record Player(string Name, List<int> Scores) : Person(Name);
+public delegate void ScoreHandler<T>(object sender, T score);
+internal readonly ref struct Point { public readonly int X, Y; }
+)cs";
+        const auto all = vx::symbols::scanCSharp(cs);
+        expect(all, u"Fake", Kind::Namespace, u"", 4);
+        expect(all, u"Tools", Kind::Namespace, u"Fake", 4);
+        expect(all, u"ScoreBoard", Kind::Class, u"Fake.Tools", 8);
+        expect(all, u"MaxPlayers", Kind::Field, u"Fake.Tools.ScoreBoard", 10);
+        expect(all, u"MinPlayers", Kind::Field, u"Fake.Tools.ScoreBoard", 10);
+        expect(all, u"_scores", Kind::Field, u"Fake.Tools.ScoreBoard", 11);
+        expect(all, u"_byName", Kind::Field, u"Fake.Tools.ScoreBoard", 11);
+        expect(all, u"s_path", Kind::Field, u"Fake.Tools.ScoreBoard", 12);
+        expect(all, u"_greeting", Kind::Field, u"Fake.Tools.ScoreBoard", 13);
+        expect(all, u"_raw", Kind::Field, u"Fake.Tools.ScoreBoard", 14);
+        expect(all, u"_onChange", Kind::Field, u"Fake.Tools.ScoreBoard", 17);
+        expect(all, u"_brace", Kind::Field, u"Fake.Tools.ScoreBoard", 18);
+        expect(all, u"Changed", Kind::Event, u"Fake.Tools.ScoreBoard", 20);
+        expect(all, u"Added", Kind::Event, u"Fake.Tools.ScoreBoard", 21);
+        expect(all, u"Removed", Kind::Event, u"Fake.Tools.ScoreBoard", 21);
+        expect(all, u"Custom", Kind::Event, u"Fake.Tools.ScoreBoard", 22);
+        expect(all, u"Total", Kind::Property, u"Fake.Tools.ScoreBoard", 23);
+        expect(all, u"Label", Kind::Property, u"Fake.Tools.ScoreBoard", 24);
+        expect(all, u"class", Kind::Property, u"Fake.Tools.ScoreBoard", 26);
+        expect(all, u"ScoreBoard", Kind::Method, u"Fake.Tools.ScoreBoard", 28);
+        expect(all, u"~ScoreBoard", Kind::Method, u"Fake.Tools.ScoreBoard", 29);
+        expect(all, u"Add", Kind::Method, u"Fake.Tools.ScoreBoard", 30);
+        expect(all, u"ToString", Kind::Method, u"Fake.Tools.ScoreBoard", 31);
+        expect(all, u"operator+", Kind::Method, u"Fake.Tools.ScoreBoard", 32);
+        expect(all, u"operator<", Kind::Method, u"Fake.Tools.ScoreBoard", 32);
+        expect(all, u"Map", Kind::Method, u"Fake.Tools.ScoreBoard", 33);
+        expect(all, u"Score", Kind::Method, u"Fake.Tools.ScoreBoard", 34);
+        expect(all, u"OnReset", Kind::Method, u"Fake.Tools.ScoreBoard", 35, false);
+        expect(all, u"Dispose", Kind::Method, u"Fake.Tools.ScoreBoard", 36);
+        expect(all, u"Phase", Kind::Enum, u"Fake.Tools.ScoreBoard", 38);
+        expect(all, u"Warmup", Kind::EnumConstant, u"Fake.Tools.ScoreBoard.Phase", 38);
+        expect(all, u"Live", Kind::EnumConstant, u"Fake.Tools.ScoreBoard.Phase", 38);
+        expect(all, u"Done", Kind::EnumConstant, u"Fake.Tools.ScoreBoard.Phase", 38);
+        expect(all, u"Entry", Kind::Struct, u"Fake.Tools.ScoreBoard", 39);
+        expect(all, u"Points", Kind::Property, u"Fake.Tools.ScoreBoard.Entry", 39);
+        expect(all, u"INested", Kind::Interface, u"Fake.Tools.ScoreBoard", 40);
+        expect(all, u"Ping", Kind::Method, u"Fake.Tools.ScoreBoard.INested", 40, false);
+        expect(all, u"Count", Kind::Property, u"Fake.Tools.ScoreBoard.INested", 40);
+        expect(all, u"IScored", Kind::Interface, u"Fake.Tools", 43);
+        expect(all, u"Score", Kind::Method, u"Fake.Tools.IScored", 43, false);
+        expect(all, u"Player", Kind::Class, u"Fake.Tools", 44);
+        expect(all, u"Scores", Kind::Property, u"Fake.Tools.Player", 44);
+        expect(all, u"ScoreHandler", Kind::Delegate, u"Fake.Tools", 45);
+        expect(all, u"Point", Kind::Struct, u"Fake.Tools", 46);
+        expect(all, u"X", Kind::Field, u"Fake.Tools.Point", 46);
+        expect(all, u"Y", Kind::Field, u"Fake.Tools.Point", 46);
+        for (const char16_t* absent : {u"Alias", u"WriteLine", u"Console", u"json", u"literal", u"index", u"name", u"points",
+                                       u"capacity", u"x", u"get", u"string", u"int", u"Description", u"Serializable", u"base", u"a", u"b"})
+            expectAbsent(all, absent);
+
+        // Block-scoped namespaces and a top-level program: statements are not declarations.
+        const auto top = vx::symbols::scanCSharp(uR"cs(var builder = Make(args);
+Console.WriteLine("hi");
+if (builder != null) { Run(); }
+void LocalHelper() { }
+namespace Outer.Inner { class Deep { int _v; } }
+namespace Second { enum Mode { A, B } }
+)cs");
+        expect(top, u"LocalHelper", Kind::Function, u"", 4);
+        expect(top, u"Deep", Kind::Class, u"Outer.Inner", 5);
+        expect(top, u"_v", Kind::Field, u"Outer.Inner.Deep", 5);
+        expect(top, u"Mode", Kind::Enum, u"Second", 6);
+        expect(top, u"B", Kind::EnumConstant, u"Second.Mode", 6);
+        for (const char16_t* absent : {u"builder", u"WriteLine", u"Run", u"Make"})
+            expectAbsent(top, absent);
+
+        // The shapes of build rules code that Build.cs and Target.cs navigation relies on (made up):
+        // partial rules classes, nested enums, attributed and wrapper properties, global:: aliases.
+        const auto rules = vx::symbols::scanCSharp(uR"cs(namespace FakeBuildTool
+{
+    public enum KindOfTarget { Game, Editor }
+    public partial class FakeModuleRules
+    {
+        public enum PchMode { Default, UseShared }
+        [RequiresUnique, CommandLine("-Unity")]
+        public bool bUseUnity { get; set; } = true;
+        public PchMode PchUsage
+        {
+            get { return _pch; }
+            set { _pch = value; }
+        }
+        public List<string> PublicDependencyNames = new List<string>();
+        public FakeModuleRules(ReadOnlyFakeTargetRules Target) { }
+    }
+    public abstract partial class FakeTargetRules
+    {
+        public static class KindOfTarget
+        {
+            public const global::FakeBuildTool.KindOfTarget Game = global::FakeBuildTool.KindOfTarget.Game;
+        }
+        public global::FakeBuildTool.KindOfTarget Type { get; set; } = global::FakeBuildTool.KindOfTarget.Game;
+    }
+    public partial class ReadOnlyFakeTargetRules
+    {
+        private readonly FakeTargetRules Inner;
+        public global::FakeBuildTool.KindOfTarget Type => Inner.Type;
+        public bool bIsEngineInstalled => Inner.bIsEngineInstalled;
+    }
+}
+)cs");
+        expect(rules, u"Editor", Kind::EnumConstant, u"FakeBuildTool.KindOfTarget", 3);
+        expect(rules, u"FakeModuleRules", Kind::Class, u"FakeBuildTool", 4);
+        expect(rules, u"PchMode", Kind::Enum, u"FakeBuildTool.FakeModuleRules", 6);
+        expect(rules, u"UseShared", Kind::EnumConstant, u"FakeBuildTool.FakeModuleRules.PchMode", 6);
+        expect(rules, u"bUseUnity", Kind::Property, u"FakeBuildTool.FakeModuleRules", 8);
+        expect(rules, u"PchUsage", Kind::Property, u"FakeBuildTool.FakeModuleRules", 9);
+        expect(rules, u"PublicDependencyNames", Kind::Field, u"FakeBuildTool.FakeModuleRules", 14);
+        expect(rules, u"FakeModuleRules", Kind::Method, u"FakeBuildTool.FakeModuleRules", 15);
+        expect(rules, u"KindOfTarget", Kind::Class, u"FakeBuildTool.FakeTargetRules", 19);
+        expect(rules, u"Game", Kind::Field, u"FakeBuildTool.FakeTargetRules.KindOfTarget", 21);
+        expect(rules, u"Type", Kind::Property, u"FakeBuildTool.FakeTargetRules", 23);
+        expect(rules, u"Type", Kind::Property, u"FakeBuildTool.ReadOnlyFakeTargetRules", 28);
+        expect(rules, u"bIsEngineInstalled", Kind::Property, u"FakeBuildTool.ReadOnlyFakeTargetRules", 29);
+        for (const char16_t* absent : {u"RequiresUnique", u"CommandLine", u"_pch", u"value", u"get", u"Target"})
+            expectAbsent(rules, absent);
+    }
+
     if (failures == 0)
         std::printf("all tests passed\n");
     return failures == 0 ? 0 : 1;

@@ -7,7 +7,7 @@
 #include <vector>
 
 // The symbol index behind Find Symbol and cross-file Go to Definition: declarations of every
-// C/C++ file in the file index, scanned by background workers, kept current as files change,
+// C/C++ and C# file in the file index, scanned by background workers, kept current as files change,
 // and persisted (with each file's time stamp and size) so a restart only rescans what changed.
 namespace vx::symbols {
 
@@ -20,11 +20,14 @@ struct Hit {
     std::wstring path;
 };
 
-// Fuzzy search over symbol names, best first; "Scope::name" also matches the scope.
-std::vector<Hit> find(const std::u16string& query, size_t maxResults);
+// Which files' symbols to search (by extension); mirrors VX_LANGUAGE_* in vx.h.
+enum class Language { Any = 0, Cpp = 1, CSharp = 2 };
+
+// Fuzzy search over symbol names, best first; "Scope::name" (or "Scope.name") also matches the scope.
+std::vector<Hit> find(const std::u16string& query, size_t maxResults, Language language = Language::Any);
 
 // Exact-name lookup (case-sensitive), definitions first; for Go to Definition.
-std::vector<Hit> lookup(const std::u16string& name, size_t maxResults);
+std::vector<Hit> lookup(const std::u16string& name, size_t maxResults, Language language = Language::Any);
 
 struct Status {
     size_t files = 0;   // files with symbols

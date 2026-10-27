@@ -96,6 +96,15 @@ UFUNCTION specifiers lexically (cache format 2). The engine can be indexed
 as well, with its plugins and platform extensions (Platforms\<Platform>\..., also under
 Restricted): Options > VisualXtsi > Navigation, off by default, about 1 GB or more.
 
+C# files are indexed too (a C# tool project in the solution, Unreal's *.Build.cs and *.Target.cs,
+the engine's own C# programs when the engine is indexed), by a separate lexical scanner that knows
+C#: verbatim, interpolated and raw strings, attributes, file-scoped namespaces, records (whose
+positional parameters are properties), properties, events, interfaces, delegates, operators and
+expression-bodied members. Their scopes read "Namespace.Class", and Find Symbol takes
+"Scope.name" as well as "Scope::name". Find Symbol has a Language column and a Language box (All
+languages, C/C++, C#); lookups from C++ (Go to Definition's fallback, the UFUNCTION tooltips) only
+consider C/C++ symbols.
+
 ## Menus and dialogs
 
 Extensions > VisualXtsi groups the commands by task: Open File in Solution and Toggle

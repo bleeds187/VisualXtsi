@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 14u
+#define VX_ABI_VERSION 15u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -175,7 +175,7 @@ VX_API uint32_t VX_CALL vx_index_add_engine_of(const char16_t* path);
 VX_API void VX_CALL vx_index_reset(void);
 
 /* Symbol index (Find Symbol, cross-file Go to Definition): declarations in every
- * C/C++ file of the file index, found by a fast lexical scanner on background
+ * C/C++ and C# file of the file index, found by a fast lexical scanner on background
  * threads, kept current as files change, and cached in
  * %LOCALAPPDATA%\VisualXtsi\symbols.cache (VX_SYMBOL_CACHE overrides) so that
  * only changed files are rescanned after a restart. */
@@ -192,19 +192,30 @@ typedef enum vx_symbol_kind {
     VX_SYMBOL_FIELD = 10,
     VX_SYMBOL_VARIABLE = 11,
     VX_SYMBOL_MACRO = 12,
-    VX_SYMBOL_DELEGATE = 13 /* Unreal DECLARE_*DELEGATE* / DECLARE_*EVENT* types */
+    VX_SYMBOL_DELEGATE = 13, /* Unreal DECLARE_*DELEGATE* / DECLARE_*EVENT* types, C# delegates */
+    VX_SYMBOL_PROPERTY = 14, /* C# */
+    VX_SYMBOL_EVENT = 15,    /* C# */
+    VX_SYMBOL_INTERFACE = 16 /* C# */
 } vx_symbol_kind;
 
 /* Starts following the file index (idempotent). */
 VX_API void VX_CALL vx_symbols_start(void);
-/* Fuzzy search over symbol names, best first ("Scope::name" also matches the
- * scope). Each result is a NUL-terminated UTF-16 record of tab-separated fields:
+/* Fuzzy search over symbol names, best first ("Scope::name" or "Scope.name" also
+ * matches the scope; C# scopes are joined with "."). Each result is a NUL-terminated UTF-16 record of tab-separated fields:
  * kind, definition (0/1), line, column (1-based, UTF-16), name, scope, path, Unreal
  * split (VX_UE_* flags of a UFUNCTION declaration, else 0).\n * Returns the number of char16_t needed. */
 VX_API uint32_t VX_CALL vx_symbols_find(const char16_t* query, uint32_t max_results, char16_t* out, uint32_t cap);
 /* Symbols named exactly 
 ame (case-sensitive), definitions first; records as above. */
 VX_API uint32_t VX_CALL vx_symbols_lookup(const char16_t* name, uint32_t max_results, char16_t* out, uint32_t cap);
+/* The same, limited to the symbols of one language's files (by extension). */
+#define VX_LANGUAGE_ANY 0u
+#define VX_LANGUAGE_CPP 1u    /* C and C++ */
+#define VX_LANGUAGE_CSHARP 2u /* .cs */
+VX_API uint32_t VX_CALL vx_symbols_find_in(const char16_t* query, uint32_t language, uint32_t max_results, char16_t* out,
+                                           uint32_t cap);
+VX_API uint32_t VX_CALL vx_symbols_lookup_in(const char16_t* name, uint32_t language, uint32_t max_results, char16_t* out,
+                                             uint32_t cap);
 
 /* How UnrealHeaderTool splits a UFUNCTION declaration: BlueprintNativeEvent and RPCs (Server,
  * Client, NetMulticast) are implemented by Name_Implementation, WithValidation RPCs also by

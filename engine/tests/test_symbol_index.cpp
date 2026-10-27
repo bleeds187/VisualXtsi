@@ -4,6 +4,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -69,10 +70,13 @@ int main()
     write(root / "Game" / "Source" / "Game" / "Thing.cpp",
           "#include \"Thing.h\"\nvoid AThing::ThingMethod()\n{\n}\n");
     write(root / "Game" / "Source" / "Game" / "Other.h", "#pragma once\nstruct FOtherThing {};\n");
+    write(root / "Game" / "Source" / "Game" / "Game.Build.cs",
+          "using UnrealBuildTool;\npublic class Game : ModuleRules\n{\n    public Game(ReadOnlyTargetRules Target) : base(Target) { }\n"
+          "    public bool ThingEnabled { get; set; }\n}\n");
 
     vx::symbols::start();
     vx::files::addRoot((root / "Game").wstring());
-    expect(waitFor([] { return vx::symbols::status().files == 3 && idle(); }), "initial index (3 files)");
+    expect(waitFor([] { return vx::symbols::status().files == 4 && idle(); }), "initial index (4 files)");
     expect(top(u"athing") == u"AThing", "class found");
     {
         auto hits = vx::symbols::find(u"AThing", 5);
@@ -80,6 +84,20 @@ int main()
                "type definition ranks first, with its line");
     }
     expect(top(u"AThing::tm") == u"ThingMethod", "Scope::name queries");
+
+    // C#: scanned with its own scanner, "Scope.name" queries, and language filters.
+    {
+        auto hits = vx::symbols::find(u"Game.thingenabled", 5);
+        expect(!hits.empty() && hits[0].symbol.kind == vx::symbols::Kind::Property && hits[0].symbol.line == 5,
+               "C# property found with a Scope.name query");
+        expect(vx::symbols::find(u"thing", 20, vx::symbols::Language::CSharp).size() == 1, "C# only");
+        auto cpp = vx::symbols::find(u"thing", 20, vx::symbols::Language::Cpp);
+        expect(!cpp.empty() && std::none_of(cpp.begin(), cpp.end(), [](const auto& h) { return h.path.ends_with(L".cs"); }),
+               "C/C++ only");
+        expect(vx::symbols::lookup(u"Game", 5, vx::symbols::Language::Cpp).empty() &&
+                   vx::symbols::lookup(u"Game", 5, vx::symbols::Language::CSharp).size() == 2,
+               "lookup by language (the class and its constructor)");
+    }
     {
         auto defs = vx::symbols::lookup(u"ThingMethod", 5);
         expect(defs.size() == 2 && defs[0].symbol.definition && defs[0].path.ends_with(L"Thing.cpp"),
@@ -104,12 +122,12 @@ int main()
            "cache holds present files only");
     vx::symbols::start();
     vx::files::addRoot((root / "Game").wstring());
-    expect(waitFor([] { return vx::symbols::status().files == 2 && idle(); }), "restart indexes from the cache");
+    expect(waitFor([] { return vx::symbols::status().files == 3 && idle(); }), "restart indexes from the cache");
     expect(top(u"thingmethod") == u"ThingMethod", "symbols available after restart");
 
     // Rebuild: drops the cache and rescans every indexed file.
     vx::symbols::rebuild();
-    expect(waitFor([] { return vx::symbols::status().files == 2 && idle(); }), "rebuild rescans the indexed files");
+    expect(waitFor([] { return vx::symbols::status().files == 3 && idle(); }), "rebuild rescans the indexed files");
     expect(top(u"athing") == u"AThing", "symbols available after a rebuild");
     expect(waitFor([&] { return fs::exists(cache); }), "rebuild writes a new cache");
 

@@ -22,6 +22,9 @@ enum class Kind : uint8_t {
     Variable = 11,
     Macro = 12,
     Delegate = 13,
+    Property = 14, // C#
+    Event = 15,    // C#
+    Interface = 16, // C#
 };
 
 struct Symbol {
@@ -45,5 +48,9 @@ enum UeSplit : uint8_t {
 // index whole projects, and tolerant of Unreal markup (UCLASS(...), UPROPERTY(...),
 // GENERATED_BODY(), *_API) and of code that does not compile. Function bodies are skipped.
 std::vector<Symbol> scan(std::u16string_view text);
+
+// The same for C# (csharp_scanner.cpp): types (records as classes or structs), members,
+// properties, events and delegates; scopes are joined with ".".
+std::vector<Symbol> scanCSharp(std::u16string_view text);
 
 } // namespace vx::symbols

@@ -24,6 +24,7 @@ namespace VisualXtsi.UI
     {
         public string Name { get; set; }
         public string Kind { get; set; } = "";  // "class", "method"; optional
+        public string Language { get; set; } = ""; // "C++", "C#"; optional
         public string Scope { get; set; } = ""; // enclosing class or namespace; optional
         public string Path { get; set; }
         public int Line { get; set; }           // 1-based; 0 = none
@@ -93,6 +94,7 @@ namespace VisualXtsi.UI
         private string _sortProperty;
         private ListSortDirection _sortDirection = ListSortDirection.Ascending;
         private int _searchGeneration;
+        private volatile int _filterIndex;
 
         public SearchResult Selected { get; private set; }
 
@@ -191,6 +193,28 @@ namespace VisualXtsi.UI
             DockPanel.SetDock(sortLabel, Dock.Right);
             statusRow.Children.Add(_sortBy);
             statusRow.Children.Add(sortLabel);
+            IReadOnlyList<string> filters = FilterChoices;
+            if (filters != null)
+            {
+                var filter = new ComboBox { MinWidth = 110, VerticalAlignment = VerticalAlignment.Center };
+                foreach (string choice in filters)
+                    filter.Items.Add(choice);
+                filter.SelectedIndex = int.TryParse(DialogLayout.Get(_layoutKey + ".Filter"), out int saved) && saved >= 0 && saved < filters.Count ? saved : 0;
+                _filterIndex = filter.SelectedIndex;
+                filter.SelectionChanged += (s, e) =>
+                {
+                    _filterIndex = Math.Max(0, filter.SelectedIndex);
+                    DialogLayout.Set(_layoutKey + ".Filter", _filterIndex.ToString(CultureInfo.InvariantCulture));
+                    _ = RefreshAsync();
+                };
+                var filterLabel = new Label { Content = FilterLabel, Target = filter, Padding = new Thickness(12, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+                filterLabel.SetResourceReference(ForegroundProperty, ThemedDialogColors.WindowPanelTextBrushKey);
+                AutomationProperties.SetLabeledBy(filter, filterLabel);
+                DockPanel.SetDock(filter, Dock.Right);
+                DockPanel.SetDock(filterLabel, Dock.Right);
+                statusRow.Children.Add(filter);
+                statusRow.Children.Add(filterLabel);
+            }
             _status = new TextBlock { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
             AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
             statusRow.Children.Add(_status);
@@ -245,6 +269,18 @@ namespace VisualXtsi.UI
 
         /// <summary>Runs on a background thread; the line under the results.</summary>
         protected abstract string Status(string query, int resultCount);
+
+        /// <summary>
+        /// Choices of an optional filter box beside "Sort by" (index 0 meaning no filter), remembered per
+        /// dialog; null: no filter box. Called from the base constructor.
+        /// </summary>
+        protected virtual IReadOnlyList<string> FilterChoices => null;
+
+        /// <summary>The filter box label, with an access key.</summary>
+        protected virtual string FilterLabel => "_Filter";
+
+        /// <summary>The chosen filter (an index into <see cref="FilterChoices"/>); safe to read in <see cref="Search"/>.</summary>
+        protected int FilterIndex => _filterIndex;
 
         /// <summary>The part of a query that is matched against names (highlighted in results).</summary>
         protected virtual string NamePart(string query) => query;

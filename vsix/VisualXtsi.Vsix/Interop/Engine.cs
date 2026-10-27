@@ -68,13 +68,21 @@ namespace VisualXtsi.Interop
         public string Expansion; // empty when hovering the definition itself
     }
 
+    /// <summary>Which files' symbols to search; mirrors VX_LANGUAGE_* in vx.h.</summary>
+    internal enum SymbolLanguage
+    {
+        Any = 0,
+        Cpp = 1,
+        CSharp = 2,
+    }
+
     /// <summary>A symbol index entry (see vx_symbols_find).</summary>
     internal sealed class SymbolInfo
     {
         private static readonly string[] KindLabels =
         {
             "", "namespace", "class", "struct", "union", "enum", "enumerator", "typedef", "function", "method",
-            "field", "variable", "macro", "delegate",
+            "field", "variable", "macro", "delegate", "property", "event", "interface",
         };
 
         public int Kind;
@@ -84,6 +92,9 @@ namespace VisualXtsi.Interop
         public string Name;
         public string Scope;
         public string Path;
+
+        public bool IsCSharp => Path != null && Path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase);
+        public string Language => IsCSharp ? "C#" : "C++";
 
         /// <summary>For a UFUNCTION declaration: how UnrealHeaderTool splits it (vx.h VX_UE_*).</summary>
         public int Ue;
@@ -110,7 +121,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 14;
+        private const uint ExpectedAbiVersion = 15;
 
         static Engine()
         {
@@ -254,6 +265,9 @@ namespace VisualXtsi.Interop
         public sealed class Target
         {
             public string Path;
+
+        public bool IsCSharp => Path != null && Path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase);
+        public string Language => IsCSharp ? "C#" : "C++";
             public int Line;
             public int Column;
             public string Label;
@@ -296,12 +310,12 @@ namespace VisualXtsi.Interop
         }
 
         /// <summary>Fuzzy symbol search, best first. Never waits for indexing.</summary>
-        public static SymbolInfo[] FindSymbols(string query, int maxResults) =>
-            ParseSymbols(SplitStrings((buffer, cap) => vx_symbols_find(query, (uint)maxResults, buffer, cap)));
+        public static SymbolInfo[] FindSymbols(string query, int maxResults, SymbolLanguage language = SymbolLanguage.Any) =>
+            ParseSymbols(SplitStrings((buffer, cap) => vx_symbols_find_in(query, (uint)language, (uint)maxResults, buffer, cap)));
 
         /// <summary>Symbols named exactly <paramref name="name"/>, definitions first.</summary>
-        public static SymbolInfo[] LookupSymbols(string name, int maxResults) =>
-            ParseSymbols(SplitStrings((buffer, cap) => vx_symbols_lookup(name, (uint)maxResults, buffer, cap)));
+        public static SymbolInfo[] LookupSymbols(string name, int maxResults, SymbolLanguage language = SymbolLanguage.Any) =>
+            ParseSymbols(SplitStrings((buffer, cap) => vx_symbols_lookup_in(name, (uint)language, (uint)maxResults, buffer, cap)));
 
         private static SymbolInfo[] ParseSymbols(string[] records)
         {
@@ -375,10 +389,10 @@ namespace VisualXtsi.Interop
         private static extern void vx_symbols_status(out uint files, out uint pending, out uint symbols);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        private static extern uint vx_symbols_find(string query, uint maxResults, [Out] char[] output, uint cap);
+        private static extern uint vx_symbols_find_in(string query, uint language, uint maxResults, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        private static extern uint vx_symbols_lookup(string name, uint maxResults, [Out] char[] output, uint cap);
+        private static extern uint vx_symbols_lookup_in(string name, uint language, uint maxResults, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
         private static extern uint vx_abi_version();

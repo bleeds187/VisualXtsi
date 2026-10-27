@@ -12,7 +12,8 @@ namespace VisualXtsi.UI
 {
     /// <summary>
     /// Find Symbol in Solution: fuzzy search over the declarations of the indexed source.
-    /// "Scope::name" narrows by class or namespace ("LyraChar::begin").
+    /// "Scope::name" (or C#'s "Scope.name") narrows by class or namespace ("LyraChar::begin"); the
+    /// language box limits results to C/C++ or C#.
     /// </summary>
     internal sealed class FindSymbolDialog : SearchDialog
     {
@@ -22,7 +23,7 @@ namespace VisualXtsi.UI
 #pragma warning disable VSTHRD010 // dialogs are created on the UI thread
         public FindSymbolDialog(string initialQuery, Action<SearchResult> openKeepingDialog)
             : base("Find Symbol in Solution - VisualXtsi", "FindSymbol", "_Symbol",
-                   "Part of a symbol name; word starts count. \"Scope::name\" narrows by class or namespace.",
+                   "Part of a symbol name; word starts count. \"Scope::name\" or \"Scope.name\" narrows by class or namespace.",
                    string.IsNullOrEmpty(initialQuery) ? (Options.VxSettings.Current.RememberQueries ? _lastQuery : "") : initialQuery,
                    new[]
                    {
@@ -31,6 +32,7 @@ namespace VisualXtsi.UI
                        new SearchColumn("Scope", nameof(SearchResult.Scope), 150),
                        new SearchColumn("File", nameof(SearchResult.Location), 190),
                        new SearchColumn("Folder", nameof(SearchResult.Folder), 300),
+                       new SearchColumn("Language", nameof(SearchResult.Language), 70),
                    },
                    openKeepingDialog)
         {
@@ -45,11 +47,12 @@ namespace VisualXtsi.UI
 
         protected override IReadOnlyList<SearchResult> Search(string query)
         {
-            return Engine.FindSymbols(query, MaxResults)
+            return Engine.FindSymbols(query, MaxResults, (SymbolLanguage)FilterIndex)
                 .Select(s => new SearchResult
                 {
                     Name = s.Name,
                     Kind = s.KindLabel,
+                    Language = s.Language,
                     Scope = s.Scope ?? "",
                     Path = s.Path,
                     Line = s.Line,
@@ -60,10 +63,18 @@ namespace VisualXtsi.UI
                 .ToList();
         }
 
+        // Mirrors SymbolLanguage: All, C/C++, C#.
+        protected override IReadOnlyList<string> FilterChoices => new[] { "All languages", "C/C++", "C#" };
+
+        protected override string FilterLabel => "_Language";
+
         protected override string NamePart(string query)
         {
             int sep = query.LastIndexOf("::", StringComparison.Ordinal);
-            return sep < 0 ? query : query.Substring(sep + 2);
+            if (sep >= 0)
+                return query.Substring(sep + 2);
+            int dot = query.LastIndexOf('.');
+            return dot < 0 ? query : query.Substring(dot + 1);
         }
 
         protected override string Status(string query, int resultCount)
@@ -71,7 +82,7 @@ namespace VisualXtsi.UI
             Engine.SymbolStatus(out int files, out int pending, out int symbols);
             string indexing = pending > 0 ? $" (indexing, {pending:N0} files to go)" : "";
             return query.Length == 0
-                ? $"{symbols:N0} symbols in {files:N0} files{indexing}. \"Scope::name\" narrows by class or namespace."
+                ? $"{symbols:N0} symbols in {files:N0} files{indexing}. \"Scope::name\" or \"Scope.name\" narrows by class or namespace."
                 : $"{resultCount}{(resultCount == MaxResults ? "+" : "")} matches in {symbols:N0} symbols{indexing}";
         }
 
@@ -83,7 +94,7 @@ namespace VisualXtsi.UI
             (1, SemanticNames.Namespace), (2, SemanticNames.Type), (3, SemanticNames.Type), (4, SemanticNames.Type),
             (5, SemanticNames.Type), (6, SemanticNames.EnumConstant), (7, SemanticNames.Type), (8, SemanticNames.Function),
             (9, SemanticNames.Method), (10, SemanticNames.Field), (11, SemanticNames.Global), (12, ClassificationNames.Macro),
-            (13, SemanticNames.Type),
+            (13, SemanticNames.Delegate), (14, SemanticNames.Property), (15, SemanticNames.Event), (16, SemanticNames.Interface),
         };
 
         // Mirrors vx_symbol_kind.
@@ -104,6 +115,9 @@ namespace VisualXtsi.UI
                 case 11: return KnownMonikers.Field;
                 case 12: return KnownMonikers.MacroPublic;
                 case 13: return KnownMonikers.DelegatePublic;
+                case 14: return KnownMonikers.PropertyPublic;
+                case 15: return KnownMonikers.EventPublic;
+                case 16: return KnownMonikers.InterfacePublic;
                 default: return KnownMonikers.QuestionMark;
             }
         }

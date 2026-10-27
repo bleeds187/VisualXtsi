@@ -27,7 +27,7 @@ namespace {
 
 constexpr uintmax_t kMaxFileBytes = 8u << 20; // bigger files are generated data, not code
 const wchar_t* const kCppExtensions[] = {L".h", L".hpp", L".hh", L".hxx", L".inl", L".ipp",
-                                         L".cpp", L".cc", L".cxx", L".c", L".ixx", L".cppm"};
+                                         L".cpp", L".cc", L".cxx", L".c", L".ixx", L".cppm", L".cs"};
 
 std::wstring lowerW(std::wstring s)
 {
@@ -51,7 +51,12 @@ uint64_t charMask(const std::u16string& lowerText)
     return mask;
 }
 
-bool isCpp(const std::wstring& path)
+bool isCSharp(const std::wstring& path)
+{
+    return lowerW(fs::path(path).extension().wstring()) == L".cs";
+}
+
+bool isCode(const std::wstring& path)
 {
     const std::wstring ext = lowerW(fs::path(path).extension().wstring());
     return std::any_of(std::begin(kCppExtensions), std::end(kCppExtensions), [&](const wchar_t* e) { return ext == e; });
@@ -64,9 +69,16 @@ struct FileSymbols {
     std::vector<Symbol> symbols;
     std::vector<std::u16string> lowerNames;
     std::vector<uint64_t> masks;
+    bool csharp = false;
+
+    bool in(Language language) const
+    {
+        return language == Language::Any || (language == Language::CSharp) == csharp;
+    }
 
     void prepare()
     {
+        csharp = isCSharp(path);
         lowerNames.clear();
         masks.clear();
         for (const Symbol& s : symbols) {
@@ -126,7 +138,7 @@ public:
 
     void enqueue(const std::wstring& path, bool forget)
     {
-        if (!isCpp(path))
+        if (!isCode(path))
             return;
         if (forget) {
             std::unique_lock data(mutex_);
@@ -143,20 +155,26 @@ public:
         queueChanged_.notify_one();
     }
 
-    std::vector<Hit> find(const std::u16string& query, size_t maxResults) const
+    std::vector<Hit> find(const std::u16string& query, size_t maxResults, Language language) const
     {
-        // "Scope::name": the part after the last "::" matches names, the rest matches scopes.
+        // "Scope::name" (or C#'s "Scope.name"): the part after the last separator matches names, the
+        // rest matches scopes.
         std::u16string q = lower16(query);
         std::u16string scopeQuery;
         if (size_t sep = q.rfind(u"::"); sep != std::u16string::npos) {
             scopeQuery = q.substr(0, sep);
             q = q.substr(sep + 2);
+        } else if (size_t dot = q.rfind(u'.'); dot != std::u16string::npos) {
+            scopeQuery = q.substr(0, dot);
+            q = q.substr(dot + 1);
         }
         const std::wstring wq(q.begin(), q.end()), wscope(scopeQuery.begin(), scopeQuery.end());
         const uint64_t qmask = charMask(q);
         std::vector<std::pair<int, Hit>> hits;
         std::shared_lock data(mutex_);
         for (const auto& [key, f] : files_) {
+            if (!f.in(language))
+                continue;
             for (size_t i = 0; i < f.symbols.size(); ++i) {
                 if ((f.masks[i] & qmask) != qmask)
                     continue;
@@ -190,14 +208,17 @@ public:
         return result;
     }
 
-    std::vector<Hit> lookup(const std::u16string& name, size_t maxResults) const
+    std::vector<Hit> lookup(const std::u16string& name, size_t maxResults, Language language) const
     {
         std::vector<Hit> hits;
         std::shared_lock data(mutex_);
-        for (const auto& [key, f] : files_)
+        for (const auto& [key, f] : files_) {
+            if (!f.in(language))
+                continue;
             for (const Symbol& s : f.symbols)
                 if (s.name == name)
                     hits.push_back(Hit{s, f.path});
+        }
         data.unlock();
         std::stable_sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) {
             return rankBonus(a.symbol) > rankBonus(b.symbol);
@@ -255,6 +276,7 @@ private:
         case Kind::Enum:
         case Kind::Union:
         case Kind::Delegate:
+        case Kind::Interface:
             bonus += 8;
             break;
         case Kind::Typedef:
@@ -332,7 +354,7 @@ private:
         f.path = path;
         f.stamp = stamp;
         f.size = size;
-        f.symbols = scan(toUtf16(bytes));
+        f.symbols = isCSharp(path) ? scanCSharp(toUtf16(bytes)) : scan(toUtf16(bytes));
         f.prepare();
         std::unique_lock data(mutex_);
         files_[key] = std::move(f);
@@ -408,14 +430,14 @@ void start()
     g_index.start();
 }
 
-std::vector<Hit> find(const std::u16string& query, size_t maxResults)
+std::vector<Hit> find(const std::u16string& query, size_t maxResults, Language language)
 {
-    return g_index.find(query, maxResults);
+    return g_index.find(query, maxResults, language);
 }
 
-std::vector<Hit> lookup(const std::u16string& name, size_t maxResults)
+std::vector<Hit> lookup(const std::u16string& name, size_t maxResults, Language language)
 {
-    return g_index.lookup(name, maxResults);
+    return g_index.lookup(name, maxResults, language);
 }
 
 Status status()
