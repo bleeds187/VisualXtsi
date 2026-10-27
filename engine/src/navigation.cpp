@@ -46,18 +46,25 @@ bool hasExt(const fs::path& p, const char* const* exts, size_t count)
     return false;
 }
 
-// The Unreal module root: the nearest folder (up to the drive) with a *.Build.cs file.
+// The Unreal module root: the nearest folder (up to the drive) with a *.Build.cs file, or,
+// failing that, the nearest with a Public, Private or Classes folder: platform extensions
+// (Platforms\<Platform>\Source\...\<Module>) often extend a module without a Build.cs of their own.
 fs::path moduleRoot(const fs::path& file)
 {
     std::error_code ec;
+    fs::path layout;
     for (fs::path dir = file.parent_path(); !dir.empty(); dir = dir.parent_path()) {
-        for (auto& e : fs::directory_iterator(dir, ec))
-            if (lower(e.path().filename().wstring()).ends_with(L".build.cs"))
+        for (auto& e : fs::directory_iterator(dir, ec)) {
+            const std::wstring name = lower(e.path().filename().wstring());
+            if (name.ends_with(L".build.cs"))
                 return dir;
+            if (layout.empty() && e.is_directory(ec) && (name == L"public" || name == L"private" || name == L"classes"))
+                layout = dir;
+        }
         if (dir == dir.root_path())
             break;
     }
-    return {};
+    return layout;
 }
 
 } // namespace

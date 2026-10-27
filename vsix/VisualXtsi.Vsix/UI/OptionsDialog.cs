@@ -426,7 +426,7 @@ namespace VisualXtsi.UI
             page.Children.Add(choices);
 
             page.Children.Add(Heading("Index"));
-            Option(page, "Index the _Unreal Engine source for Open File and Find Symbol (about 60,000 files, ~0.8 GB)", _working.IndexEngineSource,
+            Option(page, "Index the _Unreal Engine for Open File and Find Symbol (source, plugins and platform extensions; about 1 GB or more)", _working.IndexEngineSource,
                 v => _working.IndexEngineSource = v,
                 "The project's own source is always indexed. Turning engine indexing off takes effect after a restart.");
             var rebuild = new Button { Content = new AccessText { Text = "Re_build Symbol Index" }, HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(10, 2, 10, 2), Margin = new Thickness(12, 6, 0, 0) };

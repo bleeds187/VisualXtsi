@@ -69,6 +69,12 @@ int main()
                hasArg(a, "-x") && hasArg(a, "Source\\Other\\Public"),
            "UE5 exact source item", &a);
 
+    // A platform extension of a module (Platforms/<Platform>/Source/<Module>, made-up platform):
+    // the arguments of the module it extends, not of whichever module happens to sort first.
+    ok = vx::argsFromUnrealProject(samples("ue5_project/Platforms/FakeConsole/Source/Other/Public/OtherFakeConsole.h"), a);
+    expect(ok && a.basedOn.find("Other.cpp") != std::string::npos && hasForcedInclude(a, "Definitions.Other.h"),
+           "UE5 platform extension uses the module it extends", &a);
+
     // UE 4.27 (shape of a real generated project): per-file include directories, a forced
     // PCH.<Module>.h carrying the definitions, C++14, and configuration groups for other
     // platforms that must not leak in.

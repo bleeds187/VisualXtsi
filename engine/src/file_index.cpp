@@ -448,13 +448,21 @@ void setListener(Listener listener)
 bool addEngineOf(const std::wstring& path, const std::vector<std::wstring>& includeDirs)
 {
     (void)path;
-    for (const std::wstring& dir : includeDirs) {
+    for (const std::wstring& include : includeDirs) {
+        const std::wstring dir = fs::path(include).lexically_normal().wstring(); // any slashes
         const std::wstring l = lower(dir);
         const size_t at = l.find(L"\\engine\\source\\");
-        if (at != std::wstring::npos) {
-            addRoot(dir.substr(0, at + std::wstring(L"\\engine\\source").size()));
-            return true;
-        }
+        if (at == std::wstring::npos)
+            continue;
+        // The engine's code is not only under Source: plugins, and the platform extensions
+        // (Platforms\<Platform>\Source, Plugins and Config, also under Restricted\<Group>\Platforms),
+        // which are found by structure, whatever the platforms are called.
+        const fs::path engine = fs::path(dir.substr(0, at + std::wstring(L"\\engine").size()));
+        std::error_code ec;
+        for (const wchar_t* sub : {L"Source", L"Plugins", L"Platforms", L"Restricted"})
+            if (fs::is_directory(engine / sub, ec))
+                addRoot((engine / sub).wstring());
+        return true;
     }
     return false;
 }

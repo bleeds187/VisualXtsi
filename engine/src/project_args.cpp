@@ -342,6 +342,23 @@ void appendOption(const std::string& opt, std::vector<std::string>& args, std::v
     // Other MSVC switches (/Yu, /Zc:, /permissive-, ...) have no bearing on parsing.
 }
 
+// "...\platforms\<name>\source\..." -> "...\source\..." (likewise for plugins): where a platform
+// extension's file would sit in the module it extends. Any platform name; keys are lowercase.
+std::string withoutPlatformFolder(const std::string& key)
+{
+    const std::string marker = "\\platforms\\";
+    const size_t at = key.rfind(marker);
+    if (at == std::string::npos)
+        return key;
+    const size_t nameEnd = key.find('\\', at + marker.size());
+    if (nameEnd == std::string::npos)
+        return key;
+    const std::string rest = key.substr(nameEnd); // "\source\..."
+    if (rest.rfind("\\source\\", 0) != 0 && rest.rfind("\\plugins\\", 0) != 0)
+        return key;
+    return key.substr(0, at) + rest;
+}
+
 } // namespace
 
 bool argsFromVcxproj(const std::string& vcxproj, const std::string& path, VcxprojArgs& out)
@@ -358,7 +375,9 @@ bool argsFromVcxproj(const std::string& vcxproj, const std::string& path, Vcxpro
         return false;
 
     // The file's own item, else the .cpp sharing the most leading directories
-    // (for headers: a source file of the same module).
+    // (for headers: a source file of the same module). A platform extension
+    // (...\Platforms\<Platform>\Source\...) also counts as its base module's folder.
+    const std::string baseKey = withoutPlatformFolder(key);
     const Item* best = nullptr;
     size_t bestScore = 0;
     for (const Item& item : model->items) {
@@ -366,7 +385,7 @@ bool argsFromVcxproj(const std::string& vcxproj, const std::string& path, Vcxpro
             best = &item;
             break;
         }
-        size_t score = commonComponents(item.key, key);
+        size_t score = std::max(commonComponents(item.key, key), commonComponents(item.key, baseKey));
         if (score > bestScore) {
             bestScore = score;
             best = &item;

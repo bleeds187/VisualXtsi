@@ -109,6 +109,29 @@ int main()
     vx::files::reset();
     expect(vx::files::count() == 0, "reset clears the index");
 
+    // The engine: Source plus plugins and platform extensions, found by structure (made-up
+    // platform names), wherever they sit (Platforms\<P>, Restricted\<Group>\Platforms\<P>).
+    {
+        const fs::path engine = root / "UE/Engine";
+        touch(engine / "Source/Runtime/Widget/Public/Widget.h");
+        touch(engine / "Plugins/Runtime/Gadget/Source/Gadget/Private/GadgetModule.cpp");
+        touch(engine / "Platforms/FakeConsole/Source/Runtime/Widget/Private/FakeConsoleWidget.cpp");
+        touch(engine / "Platforms/FakeConsole/Plugins/FakePad/Source/FakePad/Public/FakePadInput.h");
+        touch(engine / "Platforms/FakeConsole/Config/FakeConsoleEngine.ini");
+        touch(engine / "Restricted/NotForLicensees/Platforms/OtherBox/Source/Runtime/Core/Private/OtherBoxMemory.cpp");
+        touch(engine / "Intermediate/Build/EngineGenerated.h");
+        const std::wstring include = (engine / "Source/Runtime/Widget/Public").wstring();
+        expect(vx::files::addEngineOf(L"", {include}), "engine found from an include directory");
+        expect(waitFor([] { return vx::files::count() == 6; }), "engine source, plugins and platform extensions (6 files)");
+        expect(first(L"fakeconsolewidget") == L"FakeConsoleWidget.cpp", "a platform extension's source");
+        expect(first(L"fakepadinput") == L"FakePadInput.h", "a platform extension's plugin");
+        expect(first(L"fakeconsoleengine") == L"FakeConsoleEngine.ini", "a platform extension's config");
+        expect(first(L"otherboxmemory") == L"OtherBoxMemory.cpp", "a restricted platform extension");
+        expect(first(L"gadgetmodule") == L"GadgetModule.cpp", "an engine plugin");
+        expect(vx::files::find(L"enginegenerated", 5).empty(), "the engine's Intermediate is skipped");
+        vx::files::reset();
+    }
+
     if (failures == 0)
         std::printf("all tests passed\n");
     return failures == 0 ? 0 : 1;

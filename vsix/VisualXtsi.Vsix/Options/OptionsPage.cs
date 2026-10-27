@@ -197,7 +197,7 @@ namespace VisualXtsi.Options
                                    "VX_PCH_CACHE_MB and VX_PCH_DIR override these settings."));
 
             root.Children.Add(Heading("Navigation"));
-            _indexEngine = Option("Index the Unreal Engine source for Open File and Find Symbol (about 60,000 files; uses ~0.8 GB)",
+            _indexEngine = Option("Index the Unreal Engine (source, plugins, platform extensions) for Open File and Find Symbol (large: about 1 GB or more)",
                                   v => _working.IndexEngineSource = v);
             root.Children.Add(_indexEngine);
             root.Children.Add(Note("The project's own source is always indexed. Turning engine indexing off takes effect after a restart."));
