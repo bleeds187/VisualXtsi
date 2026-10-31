@@ -33,3 +33,15 @@ public:
     virtual ~UObject() {}
     virtual int Score() const { return 0; }
 };
+
+#define UENUM(...)
+#define UMETA(...)
+#define UINTERFACE(...)
+#define GENERATED_UINTERFACE_BODY()
+#define GENERATED_IINTERFACE_BODY()
+
+typedef unsigned char uint8;
+
+class UInterface : public UObject
+{
+};

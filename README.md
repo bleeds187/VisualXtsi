@@ -215,6 +215,11 @@ falling back to the editor's setting.
 - Move Implementation to Source File / to Header File: moves a body between the class (or
   header) and the source file, placed like Create Implementation; inline and FORCEINLINE are
   dropped from a body moved out of the header, so other source files still link.
+- Add Missing Case Statements: for the switch on an enum at the caret, a case with a break for
+  each value it does not handle yet (aliases of a handled value count as handled; sentinels such
+  as EFoo_MAX, Count or Num are skipped unless switched off in Options > Refactoring), the values
+  written the way the existing cases write them, before default unless a case falls through into
+  it. Works through TEnumAsByte.
 
 ## Menus and dialogs
 

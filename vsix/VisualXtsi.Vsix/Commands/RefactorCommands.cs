@@ -42,6 +42,7 @@ namespace VisualXtsi.Commands
             AddRefactoring(commands, CommandIds.DocumentMethod, SmallRefactorings.DocumentMethodAsync, SmallRefactorings.CanDocument);
             AddRefactoring(commands, CommandIds.EncapsulateField, SmallRefactorings.EncapsulateFieldAsync, SmallRefactorings.CanEncapsulate);
             AddRefactoring(commands, CommandIds.AddRemoveBraces, SmallRefactorings.BracesAsync, SmallRefactorings.CanBraces);
+            AddRefactoring(commands, CommandIds.AddMissingCases, EnumRefactorings.AddMissingCasesAsync, EnumRefactorings.CanAddMissingCases);
             EditorCommands.Add(commands, CommandIds.RefactorAtCaret, () => ShowMenuAtCaret(CommandIds.RefactorPopup),
                 () =>
                 {

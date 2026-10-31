@@ -201,6 +201,40 @@ int main()
             std::printf("%s\n", text.c_str());
     }
 
+    // Switches on enums, for Add Missing Case Statements.
+    if (!parse(u"Machine.h", true) || !parse(u"Machine.cpp", false)) {
+        std::printf("FAIL parsing the Machine fixture\n");
+        return 1;
+    }
+    {
+        const std::u16string cpp = kDir + u"Machine.cpp";
+        auto at = [&](uint32_t line, uint32_t column) {
+            std::vector<char16_t> buf(8192);
+            uint32_t n = vx_switch_at(cpp.c_str(), line, column, 1, buf.data(), 8192);
+            return narrow(std::u16string(buf.data(), std::min<uint32_t>(n, 8192)));
+        };
+        std::string s = at(9, 13); // inside the switch on State
+        bool ok = s.find("enum\tEMachineState\t0\t\t") != std::string::npos && s.find("enumerator\tMS_Idle\t0\t") != std::string::npos &&
+                  s.find("enumerator\tMS_MAX\t3\t") != std::string::npos && s.find("case\t0\t8\t5\tMS_Idle\n") != std::string::npos &&
+                  s.find("Machine.cpp\t10\t5\n") != std::string::npos && s.find("body\t") != std::string::npos;
+        expect(ok, "switch: an unscoped enum, its case and default");
+        if (!ok)
+            std::printf("%s\n", s.c_str());
+        s = at(17, 5); // on "switch (Power)"
+        ok = s.find("enum\tEPower\t1\tEPower::\t") != std::string::npos && s.find("case\t1\t19\t5\tEPower::Mid\n") != std::string::npos &&
+             s.find("enumerator\tCount\t3\t") != std::string::npos;
+        expect(ok, "switch: a scoped enum, qualified");
+        if (!ok)
+            std::printf("%s\n", s.c_str());
+        s = at(25, 5); // the empty switch on a namespace's enum
+        ok = s.find("enum\tELever\t0\tPlant::\t") != std::string::npos && s.find("enumerator\tStuck\t1\t") != std::string::npos &&
+             s.find("case\t") == std::string::npos;
+        expect(ok, "switch: an enum in a namespace, no cases yet");
+        if (!ok)
+            std::printf("%s\n", s.c_str());
+        expect(at(4, 3).empty(), "switch: none outside a switch");
+    }
+
     // Unreal's split UFUNCTIONs, from the symbol index.
     vx_symbols_start();
     vx_index_add_root((kDir).c_str());

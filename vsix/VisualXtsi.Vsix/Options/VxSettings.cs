@@ -116,6 +116,9 @@ namespace VisualXtsi.Options
         /// <summary>Encapsulate Field in a UCLASS: Blueprint accessors (UFUNCTION BlueprintPure / BlueprintCallable).</summary>
         public bool EncapsulateBlueprint { get; set; } = false;
 
+        /// <summary>Add Missing Case Statements leaves out enumerators that count the others (EFoo_MAX, Count, Num).</summary>
+        public bool SkipSentinelCases { get; set; } = true;
+
         /// <summary>Whether a coloring category is switched on in the options (ignores <see cref="Enabled"/>).</summary>
         public bool IsColorOn(string classificationName) => !DisabledColors.Contains(classificationName);
 
@@ -179,6 +182,7 @@ namespace VisualXtsi.Options
                 settings.PickDefinition = store.GetBoolean(Collection, nameof(PickDefinition), settings.PickDefinition);
                 settings.DocCommentStyle = store.GetInt32(Collection, nameof(DocCommentStyle), settings.DocCommentStyle);
                 settings.EncapsulateBlueprint = store.GetBoolean(Collection, nameof(EncapsulateBlueprint), settings.EncapsulateBlueprint);
+                settings.SkipSentinelCases = store.GetBoolean(Collection, nameof(SkipSentinelCases), settings.SkipSentinelCases);
             }
             catch (Exception ex)
             {
@@ -218,6 +222,7 @@ namespace VisualXtsi.Options
                 store.SetBoolean(Collection, nameof(PickDefinition), settings.PickDefinition);
             store.SetInt32(Collection, nameof(DocCommentStyle), settings.DocCommentStyle);
             store.SetBoolean(Collection, nameof(EncapsulateBlueprint), settings.EncapsulateBlueprint);
+            store.SetBoolean(Collection, nameof(SkipSentinelCases), settings.SkipSentinelCases);
             }
             catch (Exception ex)
             {

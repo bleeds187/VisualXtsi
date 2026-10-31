@@ -523,6 +523,8 @@ namespace VisualXtsi.UI
             page.Children.Add(styles);
             Option(page, "Encapsulate Field in a UCLASS: _Blueprint accessors", _working.EncapsulateBlueprint, v => _working.EncapsulateBlueprint = v,
                 "The getter gets UFUNCTION(BlueprintPure) and the setter UFUNCTION(BlueprintCallable), in the class's category, so Blueprints can use them too.");
+            Option(page, "Add Missing Case Statements: skip _sentinels (_MAX, Count, Num)", _working.SkipSentinelCases, v => _working.SkipSentinelCases = v,
+                "Enumerators named like EFoo_MAX, Count or Num count the others rather than being values: they get no case.");
             return page;
         }
 

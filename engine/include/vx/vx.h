@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define VX_ABI_VERSION 16u
+#define VX_ABI_VERSION 17u
 
 typedef enum vx_kind {
     VX_KIND_PREPROCESSOR = 1, /* '#' plus directive name, e.g. "#define" */
@@ -298,6 +298,13 @@ VX_API uint32_t VX_CALL vx_statement_at(const char16_t* path, uint32_t line, uin
  * then "method\tname\tline\tcolumn\tdefined-inline (0/1)" lines. */
 VX_API uint32_t VX_CALL vx_class_members(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
                                          uint32_t cap);
+/* The innermost switch around a position: "switch" and "body" ranges (path, line, column, end line,
+ * end column; the body from "{" to past "}"), for a switch on an enum "enum\tname\tscoped (1/0)\twhat
+ * to write before an enumerator here (\"EColor::\", \"\")\tpath of its definition" and per enumerator
+ * "enumerator\tname\tvalue\tline", then the labels: "case\tvalue\tline\tcolumn\tlabel as written" and
+ * "default\tpath\tline\tcolumn". */
+VX_API uint32_t VX_CALL vx_switch_at(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
+                                     uint32_t cap);
 
 #ifdef __cplusplus
 }

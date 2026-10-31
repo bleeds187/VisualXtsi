@@ -122,7 +122,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 16;
+        private const uint ExpectedAbiVersion = 17;
 
         static Engine()
         {
@@ -251,7 +251,16 @@ namespace VisualXtsi.Interop
         /// <summary>The if / for / while / do statement around a position, as vx_statement_at's key/value lines (null: none).</summary>
         public static Dictionary<string, List<string[]>> StatementAt(string path, int line, int column, bool wait)
         {
-            string[] text = SplitStrings((buffer, cap) => vx_statement_at(path, (uint)line, (uint)column, wait ? 1u : 0u, buffer, cap));
+            return KeyValues(SplitStrings((buffer, cap) => vx_statement_at(path, (uint)line, (uint)column, wait ? 1u : 0u, buffer, cap)));
+        }
+
+        /// <summary>The switch around a position, as vx_switch_at's key/value lines (null: none).</summary>
+        public static Dictionary<string, List<string[]>> SwitchAt(string path, int line, int column, bool wait) =>
+            KeyValues(SplitStrings((buffer, cap) => vx_switch_at(path, (uint)line, (uint)column, wait ? 1u : 0u, buffer, cap)));
+
+        // "key\tfield\tfield..." lines: key -> each line's fields, in order.
+        private static Dictionary<string, List<string[]>> KeyValues(string[] text)
+        {
             if (text.Length == 0)
                 return null;
             var result = new Dictionary<string, List<string[]>>();
@@ -474,6 +483,9 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_statement_at(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_switch_at(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_class_members(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);

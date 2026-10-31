@@ -65,6 +65,11 @@ VX_API uint32_t VX_CALL vx_class_members(const char16_t*, uint32_t, uint32_t, ui
     return 0;
 }
 
+VX_API uint32_t VX_CALL vx_switch_at(const char16_t*, uint32_t, uint32_t, uint32_t, char16_t*, uint32_t)
+{
+    return 0;
+}
+
 VX_API uint32_t VX_CALL vx_references_start(const char16_t*, uint32_t, uint32_t)
 {
     return 0;

@@ -37,8 +37,71 @@ namespace VisualXtsi.Tests
             RenameTests();
             IncludeTests();
             ShapeTests();
+            EnumTests();
             Console.WriteLine(_failures == 0 ? "all tests passed" : $"{_failures} failures");
             return _failures == 0 ? 0 : 1;
+        }
+
+        // A switch's shape from its text: the labels found by their text, values from `values`.
+        private static SwitchShape Switch(string text, string qualifier, (string Name, long Value)[] enumerators, params (string Label, long Value)[] cases)
+        {
+            var s = new SwitchShape
+            {
+                SwitchStart = text.IndexOf("switch"),
+                EnumName = "EColor",
+                Qualifier = qualifier,
+            };
+            s.BodyOpen = text.IndexOf('{', s.SwitchStart);
+            for (int i = s.BodyOpen, depth = 0; i < text.Length; i++)
+                if (text[i] == '{')
+                    depth++;
+                else if (text[i] == '}' && --depth == 0)
+                {
+                    s.BodyClose = i;
+                    break;
+                }
+            foreach (var e in enumerators)
+                s.Enumerators.Add((e.Name, e.Value, 0));
+            foreach (var c in cases)
+                s.Cases.Add((c.Value, text.IndexOf("case " + c.Label), c.Label));
+            s.Default = text.IndexOf("default");
+            return s;
+        }
+
+        private static void EnumTests()
+        {
+            var colors = new[] { ("Red", 0L), ("Green", 1L), ("Blue", 2L), ("Crimson", 0L), ("EColor_MAX", 3L) };
+            var s = Switch("void F(EColor C)\n{\n    switch (C)\n    {\n    case EColor::Red:\n        break;\n    }\n}\n", "Ns::EColor::", colors, ("EColor::Red", 0));
+            var missing = EnumSupport.Missing(s, skipSentinels: true);
+            Expect(missing.SequenceEqual(new[] { "Green", "Blue" }), "missing: by value (an alias is covered), the sentinel left out");
+            Expect(EnumSupport.Missing(s, skipSentinels: false).Last() == "EColor_MAX", "missing: the sentinel when asked");
+            string text = "void F(EColor C)\n{\n    switch (C)\n    {\n    case EColor::Red:\n        break;\n    }\n}\n";
+            var (at, insert) = EnumSupport.Insertion(text, s, missing, "    ");
+            ExpectText(text.Insert(at, insert),
+                       "void F(EColor C)\n{\n    switch (C)\n    {\n    case EColor::Red:\n        break;\n    case EColor::Green:\n        break;\n    case EColor::Blue:\n        break;\n    }\n}\n",
+                       "cases at the end, written like the existing one");
+
+            // A default the previous case cannot fall into: the cases go before it.
+            text = "switch (C)\n{\n\tcase Red: return 1;\n\tdefault:\n\t\treturn 0;\n}\n";
+            s = Switch(text, "", colors, ("Red", 0));
+            (at, insert) = EnumSupport.Insertion(text, s, new[] { "Green" }, "\t");
+            ExpectText(text.Insert(at, insert), "switch (C)\n{\n\tcase Red: return 1;\n\tcase Green:\n\t\tbreak;\n\tdefault:\n\t\treturn 0;\n}\n", "cases before default");
+            text = "switch (C)\n{\ncase Red:\n\tbreak;\n\ndefault:\n\tbreak;\n}\n";
+            s = Switch(text, "", colors, ("Red", 0));
+            (at, insert) = EnumSupport.Insertion(text, s, new[] { "Green" }, "\t");
+            ExpectText(text.Insert(at, insert), "switch (C)\n{\ncase Red:\n\tbreak;\n\ncase Green:\n\tbreak;\n\ndefault:\n\tbreak;\n}\n", "a blank line between sections kept");
+
+            // A case running on into default: the new cases go after it all.
+            text = "switch (C)\n{\ncase Red:\n    Log();\ndefault:\n    break;\n}\n";
+            s = Switch(text, "", colors, ("Red", 0));
+            (at, insert) = EnumSupport.Insertion(text, s, new[] { "Blue" }, "    ");
+            ExpectText(text.Insert(at, insert), "switch (C)\n{\ncase Red:\n    Log();\ndefault:\n    break;\ncase Blue:\n    break;\n}\n", "fall-through into default kept");
+
+            // An empty switch on one line, with the qualifier the engine gave.
+            text = "    switch (C) {}\n";
+            s = Switch(text, "EColor::", colors);
+            (at, insert) = EnumSupport.Insertion(text, s, new[] { "Red" }, "    ");
+            ExpectText(text.Insert(at, insert), "    switch (C) {\n    case EColor::Red:\n        break;\n    }\n", "an empty one-line switch");
         }
 
         private static void ShapeTests()

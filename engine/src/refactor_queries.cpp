@@ -545,14 +545,21 @@ uint32_t withUnit(const char16_t* path, bool wait, F f)
     return f(*holder->unit);
 }
 
-// The innermost if / for / while / do / range-for whose extent in the main file holds `offset`.
-CXCursor statementAt(Unit& unit, unsigned offset)
+bool isBranchOrLoop(CXCursorKind k)
+{
+    return k == CXCursor_IfStmt || k == CXCursor_ForStmt || k == CXCursor_WhileStmt || k == CXCursor_DoStmt || k == CXCursor_CXXForRangeStmt;
+}
+
+// The innermost statement of a kind `accept` takes whose extent in the main file holds `offset`
+// (by default an if / for / while / do / range-for).
+CXCursor statementAt(Unit& unit, unsigned offset, bool (*accept)(CXCursorKind) = isBranchOrLoop)
 {
     struct Ctx {
         CXTranslationUnit tu;
         unsigned offset;
+        bool (*accept)(CXCursorKind);
         CXCursor found;
-    } ctx{unit.tu, offset, clang_getNullCursor()};
+    } ctx{unit.tu, offset, accept, clang_getNullCursor()};
     clang_visitChildren(
         clang_getTranslationUnitCursor(unit.tu),
         [](CXCursor c, CXCursor, CXClientData data) {
@@ -565,8 +572,7 @@ CXCursor statementAt(Unit& unit, unsigned offset)
             clang_getSpellingLocation(clang_getRangeEnd(r), nullptr, nullptr, nullptr, &e);
             if (ctx.offset < s || ctx.offset > e)
                 return CXChildVisit_Continue;
-            const CXCursorKind k = clang_getCursorKind(c);
-            if (k == CXCursor_IfStmt || k == CXCursor_ForStmt || k == CXCursor_WhileStmt || k == CXCursor_DoStmt || k == CXCursor_CXXForRangeStmt)
+            if (ctx.accept(clang_getCursorKind(c)))
                 ctx.found = c;
             return CXChildVisit_Recurse;
         },
@@ -615,9 +621,159 @@ void describeBody(CXTranslationUnit tu, const char16_t* which, CXCursor body, st
     }
 }
 
+CXCursor enumDeclOf(CXType t)
+{
+    t = clang_getCanonicalType(t);
+    return t.kind == CXType_Enum ? clang_getTypeDeclaration(t) : clang_getNullCursor();
+}
+
+// The enum a switch condition is of, looking through implicit conversions (the promotion to int,
+// TEnumAsByte's conversion operator).
+CXCursor conditionEnum(CXCursor e, int depth = 0)
+{
+    const CXCursor d = enumDeclOf(clang_getCursorType(e));
+    if (!clang_Cursor_isNull(d) || depth > 4 || clang_getCursorKind(e) != CXCursor_UnexposedExpr)
+        return d;
+    for (CXCursor child : childrenOf(e)) {
+        const CXCursor r = conditionEnum(child, depth + 1);
+        if (!clang_Cursor_isNull(r))
+            return r;
+    }
+    return clang_getNullCursor();
+}
+
+// "A::B" split into its parts.
+std::vector<std::u16string> scopeParts(const std::u16string& scope)
+{
+    std::vector<std::u16string> parts;
+    for (size_t from = 0; from < scope.size();) {
+        const size_t sep = scope.find(u"::", from);
+        parts.push_back(scope.substr(from, sep == std::u16string::npos ? std::u16string::npos : sep - from));
+        from = sep == std::u16string::npos ? scope.size() : sep + 2;
+    }
+    return parts;
+}
+
+// What to write before an enumerator of `enumDecl` in code inside `context` (a function): its
+// scope (with the enum's name when scoped), less the scopes the code is already in.
+std::u16string enumeratorQualifier(CXCursor enumDecl, CXCursor context)
+{
+    std::vector<std::u16string> parts = scopeParts(qualifiedScope(enumDecl));
+    if (clang_EnumDecl_isScoped(enumDecl))
+        parts.push_back(vx::toUtf16(takeString(clang_getCursorSpelling(enumDecl))));
+    if (!clang_Cursor_isNull(context)) {
+        const std::vector<std::u16string> here = scopeParts(qualifiedScope(context));
+        size_t same = 0;
+        while (same < parts.size() && same < here.size() && parts[same] == here[same])
+            ++same;
+        // An unscoped enum's enumerators live in its enclosing scope: inside it, none is needed.
+        parts.erase(parts.begin(), parts.begin() + static_cast<std::ptrdiff_t>(same));
+    }
+    std::u16string q;
+    for (const std::u16string& p : parts)
+        q += p + u"::";
+    return q;
+}
+
+bool isSwitch(CXCursorKind k)
+{
+    return k == CXCursor_SwitchStmt;
+}
+
+// The case labels of a switch (not of switches nested in it): "case\tvalue\tline\tcolumn\tlabel" and
+// "default\tline\tcolumn".
+void describeCases(CXTranslationUnit tu, CXCursor body, std::u16string& out)
+{
+    struct Ctx {
+        CXTranslationUnit tu;
+        std::u16string* out;
+    } ctx{tu, &out};
+    clang_visitChildren(
+        body,
+        [](CXCursor c, CXCursor, CXClientData data) {
+            auto& ctx = *static_cast<Ctx*>(data);
+            const CXCursorKind k = clang_getCursorKind(c);
+            if (k == CXCursor_SwitchStmt)
+                return CXChildVisit_Continue;
+            if (k == CXCursor_DefaultStmt) {
+                *ctx.out += u"default\t" + where(locate(ctx.tu, clang_getRangeStart(extentOf(ctx.tu, c)))) + u"\n";
+            } else if (k == CXCursor_CaseStmt) {
+                const std::vector<CXCursor> parts = childrenOf(c);
+                if (!parts.empty()) {
+                    long long value = 0;
+                    bool known = false;
+                    if (CXEvalResult r = clang_Cursor_Evaluate(parts[0])) {
+                        if (clang_EvalResult_getKind(r) == CXEval_Int) {
+                            value = clang_EvalResult_getAsLongLong(r);
+                            known = true;
+                        }
+                        clang_EvalResult_dispose(r);
+                    }
+                    if (!known) {
+                        const CXCursor ref = clang_getCursorReferenced(parts[0]);
+                        if (clang_getCursorKind(ref) == CXCursor_EnumConstantDecl) {
+                            value = clang_getEnumConstantDeclValue(ref);
+                            known = true;
+                        }
+                    }
+                    const Source s = sourceOf(ctx.tu, extentOf(ctx.tu, parts[0]));
+                    const Pos at = locate(ctx.tu, clang_getRangeStart(extentOf(ctx.tu, c)));
+                    if (known && at.valid)
+                        *ctx.out += u"case\t" + vx::toUtf16(std::to_string(value)) + u"\t" + num(at.line) + u"\t" + num(at.column) + u"\t" +
+                                    vx::toUtf16(collapse(s.slice(s.start, s.end))) + u"\n";
+                }
+            }
+            return CXChildVisit_Recurse; // "case A: case B:" nests the second in the first
+        },
+        &ctx);
+}
+
 } // namespace
 
 extern "C" {
+
+VX_API uint32_t VX_CALL vx_switch_at(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out, uint32_t cap)
+{
+    if (line == 0 || column == 0)
+        return 0;
+    return withUnit(path, wait != 0, [&](Unit& unit) -> uint32_t {
+        unsigned offset = 0;
+        cursorAt(unit, line, column, &offset);
+        const CXCursor sw = statementAt(unit, offset, isSwitch);
+        if (clang_Cursor_isNull(sw))
+            return 0;
+        CXTranslationUnit tu = unit.tu;
+        const std::vector<CXCursor> children = childrenOf(sw);
+        if (children.empty() || clang_getCursorKind(children.back()) != CXCursor_CompoundStmt)
+            return 0;
+        const CXCursor body = children.back();
+        CXCursor enumDecl = clang_getNullCursor();
+        for (size_t i = 0; i + 1 < children.size() && clang_Cursor_isNull(enumDecl); ++i)
+            if (clang_isExpression(clang_getCursorKind(children[i])))
+                enumDecl = conditionEnum(children[i]);
+        std::u16string result;
+        addRange(result, u"switch", tu, clang_getRangeStart(extentOf(tu, sw)), clang_getRangeEnd(extentOf(tu, sw)));
+        addRange(result, u"body", tu, clang_getRangeStart(extentOf(tu, body)), clang_getRangeEnd(extentOf(tu, body)));
+        if (!clang_Cursor_isNull(enumDecl)) {
+            enumDecl = clang_getCursorDefinition(enumDecl);
+            if (clang_Cursor_isNull(enumDecl))
+                return 0; // declared ahead only: its enumerators are unknown here
+            const Pos declared = locate(tu, locationOf(tu, enumDecl));
+            result += u"enum\t" + vx::toUtf16(takeString(clang_getCursorSpelling(enumDecl))) + u"\t" +
+                      (clang_EnumDecl_isScoped(enumDecl) ? u"1" : u"0") + u"\t" + enumeratorQualifier(enumDecl, enclosing(unit, offset, true)) +
+                      u"\t" + declared.path + u"\n";
+            for (CXCursor e : childrenOf(enumDecl)) {
+                if (clang_getCursorKind(e) != CXCursor_EnumConstantDecl)
+                    continue;
+                const Pos p = locate(tu, locationOf(tu, e));
+                result += u"enumerator\t" + vx::toUtf16(takeString(clang_getCursorSpelling(e))) + u"\t" +
+                          vx::toUtf16(std::to_string(clang_getEnumConstantDeclValue(e))) + u"\t" + num(p.line) + u"\n";
+            }
+        }
+        describeCases(tu, body, result);
+        return writeOut(result, out, cap);
+    });
+}
 
 VX_API uint32_t VX_CALL vx_statement_at(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
                                         uint32_t cap)

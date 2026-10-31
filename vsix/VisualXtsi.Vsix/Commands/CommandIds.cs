@@ -35,6 +35,7 @@ namespace VisualXtsi.Commands
         public const int RefactorAtCaret = 0x020C;
         public const int EditSnippets = 0x020D;
         public const int SurroundWithAtCaret = 0x020E;
+        public const int AddMissingCases = 0x020F;
         public const int SurroundSnippetFirst = 0x0400; // a dynamic list of SurroundSnippetSlots items
         public const int SurroundSnippetSlots = 128;
 

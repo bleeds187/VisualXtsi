@@ -40,6 +40,7 @@ namespace VisualXtsi.Options
             new CommandInfo { Name = "VisualXtsi.Refactor.DocumentMethod", Label = "Document Method", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.EncapsulateField", Label = "Encapsulate Field", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.AddRemoveBraces", Label = "Add/Remove Braces", Defaults = new string[0] },
+            new CommandInfo { Name = "VisualXtsi.Refactor.AddMissingCaseStatements", Label = "Add Missing Case Statements", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.SurroundWith", Label = "Surround With (menu at the caret)", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.EditSnippets", Label = "Edit Snippets", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.RebuildSymbolIndex", Label = "Rebuild Symbol Index", Defaults = new string[0] },
