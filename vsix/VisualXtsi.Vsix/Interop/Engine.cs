@@ -267,6 +267,9 @@ namespace VisualXtsi.Interop
         /// <summary>Starts a Find References search for the declaration at a position (0: nothing there).</summary>
         public static uint ReferencesStart(string path, int line, int column) => vx_references_start(path, (uint)line, (uint)column);
 
+        /// <summary>A search for the whole-word occurrences of a word (outside the engine), reported confirmed when asked.</summary>
+        public static uint ReferencesStartWord(string word, bool confirmed) => vx_references_start_word(word, confirmed ? 1u : 0u);
+
         /// <summary>(name, usr, label) of what a search looks for.</summary>
         public static (string Name, string Usr, string Label) ReferencesTarget(uint job)
         {
@@ -427,6 +430,9 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_references_start(string path, uint line, uint column);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_references_start_word(string word, uint confirmed);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_references_target(uint job, [Out] char[] output, uint cap);

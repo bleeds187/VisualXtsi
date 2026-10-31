@@ -34,8 +34,43 @@ namespace VisualXtsi.Tests
             SnippetTests();
             CodeGenTests();
             TextScanTests();
+            RenameTests();
             Console.WriteLine(_failures == 0 ? "all tests passed" : $"{_failures} failures");
             return _failures == 0 ? 0 : 1;
+        }
+
+        private static void RenameTests()
+        {
+            Expect(RenameSupport.Validate("NewName", "Old") == null, "a valid name");
+            Expect(RenameSupport.Validate("Old", "Old") != null && RenameSupport.Validate("1x", "Old") != null &&
+                   RenameSupport.Validate("a-b", "Old") != null && RenameSupport.Validate("class", "Old") != null &&
+                   RenameSupport.Validate(" ", "Old") != null, "invalid names have reasons");
+
+            string header = "UCLASS(Blueprintable)\nclass GAME_API UThing : public UObject\n{\n\tGENERATED_BODY()\n\n\t/** The speed. */\n" +
+                            "\tUPROPERTY(EditAnywhere,\n\t\tCategory = \"Move\")\n\tfloat Speed;\n\n\tvoid Plain();\n\tUFUNCTION() void Inline();\n};";
+            Expect(RenameSupport.ReflectionMacro(header, header.IndexOf("class GAME_API")) == "UCLASS", "UCLASS above a class");
+            Expect(RenameSupport.ReflectionMacro(header, header.IndexOf("float Speed")) == "UPROPERTY", "a multi-line UPROPERTY above a field");
+            Expect(RenameSupport.ReflectionMacro(header, header.IndexOf("void Plain")) == null, "no macro above a plain method");
+            Expect(RenameSupport.ReflectionMacro(header, header.IndexOf("void Inline")) == "UFUNCTION", "UFUNCTION on the same line");
+
+            ExpectText(RenameSupport.CoreRedirect("UCLASS", "Game", null, "UThing", "UGizmo"),
+                       "+ClassRedirects=(OldName=\"/Script/Game.Thing\",NewName=\"/Script/Game.Gizmo\")", "class redirect without the prefix");
+            ExpectText(RenameSupport.CoreRedirect("USTRUCT", "Game", null, "FPart", "FPiece"),
+                       "+StructRedirects=(OldName=\"/Script/Game.Part\",NewName=\"/Script/Game.Piece\")", "struct redirect");
+            ExpectText(RenameSupport.CoreRedirect("UENUM", "Game", null, "EMode", "EState"),
+                       "+EnumRedirects=(OldName=\"/Script/Game.EMode\",NewName=\"/Script/Game.EState\")", "enum redirect keeps E");
+            ExpectText(RenameSupport.CoreRedirect("UPROPERTY", "Game", "AThing", "Speed", "Velocity"),
+                       "+PropertyRedirects=(OldName=\"/Script/Game.Thing.Speed\",NewName=\"Velocity\")", "property redirect");
+            ExpectText(RenameSupport.CoreRedirect("UFUNCTION", "Game", "UThing", "Run", "Go"),
+                       "+FunctionRedirects=(OldName=\"/Script/Game.Thing.Run\",NewName=\"Go\")", "function redirect");
+            Expect(RenameSupport.ObjectName("Usage") == "Usage" && RenameSupport.ObjectName("UThing") == "Thing", "prefix only before a capital");
+
+            string ini = "[/Script/Engine.Engine]\r\nX=1\r\n\r\n[CoreRedirects]\r\n+ClassRedirects=(A)\r\n\r\n[Other]\r\nY=2\r\n";
+            var (at, text) = RenameSupport.InsertRedirect(ini, "+B");
+            ExpectText(ini.Insert(at, text), "[/Script/Engine.Engine]\r\nX=1\r\n\r\n[CoreRedirects]\r\n+ClassRedirects=(A)\r\n+B\r\n\r\n[Other]\r\nY=2\r\n",
+                       "redirect appended to the [CoreRedirects] section");
+            (at, text) = RenameSupport.InsertRedirect("[A]\nX=1\n", "+B");
+            ExpectText("[A]\nX=1\n".Insert(at, text), "[A]\nX=1\n\n[CoreRedirects]\n+B\n", "a new [CoreRedirects] section");
         }
 
         private static void CodeGenTests()

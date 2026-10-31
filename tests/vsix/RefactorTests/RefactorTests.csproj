@@ -18,6 +18,7 @@
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\Snippets.cs" Link="Snippets.cs" />
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\TextScan.cs" Link="TextScan.cs" />
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\CodeGen.cs" Link="CodeGen.cs" />
+    <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\RenameSupport.cs" Link="RenameSupport.cs" />
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Interop\CursorInfo.cs" Link="CursorInfo.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Program.cs" />

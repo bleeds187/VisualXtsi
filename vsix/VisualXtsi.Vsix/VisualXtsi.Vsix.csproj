@@ -77,6 +77,8 @@
     <Compile Include="Refactoring\RefactorContext.cs" />
     <Compile Include="Refactoring\ImplementationRefactorings.cs" />
     <Compile Include="Refactoring\FindReferences.cs" />
+    <Compile Include="Refactoring\Rename.cs" />
+    <Compile Include="Refactoring\RenameSupport.cs" />
     <Compile Include="UI\ReferencesToolWindow.cs" />
     <Compile Include="Interop\CursorInfo.cs" />
     <Compile Include="UI\RefactorPreviewDialog.cs" />

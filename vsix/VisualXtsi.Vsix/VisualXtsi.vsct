@@ -185,6 +185,18 @@
           <LocCanonicalName>.VisualXtsi.Refactor.FindReferences</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidRename" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorFindGroup" />
+        <Icon guid="ImageCatalogGuid" id="Rename" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>&amp;Rename...</ButtonText>
+          <ToolTipText>Rename the symbol at the caret everywhere it is used, after a preview</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.Rename</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.Rename</LocCanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidCreateImplementation" priority="0x0100" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
         <Icon guid="ImageCatalogGuid" id="AddMethod" />
@@ -423,6 +435,7 @@
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" editor="guidTextEditor" key1="G" mod1="Alt" />
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidRefactorAtCaret" editor="guidTextEditor" key1="Q" mod1="Alt Shift" />
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidFindReferences" editor="guidTextEditor" key1="F" mod1="Alt Shift" />
+    <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidRename" editor="guidTextEditor" key1="R" mod1="Alt Shift" />
   </KeyBindings>
 
   <Symbols>
@@ -456,6 +469,7 @@
       <IDSymbol name="RefactorFindGroup" value="0x100E" />
       <IDSymbol name="RefactorCreateGroup" value="0x100F" />
       <IDSymbol name="cmdidFindReferences" value="0x0200" />
+      <IDSymbol name="cmdidRename" value="0x0201" />
       <IDSymbol name="cmdidCreateImplementation" value="0x0202" />
       <IDSymbol name="cmdidCreateDeclaration" value="0x0203" />
       <IDSymbol name="cmdidCreateMethodImplementations" value="0x0204" />

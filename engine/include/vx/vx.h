@@ -268,8 +268,13 @@ VX_API uint32_t VX_CALL vx_cursor_info(const char16_t* path, uint32_t line, uint
  * files, searched in the background. Returns a job id (0: nothing to search for there). A
  * whole-word scan picks the candidate files (the engine's only for a declaration in the engine;
  * only its own file for a local or file-static one); each is parsed (an open file's unit is used
- * as is) and every token with the name is confirmed by the USR of what it refers to. */
+ * as is) and every token with the name is confirmed by the USR of what it refers to (or for a virtual
+ * method, by overriding it). */
 VX_API uint32_t VX_CALL vx_references_start(const char16_t* path, uint32_t line, uint32_t column);
+/* The whole-word occurrences of `word` in the indexed C/C++ files outside the engine (the editor's
+ * text for open files), reported as confirmed when `confirmed` is 1; a job like vx_references_start's.
+ * For names with no declaration to start from (Name_Implementation of an Unreal native event). */
+VX_API uint32_t VX_CALL vx_references_start_word(const char16_t* word, uint32_t confirmed);
 /* "name\tusr\tlabel" of what is searched for. */
 VX_API uint32_t VX_CALL vx_references_target(uint32_t job, char16_t* out, uint32_t cap);
 /* Files searched so far, of how many; finished is 1 once done or cancelled. */

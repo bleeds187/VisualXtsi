@@ -42,6 +42,8 @@ struct Job {
     std::u16string label; // "UThing::Run (method)"
     std::vector<std::string> scopes; // the names of its enclosing scopes ("UThing")
     bool macro = false;
+    bool lexical = false;            // whole-word occurrences only (vx_references_start_word)
+    bool lexicalConfirmed = false;   // ...reported as confirmed
     std::vector<std::wstring> files;
     std::atomic<size_t> next{0};
     std::atomic<uint32_t> done{0};
@@ -150,13 +152,13 @@ void place(const char* text, size_t size, size_t offset, Reference& r)
     r.text = vx::toUtf16(lineText);
 }
 
-void addUnconfirmed(Job& job, const std::wstring& path, const std::string& bytes)
+void addUnconfirmed(Job& job, const std::wstring& path, const std::string& bytes, bool confirmed = false)
 {
     std::vector<Reference> found;
     for (size_t at : wordHits(bytes, job.name)) {
         Reference r;
         r.path = std::u16string(path.begin(), path.end());
-        r.confirmed = false;
+        r.confirmed = confirmed;
         place(bytes.data(), bytes.size(), at, r);
         found.push_back(std::move(r));
     }
@@ -164,8 +166,22 @@ void addUnconfirmed(Job& job, const std::wstring& path, const std::string& bytes
     job.refs.insert(job.refs.end(), found.begin(), found.end());
 }
 
+// Whether a method overrides (directly or further down) the one with `usr`.
+bool overrides(CXCursor method, const std::string& usr, int depth = 0)
+{
+    CXCursor* overridden = nullptr;
+    unsigned count = 0;
+    clang_getOverriddenCursors(method, &overridden, &count);
+    bool found = false;
+    for (unsigned i = 0; i < count && !found; ++i)
+        found = takeString(clang_getCursorUSR(overridden[i])) == usr || (depth < 16 && overrides(overridden[i], usr, depth + 1));
+    clang_disposeOverriddenCursors(overridden);
+    return found;
+}
+
 // Whether a cursor names the target: its referenced declaration (or itself, for a declaration) has
-// the target's USR. Unknown when the parser could not place the token.
+// the target's USR, or overrides the target (a virtual method's overrides are renamed with it).
+// Unknown when the parser could not place the token.
 enum class Match { Yes, No, Unknown };
 
 Match matches(const Job& job, CXCursor c)
@@ -188,7 +204,31 @@ Match matches(const Job& job, CXCursor c)
     const CXCursor ref = clang_isDeclaration(kind) ? c : clang_getCursorReferenced(c);
     if (clang_Cursor_isNull(ref) || clang_isInvalid(clang_getCursorKind(ref)))
         return Match::Unknown;
-    return takeString(clang_getCursorUSR(ref)) == job.usr ? Match::Yes : Match::No;
+    if (takeString(clang_getCursorUSR(ref)) == job.usr)
+        return Match::Yes;
+    return clang_getCursorKind(ref) == CXCursor_CXXMethod && overrides(ref, job.usr) ? Match::Yes : Match::No;
+}
+
+const char16_t* kindLabel(CXCursorKind k)
+{
+    switch (k) {
+    case CXCursor_FunctionDecl: case CXCursor_FunctionTemplate: return u"function";
+    case CXCursor_CXXMethod: case CXCursor_ConversionFunction: return u"method";
+    case CXCursor_Constructor: return u"constructor";
+    case CXCursor_Destructor: return u"destructor";
+    case CXCursor_FieldDecl: return u"field";
+    case CXCursor_VarDecl: return u"variable";
+    case CXCursor_ParmDecl: return u"parameter";
+    case CXCursor_ClassDecl: case CXCursor_ClassTemplate: return u"class";
+    case CXCursor_StructDecl: return u"struct";
+    case CXCursor_UnionDecl: return u"union";
+    case CXCursor_EnumDecl: return u"enum";
+    case CXCursor_EnumConstantDecl: return u"enumerator";
+    case CXCursor_TypedefDecl: case CXCursor_TypeAliasDecl: return u"type alias";
+    case CXCursor_Namespace: return u"namespace";
+    case CXCursor_MacroDefinition: return u"macro";
+    default: return u"symbol";
+    }
 }
 
 bool isWrite(const std::vector<std::string>& spellings, size_t i)
@@ -260,6 +300,16 @@ bool annotate(Job& job, CXTranslationUnit tu, const std::string& path8, const st
 void searchFile(Job& job, CXIndex& index, const std::wstring& path)
 {
     const std::string path8 = vx::toUtf8(std::u16string(path.begin(), path.end()));
+    if (job.lexical) { // the editor's text of an open file, else the file
+        std::string text;
+        if (std::shared_ptr<Slot> slot = findSlot(path8, false)) {
+            std::lock_guard lock(slot->mutex);
+            if (slot->unit)
+                text = vx::toUtf8(slot->unit->text);
+        }
+        addUnconfirmed(job, path, text.empty() ? readBytes(path) : text, job.lexicalConfirmed);
+        return;
+    }
     // An open file: its own translation unit (with the editor's unsaved text).
     if (std::shared_ptr<Slot> slot = findSlot(path8, false)) {
         std::lock_guard lock(slot->mutex);
@@ -375,7 +425,7 @@ VX_API uint32_t VX_CALL vx_references_start(const char16_t* path, uint32_t line,
             from = sep == std::u16string::npos ? scope.size() : sep + 2;
         }
         job->label = (scope.empty() ? u"" : scope + u"::") + vx::toUtf16(takeString(clang_getCursorSpelling(target))) + u" (" +
-                     vx::toUtf16(takeString(clang_getCursorKindSpelling(clang_getCursorKind(target)))) + u")";
+                     kindLabel(clang_getCursorKind(target)) + u")";
         CXFile file = nullptr;
         clang_getSpellingLocation(clang_getCursorLocation(target), &file, nullptr, nullptr, nullptr);
         if (file) {
@@ -400,6 +450,31 @@ VX_API uint32_t VX_CALL vx_references_start(const char16_t* path, uint32_t line,
         }
     }
     job->files = std::move(files);
+    const unsigned workers = std::max(1u, std::min(6u, std::thread::hardware_concurrency() / 2));
+    job->running = static_cast<int>(workers);
+    for (unsigned i = 0; i < workers; ++i)
+        job->workers.emplace_back(work, job.get());
+    std::lock_guard lock(g_jobsMutex);
+    const uint32_t id = g_nextJob++;
+    g_jobs[id] = job;
+    return id;
+}
+
+VX_API uint32_t VX_CALL vx_references_start_word(const char16_t* word, uint32_t confirmed)
+{
+    if (!word || !*word)
+        return 0;
+    auto job = std::make_shared<Job>();
+    job->name = vx::toUtf8(word);
+    job->usr = job->name;
+    job->label = std::u16string(word) + u" (text)";
+    job->lexical = true;
+    job->lexicalConfirmed = confirmed != 0;
+    for (const std::wstring& f : vx::files::all()) {
+        const std::wstring n = fs::path(f).lexically_normal().wstring();
+        if (isCpp(n) && !isEngine(n))
+            job->files.push_back(n);
+    }
     const unsigned workers = std::max(1u, std::min(6u, std::thread::hardware_concurrency() / 2));
     job->running = static_cast<int>(workers);
     for (unsigned i = 0; i < workers; ++i)

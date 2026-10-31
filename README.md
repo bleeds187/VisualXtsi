@@ -173,6 +173,13 @@ to several files are one undo step together, and files it had to open stay open 
   to, so same-named symbols are left out. Occurrences the parser cannot place (in files it cannot
   parse, or in macro arguments it does not map) are listed apart as possible matches. Results
   appear as they are found, with progress and Cancel. C# uses Roslyn.
+- Rename... (Shift+Alt+R): renames every reference Find References confirms, overrides of a
+  virtual method included, after a preview where possible matches start unchecked. Unreal: a
+  BlueprintNativeEvent or RPC's Name_Implementation and Name_Validate are renamed along; renaming
+  a reflected name (UCLASS, USTRUCT, UENUM, UINTERFACE, UPROPERTY, UFUNCTION) warns that assets
+  refer to it and offers, unchecked, the [CoreRedirects] line for Config/DefaultEngine.ini
+  (+ClassRedirects, +StructRedirects, +EnumRedirects, +PropertyRedirects, +FunctionRedirects, with
+  the module and the class without its prefix). In C# it is Visual Studio's own rename (Roslyn).
 - Create Implementation (on a declaration): the definition stub goes into the source file, next
   to the definitions of the methods declared around it (after the one before, else before the
   one after, else at the end, fully qualified), without default arguments, virtual, static,

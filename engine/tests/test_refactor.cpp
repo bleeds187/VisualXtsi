@@ -237,6 +237,33 @@ int main()
         expect(std::u16string(target).find(u"UGadget::Count") != std::u16string::npos, "references: the target's label");
         vx_references_free(job);
     }
+    // Overrides are found with the virtual method they override; the word search finds text.
+    {
+        const std::u16string core = kDir + u"FakeCore.h";
+        auto collect = [](uint32_t job) {
+            uint32_t done = 0, total = 0, finished = 0;
+            for (int t = 0; t < 600 && !finished; ++t) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                vx_references_progress(job, &done, &total, &finished);
+            }
+            std::vector<char16_t> buf(1 << 16);
+            uint32_t n = vx_references_results(job, 0, buf.data(), static_cast<uint32_t>(buf.size()));
+            std::string all;
+            for (uint32_t k = 0; k < n && k < buf.size(); ++k)
+                all.push_back(buf[k] == 0 ? '\n' : buf[k] < 0x80 ? static_cast<char>(buf[k]) : '?');
+            vx_references_free(job);
+            return all;
+        };
+        vx_parse(core.c_str(), nullptr, 0, nullptr, nullptr, 0);
+        std::string refs = collect(vx_references_start(core.c_str(), 34, 17)); // UObject::Score
+        expect(refs.find("Gadget.h\t36\t17\tdeclaration\t1") != std::string::npos, "references: an override with its virtual method");
+        if (refs.find("Gadget.h\t36\t17") == std::string::npos)
+            std::printf("%s\n", refs.c_str());
+        vx_release(core.c_str());
+        std::string words = collect(vx_references_start_word(u"GetSettings", 1));
+        expect(words.find("Gadget.h\t27\t") != std::string::npos && words.find("Gadget.cpp\t8\t") != std::string::npos,
+               "word search: every whole-word occurrence");
+    }
     vx_index_reset();
 
     vx_release((kDir + u"Gadget.h").c_str());

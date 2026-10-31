@@ -28,6 +28,7 @@ namespace VisualXtsi.Options
             new CommandInfo { Name = "VisualXtsi.FindSymbolInSolution", Label = "Find Symbol in Solution", Defaults = new[] { "Global::Shift+Alt+S" } },
             new CommandInfo { Name = "VisualXtsi.GoToDefinition", Label = "Go to Definition", Defaults = new[] { "Text Editor::Alt+G" } },
             new CommandInfo { Name = "VisualXtsi.Refactor.FindReferences", Label = "Find References", Defaults = new[] { "Text Editor::Shift+Alt+F" } },
+            new CommandInfo { Name = "VisualXtsi.Refactor.Rename", Label = "Rename", Defaults = new[] { "Text Editor::Shift+Alt+R" } },
             new CommandInfo { Name = "VisualXtsi.Refactor.MenuAtCaret", Label = "Refactor menu at the caret", Defaults = new[] { "Text Editor::Shift+Alt+Q" } },
             new CommandInfo { Name = "VisualXtsi.Refactor.CreateImplementation", Label = "Create Implementation", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.CreateMethodImplementations", Label = "Create Method Implementations", Defaults = new string[0] },
