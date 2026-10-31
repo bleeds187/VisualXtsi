@@ -42,6 +42,7 @@ struct Symbol {
 enum UeSplit : uint8_t {
     UeImplementation = 1,
     UeValidate = 2,
+    UeGenerated = 4, // BlueprintImplementableEvent: UnrealHeaderTool writes the body
 };
 
 // Declarations in one file, found lexically (no preprocessing, no includes): fast enough to

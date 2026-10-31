@@ -121,7 +121,7 @@ namespace VisualXtsi.Interop
     internal static class Engine
     {
         private const string Dll = "vxengine.dll";
-        private const uint ExpectedAbiVersion = 15;
+        private const uint ExpectedAbiVersion = 16;
 
         static Engine()
         {
@@ -240,6 +240,30 @@ namespace VisualXtsi.Interop
         }
 
         /// <summary>Header for a source or source for a header, best first. Touches the disk: background thread.</summary>
+        /// <summary>The declaration at a position of an open, parsed file (null: nothing, or not parsed). <paramref name="wait"/> waits for a parse in progress.</summary>
+        public static CursorInfo CursorInfo(string path, int line, int column, bool wait)
+        {
+            string[] text = SplitStrings((buffer, cap) => vx_cursor_info(path, (uint)line, (uint)column, wait ? 1u : 0u, buffer, cap));
+            return text.Length == 0 ? null : Interop.CursorInfo.Parse(text[0]);
+        }
+
+        /// <summary>The methods of the class at a position: its qualified name, then (name, line, column, defined inline) in declaration order.</summary>
+        public static (string Class, List<(string Name, int Line, int Column, bool Inline)> Methods) ClassMembers(string path, int line, int column, bool wait)
+        {
+            string[] text = SplitStrings((buffer, cap) => vx_class_members(path, (uint)line, (uint)column, wait ? 1u : 0u, buffer, cap));
+            var methods = new List<(string, int, int, bool)>();
+            string cls = null;
+            foreach (string record in text.Length == 0 ? Array.Empty<string>() : text[0].Split('\n'))
+            {
+                string[] f = record.Split('\t');
+                if (f[0] == "class" && f.Length > 1)
+                    cls = f[1];
+                else if (f[0] == "method" && f.Length >= 5)
+                    methods.Add((f[1], int.Parse(f[2]), int.Parse(f[3]), f[4] == "1"));
+            }
+            return (cls, methods);
+        }
+
         public static string[] Counterparts(string path)
         {
             return SplitStrings((buffer, cap) => vx_counterparts(path, buffer, cap));
@@ -357,6 +381,12 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_counterparts(string path, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_cursor_info(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_class_members(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern void vx_index_add_root(string dir);

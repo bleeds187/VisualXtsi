@@ -92,6 +92,8 @@ uint8_t ueSplit(const std::vector<Tok>& t)
                 flags |= UeImplementation;
             else if (is(t[k], u"WithValidation"))
                 flags |= UeValidate;
+            else if (is(t[k], u"BlueprintImplementableEvent"))
+                flags |= UeGenerated;
         }
         return flags;
     }

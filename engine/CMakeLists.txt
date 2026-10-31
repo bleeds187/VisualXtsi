@@ -48,7 +48,7 @@ target_include_directories(vxengine PUBLIC include PRIVATE src)
 target_compile_definitions(vxengine PRIVATE VX_BUILDING_ENGINE)
 
 if(VX_HAVE_LIBCLANG)
-  target_sources(vxengine PRIVATE src/clang_session.cpp src/module_pch.cpp src/semantic_tokens.cpp)
+  target_sources(vxengine PRIVATE src/clang_session.cpp src/module_pch.cpp src/refactor_queries.cpp src/semantic_tokens.cpp)
   target_include_directories(vxengine PRIVATE "${VX_LLVM_ROOT_PATH}/include")
   # Delay-loaded so lexical classification works even when libclang.dll is missing.
   target_link_libraries(vxengine PRIVATE "${VX_LLVM_ROOT_PATH}/lib/libclang.lib" delayimp)
@@ -101,6 +101,11 @@ if(VX_HAVE_LIBCLANG)
   target_compile_definitions(vxengine_clang_tests PRIVATE VX_SAMPLES_DIR=u"${CMAKE_CURRENT_SOURCE_DIR}/../tests/samples"
                              VX_TEST_PCH_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-pch")
   add_test(NAME vxengine_clang_tests COMMAND vxengine_clang_tests)
+
+  add_executable(vxengine_refactor_tests tests/test_refactor.cpp)
+  target_link_libraries(vxengine_refactor_tests PRIVATE vxengine)
+  target_compile_definitions(vxengine_refactor_tests PRIVATE VX_SAMPLES_DIR=u"${CMAKE_CURRENT_SOURCE_DIR}/../tests/samples")
+  add_test(NAME vxengine_refactor_tests COMMAND vxengine_refactor_tests)
 
   add_executable(vxcli tools/vxcli.cpp)
   target_link_libraries(vxcli PRIVATE vxengine)

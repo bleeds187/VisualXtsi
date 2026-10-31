@@ -22,6 +22,17 @@ namespace VisualXtsi.Commands
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             RegisterSurroundItems(commands);
+            AddRefactoring(commands, CommandIds.CreateImplementation, ImplementationRefactorings.CreateImplementationAsync, ImplementationRefactorings.CanCreateImplementation);
+            AddRefactoring(commands, CommandIds.CreateMethodImplementations, ImplementationRefactorings.CreateMethodImplementationsAsync, ImplementationRefactorings.CanCreateMethodImplementations);
+            AddRefactoring(commands, CommandIds.CreateDeclaration, ImplementationRefactorings.CreateDeclarationAsync, ImplementationRefactorings.CanCreateDeclaration);
+            AddRefactoring(commands, CommandIds.MoveToSource, ImplementationRefactorings.MoveToSourceAsync, ImplementationRefactorings.CanMoveToSource);
+            AddRefactoring(commands, CommandIds.MoveToHeader, ImplementationRefactorings.MoveToHeaderAsync, ImplementationRefactorings.CanMoveToHeader);
+            EditorCommands.Add(commands, CommandIds.RefactorAtCaret, () => ShowMenuAtCaret(CommandIds.RefactorPopup),
+                () =>
+                {
+                    ThreadHelper.ThrowIfNotOnUIThread();
+                    return EditorCommands.VisualXtsiEnabled && EditorCommands.ActiveSourceDocument(package) != null;
+                });
             EditorCommands.Add(commands, CommandIds.EditSnippets, () =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
@@ -35,7 +46,7 @@ namespace VisualXtsi.Commands
                 string name = ((e as OleMenuCmdEventArgs)?.InValue as string)?.Trim();
                 if (string.IsNullOrEmpty(name))
                 {
-                    ShowMenuAtCaret(CommandIds.SurroundMenu);
+                    ShowMenuAtCaret(CommandIds.SurroundPopup);
                     return;
                 }
                 IWpfTextView view = GoToDefinitionCommand.ActiveView();
@@ -54,6 +65,20 @@ namespace VisualXtsi.Commands
                 surround.Enabled = EditorCommands.VisualXtsiEnabled && LanguageOf(EditorCommands.ActiveSourceDocument(package)) != null;
             };
             commands.AddCommand(surround);
+        }
+
+        // A C/C++ refactoring: enabled where it applies at the caret (by the last parse), run on the UI thread.
+        private static void AddRefactoring(OleMenuCommandService commands, int id, Func<System.Threading.Tasks.Task> run, Func<RefactorContext, bool> applies)
+        {
+            EditorCommands.Add(commands, id, async () =>
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                await run();
+            }, () =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                return EditorCommands.VisualXtsiEnabled && applies(RefactorContext.Peek());
+            });
         }
 
         /// <summary>"cpp" or "csharp" for a source file, else null.</summary>
@@ -125,7 +150,9 @@ namespace VisualXtsi.Commands
             Point screen = view.VisualElement.PointToScreen(local);
             var points = new[] { new POINTS { x = (short)screen.X, y = (short)screen.Y } };
             Guid group = CommandIds.CommandSet;
-            shell.ShowContextMenu(0, ref group, menuId, points, null);
+            int hr = shell.ShowContextMenu(0, ref group, menuId, points, null);
+            if (hr != Microsoft.VisualStudio.VSConstants.S_OK)
+                Log.Write($"Showing menu 0x{menuId:X} at the caret failed: 0x{hr:X8}");
         }
 
         /// <summary>An item of a dynamic item list: one command answering for a range of ids.</summary>

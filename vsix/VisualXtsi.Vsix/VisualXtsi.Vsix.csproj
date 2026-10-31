@@ -71,6 +71,13 @@
     <Compile Include="Commands\ToolCommands.cs" />
     <Compile Include="Commands\RefactorCommands.cs" />
     <Compile Include="Refactoring\Snippets.cs" />
+    <Compile Include="Refactoring\TextScan.cs" />
+    <Compile Include="Refactoring\CodeGen.cs" />
+    <Compile Include="Refactoring\Documents.cs" />
+    <Compile Include="Refactoring\RefactorContext.cs" />
+    <Compile Include="Refactoring\ImplementationRefactorings.cs" />
+    <Compile Include="Interop\CursorInfo.cs" />
+    <Compile Include="UI\RefactorPreviewDialog.cs" />
     <Compile Include="Refactoring\SurroundWith.cs" />
     <Compile Include="Interop\Engine.cs" />
     <Compile Include="Log.cs" />

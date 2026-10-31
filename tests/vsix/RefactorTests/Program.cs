@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using VisualXtsi.Interop;
 using VisualXtsi.Refactoring;
 
 namespace VisualXtsi.Tests
@@ -31,8 +32,66 @@ namespace VisualXtsi.Tests
         private static int Main()
         {
             SnippetTests();
+            CodeGenTests();
+            TextScanTests();
             Console.WriteLine(_failures == 0 ? "all tests passed" : $"{_failures} failures");
             return _failures == 0 ? 0 : 1;
+        }
+
+        private static void CodeGenTests()
+        {
+            // As the engine describes UGadget::GetSettings (a BlueprintNativeEvent here, WithValidation too).
+            CursorInfo f = CursorInfo.Parse(string.Join("\n",
+                "kind\tmethod", "name\tGetSettings", "scope\tGame::UGadget", "classes\tUGadget", "namespaces\tGame",
+                "result\tUGadget::FSettings", "param\tint32 Index\tIndex", "param\tconst FString& Name\tName", "qualifiers\tconst",
+                "virtual\t1", "ue\t3", "decl\tC:/P/Gadget.h\t27\t23\t27\t80", "class\tC:/P/Gadget.h\t15\t1\t41\t2"));
+            Expect(f != null && f.IsFunction && f.IsMember && f.Parameters.Count == 2 && f.Parameters[1].Name == "Name" &&
+                   f.Declaration.Path == @"C:\P\Gadget.h" && f.Declaration.Line == 27 && f.Class.EndLine == 41, "cursor info parsed");
+            ExpectText(CodeGen.Qualifier(f, false), "UGadget::", "qualifier: classes");
+            ExpectText(CodeGen.Qualifier(f, true), "Game::UGadget::", "qualifier: with namespaces");
+            var defs = CodeGen.Definitions(f, "UGadget::", "\t", "\n");
+            Expect(defs.Count == 2, "BlueprintNativeEvent + WithValidation: two definitions");
+            ExpectText(defs[0].Text, "UGadget::FSettings UGadget::GetSettings_Implementation(int32 Index, const FString& Name) const\n{\n}", "_Implementation stub");
+            ExpectText(defs[1].Text, "bool UGadget::GetSettings_Validate(int32 Index, const FString& Name)\n{\n\treturn true;\n}", "_Validate stub");
+            CursorInfo ptr = CursorInfo.Parse("kind\tfunction\nname\tMake\nresult\tUGadget*\nparam\tint32& Count\tCount");
+            ExpectText(CodeGen.Definitions(ptr, "", "\t", "\r\n")[0].Text, "UGadget* Make(int32& Count)\r\n{\r\n}", "pointer result, CRLF");
+            CursorInfo ctor = CursorInfo.Parse("kind\tconstructor\nname\tUGadget\nclasses\tUGadget");
+            ExpectText(CodeGen.Signature(ctor, ctor.Name, "UGadget::"), "UGadget::UGadget()", "constructor: no result");
+            ExpectText(CodeGen.Declaration(ptr), "UGadget* Make(int32& Count);", "declaration");
+            Expect(CursorInfo.Parse("") == null && CursorInfo.Parse("name\tX") == null, "no kind, no info");
+
+            // Default arguments: kept apart from the parameter, written in declarations, taken out of definitions.
+            CursorInfo free = CursorInfo.Parse("kind\tfunction\nname\tFreeHelper\nresult\tvoid\nparam\tint A\tA\nparam\tint B\tB\t2\nparam\tconst FString& S\tS\tTEXT(\"a b\")");
+            Expect(free.Parameters[1].Default == "2" && free.Parameters[0].Default == null, "defaults parsed");
+            ExpectText(CodeGen.Declaration(free), "void FreeHelper(int A, int B = 2, const FString& S = TEXT(\"a b\"));", "declaration with defaults");
+            ExpectText(CodeGen.Signature(free, free.Name, ""), "void FreeHelper(int A, int B, const FString& S)", "definition signature without defaults");
+            ExpectText(CodeGen.WithoutDefaults("(int A, int B =  2,\n\tconst FString& S = TEXT(\"a b\"))", free), "(int A, int B,\n\tconst FString& S)",
+                       "defaults removed from a definition, whatever the spacing");
+            Expect(CodeGen.WithoutDefaults("(int A)", ptr) == null, "nothing to remove");
+        }
+
+        private static void TextScanTests()
+        {
+            const string text = "line1\r\n\tline2 { \"}\" // }\r\n\t/* } */ x = R\"(})\"; '}'\r\n\t}\r\nafter";
+            Expect(TextScan.Offset(text, 2, 2) == 8 && text[8] == 'l', "offset of line 2 column 2");
+            Expect(TextScan.LineOf(text, 8) == 2, "line of an offset");
+            int end = TextScan.BlockEnd(text, 0);
+            Expect(end > 0 && text.Substring(end - 1, 1) == "}" && TextScan.LineOf(text, end) == 4, "block end skips strings, comments, raw strings, chars");
+            Expect(TextScan.Newline(text) == "\r\n" && TextScan.Newline("a\nb") == "\n", "newline style");
+            Expect(TextScan.IndentOf(text, 9) == "\t", "indentation of a line");
+
+            ExpectText(TextScan.Reindent("{\n\t\treturn Count;\n\t}", "", "\n"), "{\n\treturn Count;\n}", "reindent a member body to column 0");
+            ExpectText(TextScan.Reindent("{\n\tA();\n\n\tif (x)\n\t\tB();\n}", "\t", "\r\n"), "\t{\r\n\t\tA();\r\n\r\n\t\tif (x)\r\n\t\t\tB();\r\n\t}", "reindent into a class");
+
+            string cls = "class UThing\n{\npublic:\n\tvoid A();\nprivate:\n\tint B;\n};\n";
+            var (at, needsPublic) = TextScan.MemberInsertion(cls, 0, cls.IndexOf("};") + 1, false);
+            Expect(at == cls.IndexOf("};") && needsPublic, "member insertion: before }; and after private: needs public:");
+            string st = "struct FThing\n{\n\tint A;\n};";
+            Expect(!TextScan.MemberInsertion(st, 0, st.Length - 1, true).NeedsPublic, "a struct without labels is public");
+            string pub = "class X\n{\nprivate:\n\tint A;\npublic:\n\tvoid F();\n};";
+            Expect(!TextScan.MemberInsertion(pub, 0, pub.Length - 1, false).NeedsPublic, "last label public");
+            var (offset, prefix) = TextScan.AppendPoint("a\n\n\n", "\n");
+            Expect(offset == 1 && prefix == "\n\n", "append after the last text with a blank line");
         }
 
         private static void SnippetTests()

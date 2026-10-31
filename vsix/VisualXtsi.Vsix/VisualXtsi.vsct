@@ -25,12 +25,32 @@
           <CommandName>&amp;Tools</CommandName>
         </Strings>
       </Menu>
-      <!-- Code editor context menu: Surround With (Xtsi), also under Extensions > VisualXtsi. -->
+      <!-- Code editor context menu: Refactor (Xtsi) and Surround With (Xtsi), also under Extensions > VisualXtsi. -->
+      <Menu guid="guidVisualXtsiCmdSet" id="RefactorMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidVisualXtsiCmdSet" id="ContextRefactorGroup" />
+        <Strings>
+          <ButtonText>Re&amp;factor (Xtsi)</ButtonText>
+          <CommandName>Refactor (Xtsi)</CommandName>
+        </Strings>
+      </Menu>
       <Menu guid="guidVisualXtsiCmdSet" id="SurroundMenu" priority="0x0200" type="Menu">
         <Parent guid="guidVisualXtsiCmdSet" id="ContextRefactorGroup" />
         <Strings>
           <ButtonText>Surro&amp;und With (Xtsi)</ButtonText>
           <CommandName>Surround With (Xtsi)</CommandName>
+        </Strings>
+      </Menu>
+      <!-- The same two menus as popups at the caret (IVsUIShell.ShowContextMenu needs Context menus). -->
+      <Menu guid="guidVisualXtsiCmdSet" id="RefactorPopup" priority="0x0100" type="Context">
+        <Strings>
+          <ButtonText>Refactor (Xtsi)</ButtonText>
+          <CommandName>Refactor (Xtsi) at Caret</CommandName>
+        </Strings>
+      </Menu>
+      <Menu guid="guidVisualXtsiCmdSet" id="SurroundPopup" priority="0x0100" type="Context">
+        <Strings>
+          <ButtonText>Surround With (Xtsi)</ButtonText>
+          <CommandName>Surround With (Xtsi) at Caret</CommandName>
         </Strings>
       </Menu>
       <Menu guid="guidVisualXtsiCmdSet" id="HelpMenu" priority="0x0200" type="Menu">
@@ -54,6 +74,9 @@
       <!-- Near the top of the code editor context menu: the Refactor and Surround With submenus. -->
       <Group guid="guidVisualXtsiCmdSet" id="ContextRefactorGroup" priority="0x0001">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" priority="0x0200">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
       </Group>
       <Group guid="guidVisualXtsiCmdSet" id="SurroundSnippetsGroup" priority="0x0100">
         <Parent guid="guidVisualXtsiCmdSet" id="SurroundMenu" />
@@ -145,6 +168,78 @@
         <CommandFlag>TextChanges</CommandFlag>
         <Strings>
           <ButtonText>Snippet</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidCreateImplementation" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
+        <Icon guid="ImageCatalogGuid" id="AddMethod" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Create &amp;Implementation</ButtonText>
+          <ToolTipText>Add a definition of the function declared at the caret to the source file</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.CreateImplementation</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.CreateImplementation</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidCreateMethodImplementations" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
+        <Icon guid="ImageCatalogGuid" id="ClassMethodReference" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Create &amp;Method Implementations...</ButtonText>
+          <ToolTipText>Add definitions for the methods of the class at the caret that have none</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.CreateMethodImplementations</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.CreateMethodImplementations</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidCreateDeclaration" priority="0x0102" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
+        <Icon guid="ImageCatalogGuid" id="MethodPublic" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Create &amp;Declaration</ButtonText>
+          <ToolTipText>Declare the function defined at the caret in its class or header</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.CreateDeclaration</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.CreateDeclaration</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidMoveToSource" priority="0x0103" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
+        <Icon guid="ImageCatalogGuid" id="MoveDown" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Move Implementation to &amp;Source File</ButtonText>
+          <ToolTipText>Move the body of the function at the caret from the header to the source file</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.MoveImplementationToSource</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.MoveImplementationToSource</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidMoveToHeader" priority="0x0104" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
+        <Icon guid="ImageCatalogGuid" id="MoveUp" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Move Implementation to &amp;Header File</ButtonText>
+          <ToolTipText>Move the body of the function at the caret from the source file into its declaration in the header</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.MoveImplementationToHeader</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.MoveImplementationToHeader</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidRefactorAtCaret" priority="0x0050" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="SubmenuRefactorGroup" />
+        <Icon guid="ImageCatalogGuid" id="Refactoring" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>&amp;Refactor Menu at Caret...</ButtonText>
+          <ToolTipText>Open the Refactor (Xtsi) menu at the caret</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.MenuAtCaret</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.MenuAtCaret</LocCanonicalName>
         </Strings>
       </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidEditSnippets" priority="0x0100" type="Button">
@@ -251,6 +346,27 @@
 
   <!-- The navigation commands also appear in Extensions > VisualXtsi and the code editor's context menu. -->
   <CommandPlacements>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorFindGroup" priority="0x0100">
+      <Parent guid="guidVisualXtsiCmdSet" id="RefactorPopup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" priority="0x0200">
+      <Parent guid="guidVisualXtsiCmdSet" id="RefactorPopup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" priority="0x0300">
+      <Parent guid="guidVisualXtsiCmdSet" id="RefactorPopup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorEditGroup" priority="0x0400">
+      <Parent guid="guidVisualXtsiCmdSet" id="RefactorPopup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="SurroundSnippetsGroup" priority="0x0100">
+      <Parent guid="guidVisualXtsiCmdSet" id="SurroundPopup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="SurroundEditGroup" priority="0x0200">
+      <Parent guid="guidVisualXtsiCmdSet" id="SurroundPopup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorMenu" priority="0x0100">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuRefactorGroup" />
+    </CommandPlacement>
     <CommandPlacement guid="guidVisualXtsiCmdSet" id="SurroundMenu" priority="0x0200">
       <Parent guid="guidVisualXtsiCmdSet" id="SubmenuRefactorGroup" />
     </CommandPlacement>
@@ -290,6 +406,7 @@
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidFindSymbolInSolution" editor="guidVSStd97" key1="S" mod1="Alt Shift" />
     <!-- Alt+G is Edit.BriefBrowse globally: ours applies in the text editor only. -->
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" editor="guidTextEditor" key1="G" mod1="Alt" />
+    <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidRefactorAtCaret" editor="guidTextEditor" key1="Q" mod1="Alt Shift" />
   </KeyBindings>
 
   <Symbols>
@@ -320,6 +437,13 @@
       <IDSymbol name="SurroundSnippetsGroup" value="0x100B" />
       <IDSymbol name="SurroundEditGroup" value="0x100C" />
       <IDSymbol name="SubmenuRefactorGroup" value="0x100D" />
+      <IDSymbol name="RefactorCreateGroup" value="0x100F" />
+      <IDSymbol name="cmdidCreateImplementation" value="0x0202" />
+      <IDSymbol name="cmdidCreateDeclaration" value="0x0203" />
+      <IDSymbol name="cmdidCreateMethodImplementations" value="0x0204" />
+      <IDSymbol name="cmdidMoveToSource" value="0x0205" />
+      <IDSymbol name="cmdidMoveToHeader" value="0x0206" />
+      <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />
       <IDSymbol name="cmdidSurroundSnippetFirst" value="0x0400" />
@@ -327,6 +451,9 @@
       <IDSymbol name="ToolsMenu" value="0x2001" />
       <IDSymbol name="HelpMenu" value="0x2002" />
       <IDSymbol name="SurroundMenu" value="0x2003" />
+      <IDSymbol name="RefactorMenu" value="0x2004" />
+      <IDSymbol name="RefactorPopup" value="0x2005" />
+      <IDSymbol name="SurroundPopup" value="0x2006" />
     </GuidSymbol>
     <!-- guidSHLMainMenu's Extensions menu: the VSSDK build tools' vsshlids.h lacks IDM_VS_MENU_EXTENSIONS
          (Visual Studio's own copy defines it as 0x0091). -->

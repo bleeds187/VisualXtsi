@@ -159,6 +159,25 @@ where snippets can be changed, removed, reordered or added. VisualXtsi.Refactor.
 the menu at the caret; given a snippet name as its argument (Command window, an alias) it applies
 that snippet directly.
 
+Refactor (Xtsi) works from what the parser knows about the declaration at the caret (vx_cursor_info);
+Shift+Alt+Q opens it at the caret. Changes to more than one file are shown first in a preview, a
+diff per change with a check box each (Space toggles, a file's box covers all its changes); edits
+to several files are one undo step together, and files it had to open stay open and unsaved.
+- Create Implementation (on a declaration): the definition stub goes into the source file, next
+  to the definitions of the methods declared around it (after the one before, else before the
+  one after, else at the end, fully qualified), without default arguments, virtual, static,
+  override or UPARAM, with nested return types qualified. Unreal: a BlueprintNativeEvent or RPC
+  gets Name_Implementation, WithValidation also Name_Validate (returning true); a
+  BlueprintImplementableEvent gets nothing (UnrealHeaderTool writes it).
+- Create Method Implementations...: the same for every method of the class at the caret that has
+  no definition yet, chosen from a checklist.
+- Create Declaration (on a definition with no declaration): declares it at the end of its class
+  (adding public: if the last section is not), or for a free function at the end of the header;
+  default arguments move from the definition to the declaration.
+- Move Implementation to Source File / to Header File: moves a body between the class (or
+  header) and the source file, placed like Create Implementation; inline and FORCEINLINE are
+  dropped from a body moved out of the header, so other source files still link.
+
 ## Menus and dialogs
 
 Extensions > VisualXtsi groups the commands by task: Open File in Solution and Toggle

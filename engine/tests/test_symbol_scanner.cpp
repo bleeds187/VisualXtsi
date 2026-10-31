@@ -214,6 +214,8 @@ class AGame : public AActor
     UFUNCTION(BlueprintCallable)
     void Plain();
     void NoMarkup();
+    UFUNCTION(BlueprintImplementableEvent)
+    void OnHit(float Damage);
 };
 )");
         const struct { const char16_t* name; uint8_t flags; } cases[] = {
@@ -222,6 +224,7 @@ class AGame : public AActor
             {u"Boom", vx::symbols::UeImplementation},
             {u"Plain", 0},
             {u"NoMarkup", 0},
+            {u"OnHit", vx::symbols::UeGenerated},
         };
         for (const auto& c : cases) {
             const auto* f = findSymbol(ue, c.name, Kind::Method, u"AGame");

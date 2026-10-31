@@ -105,6 +105,30 @@ namespace VisualXtsi.Parsing
             _ = Task.Run(() => Engine.Release(_path));
         }
 
+        /// <summary>
+        /// Parses now if the buffer changed since the last parse, and waits (up to <paramref name="timeoutMs"/>)
+        /// until the engine has the current text; false if it could not (no libclang, timeout).
+        /// </summary>
+        public async Task<bool> WhenCurrentAsync(int timeoutMs = 60000)
+        {
+            ITextSnapshot wanted = _buffer.CurrentSnapshot;
+            if (_parsedSnapshot == wanted)
+                return true;
+            lock (_gate)
+                _debounce?.Change(0, Timeout.Infinite);
+            var timer = Stopwatch.StartNew();
+            while (timer.ElapsedMilliseconds < timeoutMs)
+            {
+                await Task.Delay(50).ConfigureAwait(false);
+                ITextSnapshot parsed = _parsedSnapshot;
+                if (parsed != null && parsed.Version.VersionNumber >= wanted.Version.VersionNumber)
+                    return true;
+                if (_unavailable || _views == 0)
+                    return false;
+            }
+            return false;
+        }
+
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
             lock (_gate)

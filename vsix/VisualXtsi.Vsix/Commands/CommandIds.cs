@@ -20,6 +20,12 @@ namespace VisualXtsi.Commands
         public const int ToggleEnabled = 0x010A;
 
         // Refactor and Surround With (0x0200...)
+        public const int CreateImplementation = 0x0202;
+        public const int CreateDeclaration = 0x0203;
+        public const int CreateMethodImplementations = 0x0204;
+        public const int MoveToSource = 0x0205;
+        public const int MoveToHeader = 0x0206;
+        public const int RefactorAtCaret = 0x020C;
         public const int EditSnippets = 0x020D;
         public const int SurroundWithAtCaret = 0x020E;
         public const int SurroundSnippetFirst = 0x0400; // a dynamic list of SurroundSnippetSlots items
@@ -27,5 +33,8 @@ namespace VisualXtsi.Commands
 
         // Menus
         public const int SurroundMenu = 0x2003;
+        public const int RefactorMenu = 0x2004;
+        public const int RefactorPopup = 0x2005; // the same as context menus, for showing at the caret
+        public const int SurroundPopup = 0x2006;
     }
 }

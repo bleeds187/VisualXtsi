@@ -50,4 +50,14 @@ VX_API uint32_t VX_CALL vx_discover_args(const char16_t*, char16_t*, uint32_t, u
     return 0;
 }
 
+VX_API uint32_t VX_CALL vx_cursor_info(const char16_t*, uint32_t, uint32_t, uint32_t, char16_t*, uint32_t)
+{
+    return 0;
+}
+
+VX_API uint32_t VX_CALL vx_class_members(const char16_t*, uint32_t, uint32_t, uint32_t, char16_t*, uint32_t)
+{
+    return 0;
+}
+
 } // extern "C"
