@@ -206,6 +206,18 @@
           <LocCanonicalName>.VisualXtsi.Refactor.Rename</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidChangeSignature" priority="0x0102" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorFindGroup" />
+        <Icon guid="ImageCatalogGuid" id="ReorderParameters" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Change Si&amp;gnature...</ButtonText>
+          <ToolTipText>Reorder, add, remove or rename the parameters of the function at the caret, updating its declarations, definitions and calls</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.ChangeSignature</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.ChangeSignature</LocCanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidCreateImplementation" priority="0x0100" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
         <Icon guid="ImageCatalogGuid" id="AddMethod" />
@@ -646,6 +658,7 @@
       <IDSymbol name="cmdidImplementInterface" value="0x0213" />
       <IDSymbol name="cmdidIntroduceVariable" value="0x0214" />
       <IDSymbol name="cmdidExtractMethod" value="0x0215" />
+      <IDSymbol name="cmdidChangeSignature" value="0x0216" />
       <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />

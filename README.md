@@ -248,6 +248,12 @@ falling back to the editor's setting.
   (several: out parameters). In a method: a member (const like it, or static when it uses no
   members) declared in the class's private section and defined after the method; elsewhere a
   static function before it. Returns and jumps out of the selection are refused.
+- Change Signature...: reorder, add, remove, rename or retype the parameters of the function at
+  the caret in a dialog; its declarations, definitions and overrides get the new list (renamed
+  parameters are renamed in the bodies too) and every call its arguments rearranged, new
+  parameters given their value at calls, defaults written out where a call relied on one.
+  Unreal: Name_Implementation and Name_Validate follow, and a Blueprint-exposed UFUNCTION is
+  flagged.
 
 ## Menus and dialogs
 

@@ -89,6 +89,8 @@
     <Compile Include="Refactoring\MemberRefactorings.cs" />
     <Compile Include="Refactoring\ExtractSupport.cs" />
     <Compile Include="Refactoring\ExtractRefactorings.cs" />
+    <Compile Include="Refactoring\SignatureSupport.cs" />
+    <Compile Include="Refactoring\SignatureRefactorings.cs" />
     <Compile Include="UI\ReferencesToolWindow.cs" />
     <Compile Include="Interop\CursorInfo.cs" />
     <Compile Include="UI\RefactorPreviewDialog.cs" />
@@ -108,6 +110,7 @@
     <Compile Include="UI\NameDialog.cs" />
     <Compile Include="UI\AddMemberDialog.cs" />
     <Compile Include="UI\NameOptionsDialog.cs" />
+    <Compile Include="UI\ChangeSignatureDialog.cs" />
     <Compile Include="UI\OpenFileDialog.cs" />
     <Compile Include="UI\OptionsDialog.cs" />
     <Compile Include="UI\OptionsToolWindow.cs" />

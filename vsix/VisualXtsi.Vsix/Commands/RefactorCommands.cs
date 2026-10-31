@@ -32,7 +32,8 @@ namespace VisualXtsi.Commands
                 ThreadHelper.ThrowIfNotOnUIThread();
                 return EditorCommands.VisualXtsiEnabled && EditorCommands.ActiveSourceDocument(package) != null;
             });
-            AddRefactoring(commands, CommandIds.CreateImplementation, ImplementationRefactorings.CreateImplementationAsync, ImplementationRefactorings.CanCreateImplementation);
+            AddRefactoring(commands, CommandIds.ChangeSignature, SignatureRefactorings.ChangeSignatureAsync, SignatureRefactorings.CanChangeSignature);
+            AddRefactoring(commands, CommandIds.CreateImplementation,ImplementationRefactorings.CreateImplementationAsync, ImplementationRefactorings.CanCreateImplementation);
             AddRefactoring(commands, CommandIds.CreateMethodImplementations, ImplementationRefactorings.CreateMethodImplementationsAsync, ImplementationRefactorings.CanCreateMethodImplementations);
             AddRefactoring(commands, CommandIds.CreateDeclaration, ImplementationRefactorings.CreateDeclarationAsync, ImplementationRefactorings.CanCreateDeclaration);
             AddRefactoring(commands, CommandIds.MoveToSource, ImplementationRefactorings.MoveToSourceAsync, ImplementationRefactorings.CanMoveToSource);

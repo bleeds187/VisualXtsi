@@ -40,6 +40,7 @@ namespace VisualXtsi.Tests
             EnumTests();
             MemberTests();
             ExtractTests();
+            SignatureTests();
             Console.WriteLine(_failures == 0 ? "all tests passed" : $"{_failures} failures");
             return _failures == 0 ? 0 : 1;
         }
@@ -149,6 +150,57 @@ namespace VisualXtsi.Tests
             foreach (TextEdit e in edits.OrderByDescending(e => e.Start).ThenByDescending(e => e.Length))
                 text = text.Substring(0, e.Start) + e.Text + text.Substring(e.Start + e.Length);
             return text;
+        }
+
+        private static void SignatureTests()
+        {
+            string Show3((string, string, string) t) => t.Item1 + "|" + t.Item2 + "|" + t.Item3;
+            ExpectText(Show3(SignatureSupport.Parse("const FString& Name = TEXT(\"x\")")), "const FString&|Name|TEXT(\"x\")", "parse: reference, default");
+            ExpectText(Show3(SignatureSupport.Parse("TArray<int32>* Values")), "TArray<int32>*|Values|", "parse: pointer to a template");
+            ExpectText(Show3(SignatureSupport.Parse("int32")), "int32||", "parse: unnamed");
+            ExpectText(Show3(SignatureSupport.Parse("unsigned int")), "unsigned int||", "parse: a two-word type, unnamed");
+            ExpectText(Show3(SignatureSupport.Parse("float Grid[4]")), "float[4]|Grid|", "parse: an array");
+            Expect(SignatureSupport.Split("void").Count == 0 && SignatureSupport.Split(" ").Count == 0 && SignatureSupport.Split("A, F(B, C), D<E, G>").Count == 3, "split: lists");
+            var parens = SignatureSupport.ParensAfter("x = Make<int32, float>(A, (B));", 8);
+            Expect(parens.HasValue && parens.Value.Open == 22 && parens.Value.Close == 29, "parens after a name with template arguments");
+            Expect(!SignatureSupport.ParensAfter("auto P = &UThing::Run;", 18).HasValue, "no call: a pointer to the function");
+
+            // Old: Run(int32 Speed, const FString& Name = TEXT("x"), bool bLoud = false).
+            // New: Run(const FString& Label, int32 Speed, float Scale = 1.f) - swapped, Name renamed to Label, bLoud removed, Scale added.
+            var ps = new[]
+            {
+                new SignatureParameter { OldIndex = 1, OldType = "const FString&", OldName = "Name", OldDefault = "TEXT(\"x\")", Type = "const FString&", Name = "Label", Default = "TEXT(\"x\")" },
+                new SignatureParameter { OldIndex = 0, OldType = "int32", OldName = "Speed", Type = "int32", Name = "Speed" },
+                new SignatureParameter { Type = "float", Name = "Scale", Default = "1.f", CallValue = "" },
+            };
+            ExpectText(SignatureSupport.ParameterList("int32 Speed, const FString& Name = TEXT(\"x\"), bool bLoud = false", ps, withDefaults: true),
+                       "const FString& Label = TEXT(\"x\"), int32 Speed, float Scale = 1.f", "declaration: reordered, renamed, removed, added with defaults");
+            ExpectText(SignatureSupport.ParameterList("int32 InSpeed, const FString& InName, bool bInLoud", ps, withDefaults: false),
+                       "const FString& Label, int32 InSpeed, float Scale", "definition: its own names kept unless renamed, no defaults");
+            ExpectText(SignatureSupport.ArgumentList("3, Text, true", ps), "Text, 3", "call: moved, removed, new one left to its default");
+            ExpectText(SignatureSupport.ArgumentList("3", ps), "TEXT(\"x\"), 3", "call: a default it relied on written out before a later argument");
+            ps[2].CallValue = "Scale0";
+            ExpectText(SignatureSupport.ArgumentList("3", ps), "TEXT(\"x\"), 3, Scale0", "call: a new parameter's value at calls");
+            var required = new[] { new SignatureParameter { Type = "int32", Name = "Count" } };
+            Expect(SignatureSupport.ArgumentList("", required) == null, "call: a new parameter without a value or default");
+            ExpectText(SignatureSupport.Describe("Run", ps), "Run(const FString& Label = TEXT(\"x\"), int32 Speed, float Scale = 1.f)", "the signature as it will read");
+
+            string Kind(string t, string name)
+            {
+                int at = t.IndexOf(name, StringComparison.Ordinal);
+                int length = System.Text.RegularExpressions.Regex.Match(t.Substring(at), @"^\w+").Length;
+                return SignatureSupport.SiteKind(t, at, SignatureSupport.ParensAfter(t, at + length).Value.Close);
+            }
+            ExpectText(Kind("virtual void OnHit_Implementation(float D) override;", "OnHit_Implementation"), "declaration", "site: a declaration");
+            ExpectText(Kind("void AThing::OnHit_Implementation(float D)\n{\n}", "OnHit_Implementation"), "definition", "site: a qualified definition");
+            ExpectText(Kind("    Super::OnHit_Implementation(D);", "OnHit_Implementation"), "call", "site: a call through Super");
+            ExpectText(Kind("    return OnHit_Implementation(D);", "OnHit_Implementation"), "call", "site: a returned call");
+            ExpectText(Kind("    Thing->OnHit_Implementation(D);", "OnHit_Implementation"), "call", "site: a call through a pointer");
+            ExpectText(Kind("UThing::UThing(int32 A) : Super(A) {}", "UThing("), "definition", "site: a constructor with initializers");
+
+            const string body = "{\n    Log(Name); // Name\n    Other.Name = Name + \"Name\";\n    A::Name();\n}";
+            var uses = SignatureSupport.UsesIn(body, 0, body.Length, "Name");
+            Expect(uses.Count == 2 && uses[0] == body.IndexOf("Name)") && uses[1] == body.IndexOf("= Name") + 2, "uses in a body: not members, comments or strings");
         }
 
         private static void ExtractTests()
