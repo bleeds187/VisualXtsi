@@ -287,6 +287,18 @@
           <LocCanonicalName>.VisualXtsi.Refactor.AddSimilarMember</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidImplementInterface" priority="0x0107" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
+        <Icon guid="ImageCatalogGuid" id="Interface" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Implement Interface / O&amp;verride Methods...</ButtonText>
+          <ToolTipText>Declare overrides of the virtual methods of the class's bases, with stubs in the source file</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.ImplementInterface</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.ImplementInterface</LocCanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidAddInclude" priority="0x0100" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" />
         <Icon guid="ImageCatalogGuid" id="Include" />
@@ -600,6 +612,7 @@
       <IDSymbol name="cmdidConvertToScopedEnum" value="0x0210" />
       <IDSymbol name="cmdidAddMember" value="0x0211" />
       <IDSymbol name="cmdidAddSimilarMember" value="0x0212" />
+      <IDSymbol name="cmdidImplementInterface" value="0x0213" />
       <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />

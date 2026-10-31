@@ -254,6 +254,18 @@ namespace VisualXtsi.Interop
             return KeyValues(SplitStrings((buffer, cap) => vx_statement_at(path, (uint)line, (uint)column, wait ? 1u : 0u, buffer, cap)));
         }
 
+        /// <summary>
+        /// What the class at a position can override: the class's own record (class, extent,
+        /// namespaces) and one CursorInfo per method (see vx_overridable); null: no class there.
+        /// </summary>
+        public static (Dictionary<string, List<string[]>> Class, List<CursorInfo> Methods)? Overridable(string path, int line, int column, bool wait)
+        {
+            string[] records = SplitStrings((buffer, cap) => vx_overridable(path, (uint)line, (uint)column, wait ? 1u : 0u, buffer, cap));
+            if (records.Length == 0)
+                return null;
+            return (KeyValues(new[] { records[0] }), records.Skip(1).Select(Interop.CursorInfo.Parse).Where(m => m != null).ToList());
+        }
+
         /// <summary>The switch around a position, as vx_switch_at's key/value lines (null: none).</summary>
         public static Dictionary<string, List<string[]>> SwitchAt(string path, int line, int column, bool wait) =>
             KeyValues(SplitStrings((buffer, cap) => vx_switch_at(path, (uint)line, (uint)column, wait ? 1u : 0u, buffer, cap)));
@@ -497,6 +509,9 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_statement_at(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_overridable(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_switch_at(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);

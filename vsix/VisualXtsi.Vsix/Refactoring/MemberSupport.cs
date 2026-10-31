@@ -291,6 +291,51 @@ namespace VisualXtsi.Refactoring
                 yield return list.Substring(start);
         }
 
+        /// <summary>
+        /// The export macro a class's members are declared with one by one ("UE_API", "GAME_API") when
+        /// the class itself is not exported; null otherwise.
+        /// </summary>
+        public static string MemberExportMacro(string text, int classStart, int open, int close)
+        {
+            if (Regex.IsMatch(text.Substring(classStart, open - classStart), @"\b[A-Z][A-Z0-9_]*_API\b"))
+                return null;
+            var macros = Regex.Matches(text.Substring(open, close - open), @"^[ \t]*(UE_API|[A-Z][A-Z0-9_]*_API)\s+(?!\()", RegexOptions.Multiline)
+                              .Cast<Match>().GroupBy(m => m.Groups[1].Value).OrderByDescending(g => g.Count()).FirstOrDefault();
+            return macros != null && macros.Count() >= 2 ? macros.Key : null;
+        }
+
+        /// <summary>
+        /// The declaration overriding a base's method: "virtual R Name(params) const override" (no
+        /// default arguments); a native event's Name_Implementation.
+        /// </summary>
+        public static string OverrideDeclaration(CursorInfo m)
+        {
+            var sb = new StringBuilder("virtual ");
+            if (!string.IsNullOrEmpty(m.Result))
+                sb.Append(m.Result).Append(' ');
+            sb.Append(m.Name).Append(m.NativeEvent ? "_Implementation" : "").Append('(')
+              .Append(string.Join(", ", m.Parameters.Select(p => p.Text))).Append(')');
+            if (m.Qualifiers.Length > 0)
+                sb.Append(' ').Append(m.Qualifiers);
+            return sb.Append(" override").ToString();
+        }
+
+        /// <summary>
+        /// A body for an override: the base's implementation called (through Super:: when it is
+        /// reached through the first base of a reflected class), with its result returned; for
+        /// pure methods and native events, a value-initialized result (nothing for void or a reference).
+        /// </summary>
+        public static string OverrideBody(CursorInfo m, bool useSuper)
+        {
+            string result = (m.Result ?? "").Trim();
+            bool returns = result.Length > 0 && result != "void";
+            bool named = m.Parameters.All(p => p.Name.Length > 0 && p.Text != "...");
+            if (m.IsPure || m.NativeEvent || !named)
+                return returns && !result.EndsWith("&") ? "return {};" : "";
+            string call = (useSuper ? "Super" : m.Base) + "::" + m.Name + "(" + string.Join(", ", m.Parameters.Select(p => p.Name)) + ");";
+            return (returns ? "return " : "") + call;
+        }
+
         /// <summary>The lines to insert: the macro (if any) and the declaration, at <paramref name="indent"/>.</summary>
         public static string MemberText(string macro, string declaration, string indent, string nl)
         {

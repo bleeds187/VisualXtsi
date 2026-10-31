@@ -233,6 +233,12 @@ falling back to the editor's setting.
   (Name_Implementation for a native event or RPC). Add Similar Member starts from the member at
   the caret: its declaration with the name selected, its macro and its access; the new member
   goes right after it.
+- Implement Interface / Override Methods...: the virtual methods of the class's bases it does not
+  override yet, grouped by base in a preview (pure ones checked), declared with override in the
+  base's access section between //~ Begin and //~ End comments (with the class's per-member export
+  macro if it uses one), with stubs at the end of the source file that return a value or call the
+  base (through Super:: for the first base of a reflected class). An Unreal interface's
+  BlueprintNativeEvent is offered as Name_Implementation.
 
 ## Menus and dialogs
 

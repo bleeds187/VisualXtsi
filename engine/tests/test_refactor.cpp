@@ -261,6 +261,50 @@ int main()
     expect(get(i, "ue") == "3", "ServerPush: RPC WithValidation", &i);
     i = info(u"Gadget.h", 38, 10); // OnShown
     expect(get(i, "ue") == "4", "OnShown: BlueprintImplementableEvent", &i);
+
+    // What a class can override: pure and plain virtuals of all bases, Unreal native events.
+    {
+        const std::u16string header = kDir + u"Machine.h";
+        auto overridable = [&](uint32_t line, uint32_t column) {
+            std::vector<std::string> records;
+            std::vector<char16_t> buf(1 << 16);
+            uint32_t n = vx_overridable(header.c_str(), line, column, 1, buf.data(), static_cast<uint32_t>(buf.size()));
+            std::string cur;
+            for (uint32_t k = 0; k < n && k < buf.size(); ++k) {
+                if (buf[k] == 0) {
+                    records.push_back(cur);
+                    cur.clear();
+                } else {
+                    cur.push_back(buf[k] < 0x80 ? static_cast<char>(buf[k]) : '?');
+                }
+            }
+            return records;
+        };
+        auto find = [](const std::vector<std::string>& records, const std::string& name) {
+            for (const std::string& r : records)
+                if (r.find("name\t" + name + "\n") != std::string::npos)
+                    return r;
+            return std::string();
+        };
+        std::vector<std::string> r = overridable(44, 8); // class FMachine : public IRunnable
+        bool ok = !r.empty() && r[0].find("class\tFMachine\n") != std::string::npos && find(r, "Run").find("pure\t1\n") != std::string::npos &&
+                  find(r, "Run").find("param\tint32 Speed\tSpeed\n") != std::string::npos && find(r, "Run").find("primary\t1\n") != std::string::npos &&
+                  find(r, "IsRunning").find("qualifiers\tconst\n") != std::string::npos && find(r, "Stop").find("pure\t1") == std::string::npos &&
+                  find(r, "~IRunnable").empty() && r.size() == 4;
+        expect(ok, "overridable: an interface's pure and plain virtuals");
+        if (!ok)
+            for (auto& x : r)
+                std::printf("--\n%s", x.c_str());
+        r = overridable(67, 1); // in FTurbine : FMachine, IPowered
+        const std::string powered = find(r, "OnPowered");
+        ok = powered.find("nativeevent\t1\n") != std::string::npos && powered.find("base\tIPowered\n") != std::string::npos &&
+             powered.find("primary\t0\n") != std::string::npos && find(r, "Draw").find("result\tfloat\n") != std::string::npos &&
+             find(r, "Run").empty() && !find(r, "IsRunning").empty() && find(r, "IsRunning").find("base\tIRunnable\n") != std::string::npos;
+        expect(ok, "overridable: through two bases, an overridden one left out, a native event");
+        if (!ok)
+            for (auto& x : r)
+                std::printf("--\n%s", x.c_str());
+    }
     // Find References: the field Count, not Make's parameter of the same name; a write marked.
     {
         const std::u16string header = kDir + u"Gadget.h";

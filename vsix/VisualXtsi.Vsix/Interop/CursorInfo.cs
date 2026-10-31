@@ -92,6 +92,13 @@ namespace VisualXtsi.Interop
         public string Type => One("type");
         public string TypeSpelling => One("typespelling");
         public bool IsPod => Flag("pod");
+        // vx_overridable's methods: the class declaring it, its access, whether it is reached through the
+        // first base, and whether it is an Unreal native event (Name_Implementation is overridden).
+        public string Base => One("base");
+        public string Access => One("access") ?? "public";
+        public bool Primary => Flag("primary");
+        public bool NativeEvent => Flag("nativeevent");
+
         public bool EnumScoped => Flag("enumscoped");
         public string EnumBase => One("enumbase");
 

@@ -315,6 +315,16 @@ VX_API uint32_t VX_CALL vx_class_members(const char16_t* path, uint32_t line, ui
  * "default\tpath\tline\tcolumn". */
 VX_API uint32_t VX_CALL vx_switch_at(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
                                      uint32_t cap);
+/* Implement Interface / Override Methods: for the class named at a position (or the one the
+ * position is in), the methods of its bases (nearest first) it can override and does not yet, as
+ * NUL-terminated records. The first: "class\tOuter::Inner", "extent" (path, line, column, end
+ * line, end column), "namespaces". Then one per method, in vx_cursor_info's keys (kind, name,
+ * classes and namespaces of the class, result, param, qualifiers, pure, ue, decl) plus base (the
+ * class declaring it), access, primary 1/0 (reached through the first base) and nativeevent 1 (an
+ * Unreal BlueprintNativeEvent or RPC: Name_Implementation is what gets overridden). Virtual
+ * methods overridden further down, final ones and destructors are left out. */
+VX_API uint32_t VX_CALL vx_overridable(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
+                                       uint32_t cap);
 
 #ifdef __cplusplus
 }

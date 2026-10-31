@@ -181,6 +181,23 @@ namespace VisualXtsi.Tests
             Expect(MemberSupport.MethodInfo("void Tick() = 0", "A", "", "") == null && MemberSupport.MethodInfo("int32 Get() const { return 1; }", "A", "", "") == null &&
                    MemberSupport.MethodInfo("float Speed = 1.f", "A", "", "") == null, "no definition for pure, inline or a field");
             ExpectText(MemberSupport.MemberText("UPROPERTY(EditAnywhere)", "float Speed = 1.f", "\t", "\n"), "\tUPROPERTY(EditAnywhere)\n\tfloat Speed = 1.f;\n", "member text with its macro");
+
+            // Implement Interface / Override Methods.
+            CursorInfo run = CursorInfo.Parse("kind\tmethod\nname\tRun\nclasses\tFTurbine\nbase\tIRunnable\nresult\tbool\nparam\tint32 Speed\tSpeed\nparam\tfloat Scale\tScale\tfloat(1)\nqualifiers\tconst\nprimary\t1");
+            ExpectText(MemberSupport.OverrideDeclaration(run), "virtual bool Run(int32 Speed, float Scale) const override", "override declaration, default dropped");
+            ExpectText(MemberSupport.OverrideBody(run, useSuper: true), "return Super::Run(Speed, Scale);", "override body through Super");
+            ExpectText(MemberSupport.OverrideBody(run, useSuper: false), "return IRunnable::Run(Speed, Scale);", "override body through the base");
+            CursorInfo draw = CursorInfo.Parse("kind\tmethod\nname\tDraw\nbase\tIPowered\nresult\tfloat\npure\t1");
+            ExpectText(MemberSupport.OverrideBody(draw, false), "return {};", "a pure method's stub returns a value");
+            CursorInfo powered = CursorInfo.Parse("kind\tmethod\nname\tOnPowered\nbase\tIPowered\nresult\tvoid\nparam\tEPower Level\tLevel\nnativeevent\t1");
+            ExpectText(MemberSupport.OverrideDeclaration(powered), "virtual void OnPowered_Implementation(EPower Level) override", "a native event: its _Implementation");
+            ExpectText(MemberSupport.OverrideBody(powered, true), "", "a native event's stub");
+            CursorInfo byRef = CursorInfo.Parse("kind\tmethod\nname\tGet\nbase\tA\nresult\tFThing&\npure\t1");
+            ExpectText(MemberSupport.OverrideBody(byRef, false), "", "no value for a reference");
+            const string perMember = "class AThing : public AActor\n{\npublic:\n\tUE_API AThing();\n\tUE_API virtual void Tick(float D) override;\n\tint32 Count;\n};\n";
+            Expect(MemberSupport.MemberExportMacro(perMember, 0, perMember.IndexOf('{'), perMember.LastIndexOf('}')) == "UE_API", "members exported one by one");
+            const string whole = "class GAME_API AThing : public AActor\n{\npublic:\n\tUE_API AThing();\n\tUE_API void F();\n};\n";
+            Expect(MemberSupport.MemberExportMacro(whole, 0, whole.IndexOf('{'), whole.LastIndexOf('}')) == null, "an exported class: no macro per member");
         }
 
         private static void ShapeTests()

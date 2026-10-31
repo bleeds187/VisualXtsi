@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <regex>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 using namespace vx::clangs;
@@ -448,7 +449,7 @@ void describeFunction(Unit& unit, CXCursor f, std::u16string& out)
 // The class the position is in, whatever it names: the innermost class definition around it, else
 // the class of the method whose out-of-class definition it is in. "inclass" (its extent),
 // "inclassclasses" (Outer::Inner) and "inclassnamespaces".
-void describeEnclosingClass(Unit& unit, uint32_t line, uint32_t column, std::u16string& out)
+CXCursor classAround(Unit& unit, uint32_t line, uint32_t column)
 {
     unsigned offset = 0;
     cursorAt(unit, line, column, &offset);
@@ -459,6 +460,12 @@ void describeEnclosingClass(Unit& unit, uint32_t line, uint32_t column, std::u16
         if (!clang_Cursor_isNull(parent) && isRecordKind(clang_getCursorKind(parent)))
             cls = clang_getCursorDefinition(parent);
     }
+    return cls;
+}
+
+void describeEnclosingClass(Unit& unit, uint32_t line, uint32_t column, std::u16string& out)
+{
+    const CXCursor cls = classAround(unit, line, column);
     if (clang_Cursor_isNull(cls))
         return;
     CXTranslationUnit tu = unit.tu;
@@ -755,9 +762,147 @@ void describeCases(CXTranslationUnit tu, CXCursor body, std::u16string& out)
         &ctx);
 }
 
+// The USRs of every method `m` overrides, however far up.
+void overriddenUsrs(CXCursor m, std::unordered_set<std::string>& into, int depth = 0)
+{
+    CXCursor* overridden = nullptr;
+    unsigned count = 0;
+    clang_getOverriddenCursors(m, &overridden, &count);
+    for (unsigned i = 0; i < count; ++i)
+        if (into.insert(takeString(clang_getCursorUSR(overridden[i]))).second && depth < 16)
+            overriddenUsrs(overridden[i], into, depth + 1);
+    clang_disposeOverriddenCursors(overridden);
+}
+
+bool isFinal(CXCursor m)
+{
+    bool final = false;
+    clang_visitChildren(
+        m,
+        [](CXCursor c, CXCursor, CXClientData d) {
+            if (clang_getCursorKind(c) == CXCursor_CXXFinalAttr) {
+                *static_cast<bool*>(d) = true;
+                return CXChildVisit_Break;
+            }
+            return CXChildVisit_Continue;
+        },
+        &final);
+    return final;
+}
+
+// The class's direct bases, as definitions (a template's specialization: its template).
+std::vector<CXCursor> basesOf(CXCursor cls)
+{
+    std::vector<CXCursor> bases;
+    for (CXCursor c : childrenOf(cls)) {
+        if (clang_getCursorKind(c) != CXCursor_CXXBaseSpecifier)
+            continue;
+        CXCursor base = clang_getTypeDeclaration(clang_getCanonicalType(clang_getCursorType(c)));
+        if (clang_Cursor_isNull(base) || clang_isInvalid(clang_getCursorKind(base)))
+            base = clang_getCursorReferenced(c);
+        const CXCursor def = clang_getCursorDefinition(base);
+        if (!clang_Cursor_isNull(def))
+            bases.push_back(def);
+        else if (const CXCursor t = clang_getSpecializedCursorTemplate(base); !clang_Cursor_isNull(t))
+            bases.push_back(clang_getCursorDefinition(t));
+    }
+    return bases;
+}
+
+const char16_t* accessName(CX_CXXAccessSpecifier a)
+{
+    return a == CX_CXXPrivate ? u"private" : a == CX_CXXProtected ? u"protected" : u"public";
+}
+
 } // namespace
 
 extern "C" {
+
+VX_API uint32_t VX_CALL vx_overridable(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out, uint32_t cap)
+{
+    if (line == 0 || column == 0)
+        return 0;
+    return withUnit(path, wait != 0, [&](Unit& unit) -> uint32_t {
+        // The class named at the position (on its definition), else the one the position is in.
+        CXCursor cls = entityAt(unit, line, column);
+        if (!isRecordKind(clang_getCursorKind(cls)) || clang_Cursor_isNull(clang_getCursorDefinition(cls)) ||
+            !clang_equalCursors(clang_getCursorDefinition(cls), classAround(unit, line, column)))
+            cls = classAround(unit, line, column);
+        if (clang_Cursor_isNull(cls))
+            return 0;
+        CXTranslationUnit tu = unit.tu;
+        std::u16string classes, namespaces;
+        bool templated = false;
+        scopesOf(cls, classes, namespaces, templated);
+        const std::u16string name = vx::toUtf16(takeString(clang_getCursorSpelling(cls)));
+        classes = classes.empty() ? name : classes + u"::" + name;
+        std::u16string result = u"class\t" + classes + u"\n";
+        addRange(result, u"extent", tu, clang_getRangeStart(extentOf(tu, cls)), clang_getRangeEnd(extentOf(tu, cls)));
+        result += u"namespaces\t" + namespaces + u"\n";
+        result.push_back(u'\0');
+
+        // What the class already overrides (and declares), and its bases nearest first.
+        std::unordered_set<std::string> covered;
+        std::unordered_set<std::u16string> declared;
+        for (CXCursor m : childrenOf(cls)) {
+            if (!isFunctionKind(clang_getCursorKind(m)))
+                continue;
+            covered.insert(takeString(clang_getCursorUSR(m)));
+            overriddenUsrs(m, covered);
+            declared.insert(vx::toUtf16(takeString(clang_getCursorSpelling(m))));
+        }
+        std::vector<std::pair<CXCursor, bool>> queue; // base, reached through the first base
+        const std::vector<CXCursor> direct = basesOf(cls);
+        for (size_t i = 0; i < direct.size(); ++i)
+            queue.emplace_back(direct[i], i == 0);
+        std::unordered_set<std::string> seenBases;
+        for (size_t q = 0; q < queue.size() && q < 64; ++q) {
+            const auto [base, primary] = queue[q];
+            if (!seenBases.insert(takeString(clang_getCursorUSR(base))).second)
+                continue;
+            const std::u16string baseScope = qualifiedScope(base);
+            const std::u16string baseName = (baseScope.empty() ? u"" : baseScope + u"::") + vx::toUtf16(takeString(clang_getCursorSpelling(base)));
+            const std::vector<CXCursor> members = childrenOf(base);
+            std::unordered_set<std::u16string> baseDeclares;
+            for (CXCursor m : members)
+                if (isFunctionKind(clang_getCursorKind(m)))
+                    baseDeclares.insert(vx::toUtf16(takeString(clang_getCursorSpelling(m))));
+            for (CXCursor m : members) {
+                const CXCursorKind k = clang_getCursorKind(m);
+                if (k != CXCursor_CXXMethod && k != CXCursor_FunctionTemplate)
+                    continue;
+                const std::u16string method = vx::toUtf16(takeString(clang_getCursorSpelling(m)));
+                // Unreal native events and RPCs are not virtual themselves: UnrealHeaderTool declares
+                // their virtual Name_Implementation (unless the class does so itself).
+                const bool isVirtual = clang_CXXMethod_isVirtual(m) != 0;
+                const uint8_t ue = isVirtual ? 0 : ueFlags(method, baseName);
+                const bool nativeEvent = !isVirtual && (ue & VX_UE_IMPLEMENTATION) && !baseDeclares.count(method + u"_Implementation");
+                if ((!isVirtual && !nativeEvent) || isFinal(m))
+                    continue;
+                const std::string usr = takeString(clang_getCursorUSR(m));
+                if (covered.count(usr) || (nativeEvent && declared.count(method + u"_Implementation")))
+                    continue;
+                covered.insert(usr);
+                overriddenUsrs(m, covered); // what it overrides further up is listed once, here
+                std::u16string block = u"kind\tmethod\nname\t" + method + u"\nclasses\t" + classes + u"\nnamespaces\t" + namespaces +
+                                       u"\nbase\t" + baseName + u"\naccess\t" + accessName(clang_getCXXAccessSpecifier(m)) + u"\nprimary\t" +
+                                       (primary ? u"1" : u"0") + u"\n" + (nativeEvent ? u"nativeevent\t1\n" : u"");
+                describeFunction(unit, m, block);
+                if (clang_CXXMethod_isPureVirtual(m) && block.find(u"pure\t1\n") == std::u16string::npos)
+                    block += u"pure\t1\n";
+                block += u"ue\t" + num(ue) + u"\n";
+                const Pos p = locate(tu, locationOf(tu, m));
+                if (p.valid)
+                    block += u"decl\t" + where(p) + u"\t" + num(p.line) + u"\t" + num(p.column) + u"\n";
+                result += block;
+                result.push_back(u'\0');
+            }
+            for (CXCursor b : basesOf(base))
+                queue.emplace_back(b, primary);
+        }
+        return writeOut(result, out, cap);
+    });
+}
 
 VX_API uint32_t VX_CALL vx_switch_at(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out, uint32_t cap)
 {

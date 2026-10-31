@@ -47,3 +47,24 @@ public:
     int32 Level() const;
     void Describe() const;
 };
+
+UINTERFACE()
+class UPowered : public UInterface
+{
+    GENERATED_UINTERFACE_BODY()
+};
+
+class IPowered
+{
+    GENERATED_IINTERFACE_BODY()
+public:
+    UFUNCTION(BlueprintNativeEvent)
+    void OnPowered(EPower Level);
+    virtual float Draw() const = 0;
+};
+
+class FTurbine : public FMachine, public IPowered
+{
+public:
+    virtual void Run(int32 Speed) override;
+};
