@@ -121,6 +121,11 @@ namespace VisualXtsi.Refactoring
             return ext == ".h" || ext == ".hpp" || ext == ".hh" || ext == ".hxx" || ext == ".inl";
         }
 
+        /// <summary>Unreal's generated code (X.generated.h, X.gen.cpp), which is rewritten on every build: never edited.</summary>
+        public static bool IsGenerated(string path) =>
+            path != null && (path.EndsWith(".generated.h", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".gen.cpp", StringComparison.OrdinalIgnoreCase) ||
+                             path.EndsWith(".gen.h", StringComparison.OrdinalIgnoreCase));
+
         /// <summary>The source file of a header (by the header/source toggle), or null.</summary>
         public static string SourceFor(string header) =>
             Interop.Engine.Counterparts(header).FirstOrDefault(p => !IsHeader(p) && !p.EndsWith(".cs", StringComparison.OrdinalIgnoreCase));

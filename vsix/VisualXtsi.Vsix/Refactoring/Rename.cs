@@ -95,6 +95,8 @@ namespace VisualXtsi.Refactoring
             var items = new List<PreviewItem>();
             foreach (Occurrence o in occurrences.GroupBy(o => (o.Ref.Path.ToLowerInvariant(), o.Ref.Line, o.Ref.Column)).Select(g => g.First()))
             {
+                if (Documents.IsGenerated(o.Ref.Path))
+                    continue; // rewritten by the next build
                 if (!texts.TryGetValue(o.Ref.Path, out string text))
                     texts[o.Ref.Path] = text = Documents.Read(o.Ref.Path);
                 if (text == null)

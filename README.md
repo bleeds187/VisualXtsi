@@ -181,7 +181,8 @@ falling back to the editor's setting.
   a reflected name (UCLASS, USTRUCT, UENUM, UINTERFACE, UPROPERTY, UFUNCTION) warns that assets
   refer to it and offers, unchecked, the [CoreRedirects] line for Config/DefaultEngine.ini
   (+ClassRedirects, +StructRedirects, +EnumRedirects, +PropertyRedirects, +FunctionRedirects, with
-  the module and the class without its prefix). In C# it is Visual Studio's own rename (Roslyn).
+  the module and the class without its prefix). Generated code (.gen.cpp, .generated.h) is never
+  edited. In C# it is Visual Studio's own rename (Roslyn).
 - Add Include: includes the header that declares the symbol at the caret (by the parser, or by
   the symbol index when the name does not resolve yet; a list when several headers declare it),
   with the path Unreal expects (relative to the module's Public or Classes folder, to Private

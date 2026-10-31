@@ -227,6 +227,9 @@ namespace VisualXtsi.Tests
                        "redirect appended to the [CoreRedirects] section");
             (at, text) = RenameSupport.InsertRedirect("[A]\nX=1\n", "+B");
             ExpectText("[A]\nX=1\n".Insert(at, text), "[A]\nX=1\n\n[CoreRedirects]\n+B\n", "a new [CoreRedirects] section");
+            const string empty = "[CoreRedirects]\r\n\r\n[/Script/Engine.Engine]\r\nX=1\r\n";
+            (at, text) = RenameSupport.InsertRedirect(empty, "+B");
+            ExpectText(empty.Insert(at, text), "[CoreRedirects]\r\n+B\r\n\r\n[/Script/Engine.Engine]\r\nX=1\r\n", "an empty [CoreRedirects] section followed by a blank line");
         }
 
         private static void CodeGenTests()

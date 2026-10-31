@@ -99,7 +99,7 @@ namespace VisualXtsi.Refactoring
         public static (int Offset, string Text) InsertRedirect(string ini, string line)
         {
             string nl = TextScan.Newline(ini.Length > 0 ? ini : "\r\n");
-            Match section = Regex.Match(ini, @"^\[CoreRedirects\]\s*$", RegexOptions.Multiline);
+            Match section = Regex.Match(ini, @"^\[CoreRedirects\][ \t]*(?=\r?$)", RegexOptions.Multiline);
             if (!section.Success)
             {
                 string prefix = ini.Length == 0 || ini.EndsWith("\n") ? "" : nl;
