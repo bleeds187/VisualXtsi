@@ -180,6 +180,15 @@ to several files are one undo step together, and files it had to open stay open 
   refer to it and offers, unchecked, the [CoreRedirects] line for Config/DefaultEngine.ini
   (+ClassRedirects, +StructRedirects, +EnumRedirects, +PropertyRedirects, +FunctionRedirects, with
   the module and the class without its prefix). In C# it is Visual Studio's own rename (Roslyn).
+- Add Include: includes the header that declares the symbol at the caret (by the parser, or by
+  the symbol index when the name does not resolve yet; a list when several headers declare it),
+  with the path Unreal expects (relative to the module's Public or Classes folder, to Private
+  within the module, else to the module folder; outside a module, relative to the file), in
+  sorted order in the last group of includes, after a source file's own header and before
+  X.generated.h; nothing if it is already included.
+- Add Forward Declaration: class X;, struct X; or enum class X : base; (in its namespace) in the
+  file's block of forward declarations, kept in order (classes, structs, enums, by name), else
+  after the includes. Not for nested types or enums without a fixed underlying type.
 - Create Implementation (on a declaration): the definition stub goes into the source file, next
   to the definitions of the methods declared around it (after the one before, else before the
   one after, else at the end, fully qualified), without default arguments, virtual, static,

@@ -35,8 +35,59 @@ namespace VisualXtsi.Tests
             CodeGenTests();
             TextScanTests();
             RenameTests();
+            IncludeTests();
             Console.WriteLine(_failures == 0 ? "all tests passed" : $"{_failures} failures");
             return _failures == 0 ? 0 : 1;
+        }
+
+        private static void IncludeTests()
+        {
+            // Include paths by Unreal module layout.
+            string engine = @"C:\UE\Engine\Source\Runtime\Engine";
+            ExpectText(IncludeSupport.IncludePath(engine + @"\Classes\GameFramework\Actor.h", engine, @"C:\P\Source\Game\Private\A.cpp", @"C:\P\Source\Game"),
+                       "GameFramework/Actor.h", "engine header relative to Classes");
+            ExpectText(IncludeSupport.IncludePath(@"C:\P\Source\Game\Public\Items\Item.h", @"C:\P\Source\Game", @"C:\P\Source\Other\Private\B.cpp", @"C:\P\Source\Other"),
+                       "Items/Item.h", "another module's Public header");
+            ExpectText(IncludeSupport.IncludePath(@"C:\P\Source\Game\Private\Internal.h", @"C:\P\Source\Game", @"C:\P\Source\Game\Private\Sub\C.cpp", @"C:\P\Source\Game"),
+                       "Internal.h", "own module's Private header");
+            ExpectText(IncludeSupport.IncludePath(@"C:\P\Source\Game\GameModule.h", @"C:\P\Source\Game", @"C:\P\Source\Game\Private\D.cpp", @"C:\P\Source\Game"),
+                       "GameModule.h", "a header in the module folder");
+            ExpectText(IncludeSupport.IncludePath(@"C:\Tool\src\util\Text.h", null, @"C:\Tool\src\main.cpp", null), "util/Text.h", "no module: relative");
+            ExpectText(IncludeSupport.IncludePath(@"C:\Tool\inc\Api.h", null, @"C:\Tool\src\main.cpp", null), "../inc/Api.h", "no module: up and over");
+
+            // A source file: its own header first, then sorted, generated.h last (in a header).
+            string cpp = "// Copyright\n#include \"Thing.h\"\n\n#include \"Engine/World.h\"\n#include \"Kismet/GameplayStatics.h\"\n\n" +
+                         "#include UE_INLINE_GENERATED_CPP_BY_NAME(Thing)\n\nvoid F() {}\n";
+            var at = IncludeSupport.IncludeInsertion(cpp, "GameFramework/Actor.h", "Thing.cpp");
+            Expect(at.HasValue && cpp.Insert(at.Value.Offset, at.Value.Text).Contains("#include \"Engine/World.h\"\n#include \"GameFramework/Actor.h\"\n#include \"Kismet/GameplayStatics.h\""),
+                   "sorted among the last group");
+            at = IncludeSupport.IncludeInsertion(cpp, "AAA/First.h", "Thing.cpp");
+            Expect(at.HasValue && cpp.Insert(at.Value.Offset, at.Value.Text).Contains("\n\n#include \"AAA/First.h\"\n#include \"Engine/World.h\""), "first of its group");
+            Expect(!IncludeSupport.IncludeInsertion(cpp, "World.h", "Thing.cpp").HasValue && !IncludeSupport.IncludeInsertion(cpp, "Engine/World.h", "Thing.cpp").HasValue,
+                   "already included");
+            string h = "#pragma once\n\n#include \"CoreMinimal.h\"\n#include \"GameFramework/Actor.h\"\n#include \"Thing.generated.h\"\n\nUCLASS()\n";
+            at = IncludeSupport.IncludeInsertion(h, "Zoo/Last.h", "Thing.h");
+            Expect(at.HasValue && h.Insert(at.Value.Offset, at.Value.Text).Contains("#include \"Zoo/Last.h\"\n#include \"Thing.generated.h\""), "generated.h stays last");
+            at = IncludeSupport.IncludeInsertion("#pragma once\n\nstruct X {};\n", "A.h", "X.h");
+            Expect(at.HasValue && "#pragma once\n\nstruct X {};\n".Insert(at.Value.Offset, at.Value.Text).StartsWith("#pragma once\n#include \"A.h\"\n"), "no includes: after #pragma once");
+
+            // Forward declarations.
+            ExpectText(IncludeSupport.ForwardDeclaration("class", "UThing", "", false, null), "class UThing;", "class");
+            ExpectText(IncludeSupport.ForwardDeclaration("enum", "EMode", "", true, "uint8"), "enum class EMode : uint8;", "scoped enum with its base");
+            ExpectText(IncludeSupport.ForwardDeclaration("struct", "FPart", "Toys", false, null), "namespace Toys { struct FPart; }", "in a namespace");
+            string withForward = "#pragma once\n#include \"A.h\"\n\nclass UAlpha;\nclass UGamma;\n\nUCLASS()\n";
+            var f = IncludeSupport.ForwardInsertion(withForward, "class UBeta;");
+            Expect(f.HasValue && withForward.Insert(f.Value.Offset, f.Value.Text).Contains("class UAlpha;\nclass UBeta;\nclass UGamma;"), "sorted among the forward declarations");
+            Expect(!IncludeSupport.ForwardInsertion(withForward, "class UAlpha;").HasValue, "already declared");
+            Expect(!IncludeSupport.ForwardInsertion(withForward.Replace("\n", "\r\n"), "class UAlpha;").HasValue, "already declared (CRLF)");
+            string lyraLike = "#pragma once\n\n#include \"A.h\"\n\n#include \"X.generated.h\"\n\n#define UE_API GAME_API\n\nclass AActor;\nclass UClass;\nstruct FFrame;\nenum class EMode : uint8;\n\nUCLASS()\n";
+            f = IncludeSupport.ForwardInsertion(lyraLike, "class APawn;");
+            Expect(f.HasValue && lyraLike.Insert(f.Value.Offset, f.Value.Text).Contains("class AActor;\nclass APawn;\nclass UClass;"), "the block after a #define, classes by name");
+            f = IncludeSupport.ForwardInsertion(lyraLike, "struct FPart;");
+            Expect(f.HasValue && lyraLike.Insert(f.Value.Offset, f.Value.Text).Contains("struct FFrame;\nstruct FPart;\nenum class EMode"), "structs after classes, before enums");
+            string none = "#pragma once\n#include \"A.h\"\n\nUCLASS()\n";
+            f = IncludeSupport.ForwardInsertion(none, "struct FPart;");
+            Expect(f.HasValue && none.Insert(f.Value.Offset, f.Value.Text).StartsWith("#pragma once\n#include \"A.h\"\n\nstruct FPart;\n"), "after the includes");
         }
 
         private static void RenameTests()

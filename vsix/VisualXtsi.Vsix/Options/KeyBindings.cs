@@ -35,6 +35,8 @@ namespace VisualXtsi.Options
             new CommandInfo { Name = "VisualXtsi.Refactor.CreateDeclaration", Label = "Create Declaration", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.MoveImplementationToSource", Label = "Move Implementation to Source File", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.MoveImplementationToHeader", Label = "Move Implementation to Header File", Defaults = new string[0] },
+            new CommandInfo { Name = "VisualXtsi.Refactor.AddInclude", Label = "Add Include", Defaults = new string[0] },
+            new CommandInfo { Name = "VisualXtsi.Refactor.AddForwardDeclaration", Label = "Add Forward Declaration", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.SurroundWith", Label = "Surround With (menu at the caret)", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.EditSnippets", Label = "Edit Snippets", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.RebuildSymbolIndex", Label = "Rebuild Symbol Index", Defaults = new string[0] },

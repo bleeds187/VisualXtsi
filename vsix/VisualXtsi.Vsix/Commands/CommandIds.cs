@@ -27,6 +27,8 @@ namespace VisualXtsi.Commands
         public const int CreateMethodImplementations = 0x0204;
         public const int MoveToSource = 0x0205;
         public const int MoveToHeader = 0x0206;
+        public const int AddInclude = 0x0207;
+        public const int AddForwardDeclaration = 0x0208;
         public const int RefactorAtCaret = 0x020C;
         public const int EditSnippets = 0x020D;
         public const int SurroundWithAtCaret = 0x020E;

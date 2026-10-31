@@ -37,6 +37,8 @@ namespace VisualXtsi.Commands
             AddRefactoring(commands, CommandIds.CreateDeclaration, ImplementationRefactorings.CreateDeclarationAsync, ImplementationRefactorings.CanCreateDeclaration);
             AddRefactoring(commands, CommandIds.MoveToSource, ImplementationRefactorings.MoveToSourceAsync, ImplementationRefactorings.CanMoveToSource);
             AddRefactoring(commands, CommandIds.MoveToHeader, ImplementationRefactorings.MoveToHeaderAsync, ImplementationRefactorings.CanMoveToHeader);
+            AddRefactoring(commands, CommandIds.AddInclude, IncludeRefactorings.AddIncludeAsync, IncludeRefactorings.CanAddInclude);
+            AddRefactoring(commands, CommandIds.AddForwardDeclaration, IncludeRefactorings.AddForwardDeclarationAsync, IncludeRefactorings.CanAddForwardDeclaration);
             EditorCommands.Add(commands, CommandIds.RefactorAtCaret, () => ShowMenuAtCaret(CommandIds.RefactorPopup),
                 () =>
                 {

@@ -81,6 +81,9 @@
       <Group guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" priority="0x0200">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
       </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" priority="0x0300">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
+      </Group>
       <Group guid="guidVisualXtsiCmdSet" id="SurroundSnippetsGroup" priority="0x0100">
         <Parent guid="guidVisualXtsiCmdSet" id="SurroundMenu" />
       </Group>
@@ -255,6 +258,30 @@
           <ToolTipText>Move the body of the function at the caret from the source file into its declaration in the header</ToolTipText>
           <CanonicalName>.VisualXtsi.Refactor.MoveImplementationToHeader</CanonicalName>
           <LocCanonicalName>.VisualXtsi.Refactor.MoveImplementationToHeader</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidAddInclude" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" />
+        <Icon guid="ImageCatalogGuid" id="Include" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Add I&amp;nclude</ButtonText>
+          <ToolTipText>Include the header that declares the symbol at the caret</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.AddInclude</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.AddInclude</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidAddForwardDeclaration" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" />
+        <Icon guid="ImageCatalogGuid" id="Class" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Add Forward Decl&amp;aration</ButtonText>
+          <ToolTipText>Declare the class, struct or enum at the caret ahead, after the includes</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.AddForwardDeclaration</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.AddForwardDeclaration</LocCanonicalName>
         </Strings>
       </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidRefactorAtCaret" priority="0x0050" type="Button">
@@ -475,6 +502,9 @@
       <IDSymbol name="cmdidCreateMethodImplementations" value="0x0204" />
       <IDSymbol name="cmdidMoveToSource" value="0x0205" />
       <IDSymbol name="cmdidMoveToHeader" value="0x0206" />
+      <IDSymbol name="RefactorIncludeGroup" value="0x1010" />
+      <IDSymbol name="cmdidAddInclude" value="0x0207" />
+      <IDSymbol name="cmdidAddForwardDeclaration" value="0x0208" />
       <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />
