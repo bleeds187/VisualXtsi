@@ -18,5 +18,14 @@ namespace VisualXtsi.Commands
         public const int About = 0x0108;
         public const int KeyboardShortcuts = 0x0109;
         public const int ToggleEnabled = 0x010A;
+
+        // Refactor and Surround With (0x0200...)
+        public const int EditSnippets = 0x020D;
+        public const int SurroundWithAtCaret = 0x020E;
+        public const int SurroundSnippetFirst = 0x0400; // a dynamic list of SurroundSnippetSlots items
+        public const int SurroundSnippetSlots = 128;
+
+        // Menus
+        public const int SurroundMenu = 0x2003;
     }
 }

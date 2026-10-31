@@ -38,6 +38,7 @@ namespace VisualXtsi
                 FindSymbolCommand.Register(this, commands);
                 GoToDefinitionCommand.Register(this, commands);
                 ToolCommands.Register(this, commands);
+                RefactorCommands.Register(this, commands);
                 // Extensions > VisualXtsi > Options...
                 EditorCommands.Add(commands, CommandIds.ShowOptions,
                     async () =>

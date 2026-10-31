@@ -27,6 +27,8 @@ namespace VisualXtsi.Options
             new CommandInfo { Name = "VisualXtsi.ToggleHeaderSource", Label = "Toggle Header/Source", Defaults = new[] { "Text Editor::Alt+O" } },
             new CommandInfo { Name = "VisualXtsi.FindSymbolInSolution", Label = "Find Symbol in Solution", Defaults = new[] { "Global::Shift+Alt+S" } },
             new CommandInfo { Name = "VisualXtsi.GoToDefinition", Label = "Go to Definition", Defaults = new[] { "Text Editor::Alt+G" } },
+            new CommandInfo { Name = "VisualXtsi.Refactor.SurroundWith", Label = "Surround With (menu at the caret)", Defaults = new string[0] },
+            new CommandInfo { Name = "VisualXtsi.Refactor.EditSnippets", Label = "Edit Snippets", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.RebuildSymbolIndex", Label = "Rebuild Symbol Index", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.ClearPchCache", Label = "Clear PCH Cache", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.OpenLogFile", Label = "Open Log File", Defaults = new string[0] },

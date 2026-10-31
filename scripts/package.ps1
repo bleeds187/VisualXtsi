@@ -46,10 +46,13 @@ Run cmake @('--build', $engineBuild, '--config', 'Release', '--parallel')
 Step 'Engine tests'
 Run ctest @('--test-dir', $engineBuild, '-C', 'Release', '--output-on-failure')
 
-Step 'Theme tests'
+Step 'Extension tests (themes, refactoring)'
 $themeTests = Join-Path $repo 'tests\vsix\ThemeTests\ThemeTests.csproj'
 Run $msbuild @($themeTests, '-nologo', '-v:m', '-nodeReuse:false', '-p:UseSharedCompilation=false', '-p:Configuration=Release')
 Run (Join-Path $repo 'tests\vsix\ThemeTests\bin\Release\ThemeTests.exe') @()
+$refactorTests = Join-Path $repo 'tests\vsix\RefactorTests\RefactorTests.csproj'
+Run $msbuild @($refactorTests, '-nologo', '-v:m', '-nodeReuse:false', '-p:UseSharedCompilation=false', '-p:Configuration=Release')
+Run (Join-Path $repo 'tests\vsix\RefactorTests\bin\Release\RefactorTests.exe') @()
 
 Step "VSIX $version (Release)"
 $project = Join-Path $repo 'vsix\VisualXtsi.Vsix\VisualXtsi.Vsix.csproj'

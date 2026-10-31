@@ -25,6 +25,14 @@
           <CommandName>&amp;Tools</CommandName>
         </Strings>
       </Menu>
+      <!-- Code editor context menu: Surround With (Xtsi), also under Extensions > VisualXtsi. -->
+      <Menu guid="guidVisualXtsiCmdSet" id="SurroundMenu" priority="0x0200" type="Menu">
+        <Parent guid="guidVisualXtsiCmdSet" id="ContextRefactorGroup" />
+        <Strings>
+          <ButtonText>Surro&amp;und With (Xtsi)</ButtonText>
+          <CommandName>Surround With (Xtsi)</CommandName>
+        </Strings>
+      </Menu>
       <Menu guid="guidVisualXtsiCmdSet" id="HelpMenu" priority="0x0200" type="Menu">
         <Parent guid="guidVisualXtsiCmdSet" id="SubmenuMoreGroup" />
         <Strings>
@@ -42,6 +50,19 @@
       <!-- Code editor context menu -->
       <Group guid="guidVisualXtsiCmdSet" id="ContextGroup" priority="0x0201">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
+      </Group>
+      <!-- Near the top of the code editor context menu: the Refactor and Surround With submenus. -->
+      <Group guid="guidVisualXtsiCmdSet" id="ContextRefactorGroup" priority="0x0001">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="SurroundSnippetsGroup" priority="0x0100">
+        <Parent guid="guidVisualXtsiCmdSet" id="SurroundMenu" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="SurroundEditGroup" priority="0x0200">
+        <Parent guid="guidVisualXtsiCmdSet" id="SurroundMenu" />
+      </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="SubmenuRefactorGroup" priority="0x0350">
+        <Parent guid="guidVisualXtsiCmdSet" id="VisualXtsiMenu" />
       </Group>
       <Group guid="guidVisualXtsiCmdSet" id="ExtensionsGroup" priority="0x0600">
         <Parent guid="guidVsMainMenu" id="IDM_VS_MENU_EXTENSIONS" />
@@ -114,6 +135,40 @@
           <ToolTipText>Go to the definition of the symbol at the caret (on a definition: its declaration)</ToolTipText>
           <CanonicalName>.VisualXtsi.GoToDefinition</CanonicalName>
           <LocCanonicalName>.VisualXtsi.GoToDefinition</LocCanonicalName>
+        </Strings>
+      </Button>
+      <!-- Surround With: one item per snippet of the document's language (a dynamic list). -->
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidSurroundSnippetFirst" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="SurroundSnippetsGroup" />
+        <CommandFlag>DynamicItemStart</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Snippet</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidEditSnippets" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="SurroundEditGroup" />
+        <Icon guid="ImageCatalogGuid" id="EditDocument" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>&amp;Edit Snippets...</ButtonText>
+          <ToolTipText>Open the Surround With snippets file (created from the built-in snippets) in the editor</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.EditSnippets</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.EditSnippets</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidSurroundWithAtCaret" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="SubmenuRefactorGroup" />
+        <Icon guid="ImageCatalogGuid" id="Snippet" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <CommandFlag>AllowParams</CommandFlag>
+        <Strings>
+          <ButtonText>Surround &amp;With...</ButtonText>
+          <ToolTipText>Open the Surround With menu at the caret (with a snippet name as argument: apply that snippet)</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.SurroundWith</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.SurroundWith</LocCanonicalName>
         </Strings>
       </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidRebuildSymbolIndex" priority="0x0100" type="Button">
@@ -196,6 +251,9 @@
 
   <!-- The navigation commands also appear in Extensions > VisualXtsi and the code editor's context menu. -->
   <CommandPlacements>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="SurroundMenu" priority="0x0200">
+      <Parent guid="guidVisualXtsiCmdSet" id="SubmenuRefactorGroup" />
+    </CommandPlacement>
     <CommandPlacement guid="guidVisualXtsiCmdSet" id="cmdidOpenFileInSolution" priority="0x0100">
       <Parent guid="guidVisualXtsiCmdSet" id="SubmenuOpenGroup" />
     </CommandPlacement>
@@ -258,9 +316,17 @@
       <IDSymbol name="cmdidAbout" value="0x0108" />
       <IDSymbol name="cmdidKeyboardShortcuts" value="0x0109" />
       <IDSymbol name="cmdidToggleEnabled" value="0x010A" />
+      <IDSymbol name="ContextRefactorGroup" value="0x100A" />
+      <IDSymbol name="SurroundSnippetsGroup" value="0x100B" />
+      <IDSymbol name="SurroundEditGroup" value="0x100C" />
+      <IDSymbol name="SubmenuRefactorGroup" value="0x100D" />
+      <IDSymbol name="cmdidEditSnippets" value="0x020D" />
+      <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />
+      <IDSymbol name="cmdidSurroundSnippetFirst" value="0x0400" />
       <IDSymbol name="VisualXtsiMenu" value="0x2000" />
       <IDSymbol name="ToolsMenu" value="0x2001" />
       <IDSymbol name="HelpMenu" value="0x2002" />
+      <IDSymbol name="SurroundMenu" value="0x2003" />
     </GuidSymbol>
     <!-- guidSHLMainMenu's Extensions menu: the VSSDK build tools' vsshlids.h lacks IDM_VS_MENU_EXTENSIONS
          (Visual Studio's own copy defines it as 0x0091). -->

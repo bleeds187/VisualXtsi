@@ -69,6 +69,9 @@
     <Compile Include="Commands\OpenFileInSolutionCommand.cs" />
     <Compile Include="Commands\ToggleHeaderSourceCommand.cs" />
     <Compile Include="Commands\ToolCommands.cs" />
+    <Compile Include="Commands\RefactorCommands.cs" />
+    <Compile Include="Refactoring\Snippets.cs" />
+    <Compile Include="Refactoring\SurroundWith.cs" />
     <Compile Include="Interop\Engine.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Options\ColorThemes.cs" />

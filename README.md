@@ -140,6 +140,25 @@ expression-bodied members. Their scopes read "Namespace.Class", and Find Symbol 
 languages, C/C++, C#); lookups from C++ (Go to Definition's fallback, the UFUNCTION tooltips) only
 consider C/C++ symbols.
 
+## Refactoring
+
+The code editor's context menu has two submenus at the top, Refactor (Xtsi) and Surround With
+(Xtsi), also under Extensions > VisualXtsi > Refactor. Every command can be bound to a key
+(VisualXtsi.Refactor.*), and every change is one undo step.
+
+Surround With wraps the selection (whole lines; with nothing selected, the caret's line) in a
+snippet: #if 0, #ifdef, #ifndef, #if WITH_EDITOR, #if WITH_EDITORONLY_DATA, #if !UE_BUILD_SHIPPING,
+an include guard, #pragma region, TEXT(), _T(), if, if/else, for, range-for, while, do/while,
+switch, try/catch, namespace, braces and parentheses; in C# also foreach, try/finally, using, lock,
+#if and #region. The selection is re-indented one level deeper where the snippet nests it
+(tabs or spaces as the editor is set), preprocessor lines stay at column 0, and the snippet's fields
+(the condition, the #ifdef symbol, ...) are selected one after the other with Tab and Shift+Tab,
+same-named fields filled in together; Enter or Esc finishes at the snippet's end. Edit Snippets...
+opens `%LOCALAPPDATA%\VisualXtsi\snippets\snippets.json` (created from the built-ins on first use),
+where snippets can be changed, removed, reordered or added. VisualXtsi.Refactor.SurroundWith opens
+the menu at the caret; given a snippet name as its argument (Command window, an alias) it applies
+that snippet directly.
+
 ## Menus and dialogs
 
 Extensions > VisualXtsi groups the commands by task: Open File in Solution and Toggle
