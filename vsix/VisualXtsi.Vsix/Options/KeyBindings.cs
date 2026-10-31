@@ -35,6 +35,8 @@ namespace VisualXtsi.Options
             new CommandInfo { Name = "VisualXtsi.Refactor.CreateDeclaration", Label = "Create Declaration", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.MoveImplementationToSource", Label = "Move Implementation to Source File", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.MoveImplementationToHeader", Label = "Move Implementation to Header File", Defaults = new string[0] },
+            new CommandInfo { Name = "VisualXtsi.Refactor.AddMember", Label = "Add Member", Defaults = new string[0] },
+            new CommandInfo { Name = "VisualXtsi.Refactor.AddSimilarMember", Label = "Add Similar Member", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.AddInclude", Label = "Add Include", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.AddForwardDeclaration", Label = "Add Forward Declaration", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.DocumentMethod", Label = "Document Method", Defaults = new string[0] },

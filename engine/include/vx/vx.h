@@ -260,7 +260,10 @@ VX_API void VX_CALL vx_release(const char16_t* path);
  *     argument if there is one; repeated),
  *     qualifiers (const, noexcept, ...), static 1, virtual 1, pure 1, template 1, ue (VX_UE_*);
  *   fields and variables: type (as written), typespelling, pod 1/0, static 1;
- *   enums: enumscoped 1/0, enumbase.
+ *   enums: enumscoped 1/0, enumbase;
+ *   and whatever the position names, the class it is in: inclass (extent; the innermost class
+ *   definition around it, else the class of the method whose definition it is in), inclassclasses
+ *   ("Outer::Inner"), inclassnamespaces.
  * Returns the number of char16_t needed (0: nothing there, or no parsed unit). */
 VX_API uint32_t VX_CALL vx_cursor_info(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
                                        uint32_t cap);

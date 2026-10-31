@@ -263,6 +263,30 @@
           <LocCanonicalName>.VisualXtsi.Refactor.MoveImplementationToHeader</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidAddMember" priority="0x0105" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
+        <Icon guid="ImageCatalogGuid" id="AddMember" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Add Mem&amp;ber...</ButtonText>
+          <ToolTipText>Add a method or field to the class at the caret, with an implementation if wanted</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.AddMember</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.AddMember</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidAddSimilarMember" priority="0x0106" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" />
+        <Icon guid="ImageCatalogGuid" id="AddMethod" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Add Simi&amp;lar Member...</ButtonText>
+          <ToolTipText>Add a member to the class starting from the declaration of the member at the caret</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.AddSimilarMember</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.AddSimilarMember</LocCanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidAddInclude" priority="0x0100" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" />
         <Icon guid="ImageCatalogGuid" id="Include" />
@@ -574,6 +598,8 @@
       <IDSymbol name="cmdidAddRemoveBraces" value="0x020B" />
       <IDSymbol name="cmdidAddMissingCases" value="0x020F" />
       <IDSymbol name="cmdidConvertToScopedEnum" value="0x0210" />
+      <IDSymbol name="cmdidAddMember" value="0x0211" />
+      <IDSymbol name="cmdidAddSimilarMember" value="0x0212" />
       <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />

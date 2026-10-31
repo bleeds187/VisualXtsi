@@ -336,7 +336,7 @@ namespace VisualXtsi.Refactoring
         }
 
         // The offset of the name of a definition of `name` (or its _Implementation) in `scope`, in this text.
-        private static int FindDefinition(string text, string path, string name, string scope)
+        internal static int FindDefinition(string text, string path, string name, string scope)
         {
             foreach (string n in new[] { name, name + "_Implementation" })
                 foreach (SymbolInfo s in Engine.LookupSymbols(n, 50, SymbolLanguage.Cpp))
@@ -400,7 +400,7 @@ namespace VisualXtsi.Refactoring
                 EditorCommands.Status(error);
         }
 
-        private static void OpenAt(string path, string text, int offset)
+        internal static void OpenAt(string path, string text, int offset)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             int line = TextScan.LineOf(text, offset);

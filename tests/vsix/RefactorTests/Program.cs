@@ -38,6 +38,7 @@ namespace VisualXtsi.Tests
             IncludeTests();
             ShapeTests();
             EnumTests();
+            MemberTests();
             Console.WriteLine(_failures == 0 ? "all tests passed" : $"{_failures} failures");
             return _failures == 0 ? 0 : 1;
         }
@@ -140,6 +141,46 @@ namespace VisualXtsi.Tests
             Expect(EnumSupport.UnwrapEnumAsByte("EMode Mode;", 0, "EMode") == null, "no TEnumAsByte: nothing");
             ExpectText(RenameSupport.EnumValueRedirect("Game", "EMode", new[] { "Off", "On" }),
                        "+EnumRedirects=(OldName=\"/Script/Game.EMode\",ValueChanges=((\"Off\",\"EMode::Off\"),(\"On\",\"EMode::On\")))", "enum value redirects");
+        }
+
+        private static void MemberTests()
+        {
+            const string cls = "UCLASS()\nclass UThing : public UObject\n{\n    GENERATED_BODY()\npublic:\n    UFUNCTION(BlueprintCallable,\n              Category = \"X\")\n" +
+                               "    void Run(int32 Speed = 1) const;\n\n    FORCEINLINE int32 Get() const { return Value; }\nprotected:\n    int32 Value = 0;\n};\n";
+            int open = cls.IndexOf('{'), close = cls.LastIndexOf('}');
+            var (at, label, newLine) = MemberSupport.Insertion(cls, open, close, "public", false);
+            Expect(at == cls.IndexOf("protected:") && label == null && !newLine, "insertion: after the public section's last member");
+            (at, label, _) = MemberSupport.Insertion(cls, open, close, "protected", false);
+            Expect(at == cls.IndexOf("};") && label == null, "insertion: the protected section, at the class end");
+            (at, label, _) = MemberSupport.Insertion(cls, open, close, "private", false);
+            Expect(at == cls.IndexOf("};") && label == "private", "insertion: no private section (GENERATED_BODY alone does not count): a label at the end");
+            (at, label, newLine) = MemberSupport.Insertion("struct F { int A; };", 9, 18, "public", true);
+            Expect(at == 18 && label == null && newLine, "insertion: a one-line struct");
+            Expect(MemberSupport.AccessAt(cls, open, close, cls.IndexOf("Value ="), false) == "protected", "access at a member");
+            Expect(MemberSupport.AccessAt(cls, open, close, cls.IndexOf("GENERATED"), false) == "private", "access before any label");
+
+            ExpectText(MemberSupport.MacroText(cls, cls.IndexOf("void Run")), "UFUNCTION(BlueprintCallable, Category = \"X\")", "the macro above a declaration, across lines");
+            ExpectText(MemberSupport.MacroText(cls, cls.IndexOf("int32 Value")), "", "no macro");
+            int get = cls.IndexOf("FORCEINLINE");
+            ExpectText(MemberSupport.DeclarationText(cls, get, cls.IndexOf('}', get) + 1), "FORCEINLINE int32 Get() const", "declaration text without the inline body");
+            string Name(string d) { var (s, l) = MemberSupport.NameIn(d); return d.Substring(s, l); }
+            ExpectText(Name("void Run(int32 Speed = 1) const"), "Run", "name of a method");
+            ExpectText(Name("TArray<int32> Values = {}"), "Values", "name of a field with an initializer");
+            ExpectText(Name("int32 Grid[4][4]"), "Grid", "name of an array");
+            Expect(MemberSupport.Validate("") != null && MemberSupport.Validate("Speed") != null && MemberSupport.Validate("void F(") != null &&
+                   MemberSupport.Validate("float Speed = 1.f") == null && MemberSupport.Validate("~UThing()") == null, "declaration validation");
+            Expect(MemberSupport.UeFlags("UFUNCTION(Server, Reliable, WithValidation)") == 3 && MemberSupport.UeFlags("UFUNCTION(BlueprintImplementableEvent)") == 4 &&
+                   MemberSupport.UeFlags("UPROPERTY(EditAnywhere)") == 0, "UFUNCTION specifiers");
+
+            CursorInfo f = MemberSupport.MethodInfo("virtual int32 Score(UPARAM(ref) int32& A, float B = 2.f) const override", "UThing", "", "UFUNCTION(BlueprintNativeEvent)");
+            Expect(f != null && f.Name == "Score" && f.Result == "int32" && f.Qualifiers == "const" && f.Ue == 1, "method info: name, result, qualifiers, native event");
+            var defs = CodeGen.Definitions(f, CodeGen.Qualifier(f, false), "\t", "\n");
+            ExpectText(defs[0].Text, "int32 UThing::Score_Implementation(int32& A, float B) const\n{\n}", "definition from a typed declaration");
+            f = MemberSupport.MethodInfo("static UThing* Make()", "Ns::UThing", "", "");
+            ExpectText(CodeGen.Signature(f, f.Name, CodeGen.Qualifier(f, false)), "UThing* Ns::UThing::Make()", "static dropped, nested class qualified");
+            Expect(MemberSupport.MethodInfo("void Tick() = 0", "A", "", "") == null && MemberSupport.MethodInfo("int32 Get() const { return 1; }", "A", "", "") == null &&
+                   MemberSupport.MethodInfo("float Speed = 1.f", "A", "", "") == null, "no definition for pure, inline or a field");
+            ExpectText(MemberSupport.MemberText("UPROPERTY(EditAnywhere)", "float Speed = 1.f", "\t", "\n"), "\tUPROPERTY(EditAnywhere)\n\tfloat Speed = 1.f;\n", "member text with its macro");
         }
 
         private static void ShapeTests()

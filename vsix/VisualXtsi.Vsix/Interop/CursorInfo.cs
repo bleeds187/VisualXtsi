@@ -63,6 +63,10 @@ namespace VisualXtsi.Interop
         public SourceRange DefinitionExtent => SourceRange.Parse(One("defextent"));
         public SourceRange Class => SourceRange.Parse(One("class"));
         public SourceRange Body => SourceRange.Parse(One("body"));
+        /// <summary>The class the position is in (whatever it names), its classes ("Outer::Inner") and namespaces.</summary>
+        public SourceRange InClass => SourceRange.Parse(One("inclass"));
+        public string InClassClasses => One("inclassclasses") ?? "";
+        public string InClassNamespaces => One("inclassnamespaces") ?? "";
         public bool AtDefinition => Flag("atdef");
         public bool DefinitionOnly => Flag("defonly");
 

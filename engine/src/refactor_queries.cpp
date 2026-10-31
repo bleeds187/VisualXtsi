@@ -445,6 +445,32 @@ void describeFunction(Unit& unit, CXCursor f, std::u16string& out)
         out += u"template\t1\n";
 }
 
+// The class the position is in, whatever it names: the innermost class definition around it, else
+// the class of the method whose out-of-class definition it is in. "inclass" (its extent),
+// "inclassclasses" (Outer::Inner) and "inclassnamespaces".
+void describeEnclosingClass(Unit& unit, uint32_t line, uint32_t column, std::u16string& out)
+{
+    unsigned offset = 0;
+    cursorAt(unit, line, column, &offset);
+    CXCursor cls = enclosing(unit, offset, false);
+    if (clang_Cursor_isNull(cls)) {
+        const CXCursor f = enclosing(unit, offset, true);
+        const CXCursor parent = clang_Cursor_isNull(f) ? f : clang_getCursorSemanticParent(f);
+        if (!clang_Cursor_isNull(parent) && isRecordKind(clang_getCursorKind(parent)))
+            cls = clang_getCursorDefinition(parent);
+    }
+    if (clang_Cursor_isNull(cls))
+        return;
+    CXTranslationUnit tu = unit.tu;
+    addRange(out, u"inclass", tu, clang_getRangeStart(extentOf(tu, cls)), clang_getRangeEnd(extentOf(tu, cls)));
+    std::u16string classes, namespaces;
+    bool templated = false;
+    scopesOf(cls, classes, namespaces, templated);
+    const std::u16string name = vx::toUtf16(takeString(clang_getCursorSpelling(cls)));
+    out += u"inclassclasses\t" + (classes.empty() ? name : classes + u"::" + name) + u"\n";
+    out += u"inclassnamespaces\t" + namespaces + u"\n";
+}
+
 std::u16string describe(Unit& unit, CXCursor e, uint32_t line, uint32_t column)
 {
     CXTranslationUnit tu = unit.tu;
@@ -523,6 +549,7 @@ std::u16string describe(Unit& unit, CXCursor e, uint32_t line, uint32_t column)
         if (!clang_Cursor_isNull(d))
             addRange(out, u"class", tu, clang_getRangeStart(extentOf(tu, d)), clang_getRangeEnd(extentOf(tu, d)));
     }
+    describeEnclosingClass(unit, line, column, out);
     return out;
 }
 

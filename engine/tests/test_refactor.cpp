@@ -138,6 +138,13 @@ int main()
     i = info(u"Gadget.h", 42, 21); // Names
     expect(get(i, "type") == "TArray<FString>" && get(i, "pod") == "0", "Names: a TArray field", &i);
 
+    // The class a position is in, whatever it names.
+    i = info(u"Gadget.h", 42, 5); // TArray in "TArray<FString> Names"
+    expect(get(i, "name") == "TArray" && get(i, "inclassclasses") == "UGadget" && get(i, "inclass").find("Gadget.h\t15\t") != std::string::npos,
+           "inclass: the class a member's type is named in", &i);
+    i = info(u"Gadget.h", 21, 15); // Speed in the nested FSettings
+    expect(get(i, "inclassclasses") == "UGadget::FSettings", "inclass: a nested class", &i);
+
     // An enum with its base type.
     i = info(u"Gadget.h", 45, 12);
     expect(get(i, "kind") == "enum" && get(i, "enumscoped") == "1" && get(i, "enumbase") == "unsigned char", "EGadgetMode", &i);
@@ -154,6 +161,9 @@ int main()
     expect(get(i, "kind") == "function" && get(i, "defonly") == "1" && get(i, "param") == "int A\tA" &&
                all(i, "param").size() == 2 && all(i, "param")[1] == "int B\tB\t2",
            "FreeHelper: defined only here, default dropped", &i);
+    expect(get(i, "inclass") == "<none>", "FreeHelper: in no class", &i);
+    i = info(u"Gadget.cpp", 15, 5); // Count in the body of UGadget::Defined
+    expect(get(i, "name") == "Count" && get(i, "inclassclasses") == "UGadget", "inclass: in an out-of-class method definition", &i);
 
     // Statements for Add/Remove Braces.
     {

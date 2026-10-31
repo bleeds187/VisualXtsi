@@ -227,6 +227,12 @@ falling back to the editor's setting.
   case labels and comparisons of two of its values stay), TEnumAsByte<E> becomes E and
   declarations ahead follow. A UENUM gets a note that assets refer to its values by name and an
   unchecked +EnumRedirects line with ValueChanges.
+- Add Member... / Add Similar Member...: a method or field typed in a dialog, with an optional
+  UFUNCTION/UPROPERTY, into the class the caret is in, in the access section chosen (a label
+  added when there is none), and for a method an implementation in the source file
+  (Name_Implementation for a native event or RPC). Add Similar Member starts from the member at
+  the caret: its declaration with the name selected, its macro and its access; the new member
+  goes right after it.
 
 ## Menus and dialogs
 
