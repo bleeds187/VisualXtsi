@@ -84,6 +84,9 @@
       <Group guid="guidVisualXtsiCmdSet" id="RefactorExtractGroup" priority="0x0250">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
       </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="RefactorFileGroup" priority="0x0500">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
+      </Group>
       <Group guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" priority="0x0300">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
       </Group>
@@ -312,6 +315,42 @@
           <ToolTipText>Declare overrides of the virtual methods of the class's bases, with stubs in the source file</ToolTipText>
           <CanonicalName>.VisualXtsi.Refactor.ImplementInterface</CanonicalName>
           <LocCanonicalName>.VisualXtsi.Refactor.ImplementInterface</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidCreateFile" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorFileGroup" />
+        <Icon guid="ImageCatalogGuid" id="NewItem" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Create F&amp;ile...</ButtonText>
+          <ToolTipText>Create a header and source file for a new class in the module of the current file</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.CreateFile</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.CreateFile</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidMoveClassToFile" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorFileGroup" />
+        <Icon guid="ImageCatalogGuid" id="NewClass" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Move Class to New Fi&amp;le...</ButtonText>
+          <ToolTipText>Move the class at the caret, and its method definitions, into files of their own</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.MoveClassToNewFile</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.MoveClassToNewFile</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidRenameFiles" priority="0x0102" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorFileGroup" />
+        <Icon guid="ImageCatalogGuid" id="Rename" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Rename File&amp;s...</ButtonText>
+          <ToolTipText>Rename the current file and its header or source, fixing every #include of them</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.RenameFiles</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.RenameFiles</LocCanonicalName>
         </Strings>
       </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidExtractMethod" priority="0x0100" type="Button">
@@ -553,6 +592,9 @@
     <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorEditGroup" priority="0x0400">
       <Parent guid="guidVisualXtsiCmdSet" id="RefactorPopup" />
     </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorFileGroup" priority="0x0500">
+      <Parent guid="guidVisualXtsiCmdSet" id="RefactorPopup" />
+    </CommandPlacement>
     <CommandPlacement guid="guidVisualXtsiCmdSet" id="SurroundSnippetsGroup" priority="0x0100">
       <Parent guid="guidVisualXtsiCmdSet" id="SurroundPopup" />
     </CommandPlacement>
@@ -648,6 +690,7 @@
       <IDSymbol name="cmdidAddForwardDeclaration" value="0x0208" />
       <IDSymbol name="RefactorEditGroup" value="0x1011" />
       <IDSymbol name="RefactorExtractGroup" value="0x1012" />
+      <IDSymbol name="RefactorFileGroup" value="0x1013" />
       <IDSymbol name="cmdidDocumentMethod" value="0x0209" />
       <IDSymbol name="cmdidEncapsulateField" value="0x020A" />
       <IDSymbol name="cmdidAddRemoveBraces" value="0x020B" />
@@ -659,6 +702,9 @@
       <IDSymbol name="cmdidIntroduceVariable" value="0x0214" />
       <IDSymbol name="cmdidExtractMethod" value="0x0215" />
       <IDSymbol name="cmdidChangeSignature" value="0x0216" />
+      <IDSymbol name="cmdidCreateFile" value="0x0217" />
+      <IDSymbol name="cmdidMoveClassToFile" value="0x0218" />
+      <IDSymbol name="cmdidRenameFiles" value="0x0219" />
       <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />

@@ -43,6 +43,9 @@ namespace VisualXtsi.Commands
         public const int IntroduceVariable = 0x0214;
         public const int ExtractMethod = 0x0215;
         public const int ChangeSignature = 0x0216;
+        public const int CreateFile = 0x0217;
+        public const int MoveClassToFile = 0x0218;
+        public const int RenameFiles = 0x0219;
         public const int SurroundSnippetFirst = 0x0400; // a dynamic list of SurroundSnippetSlots items
         public const int SurroundSnippetSlots = 128;
 

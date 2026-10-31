@@ -254,6 +254,16 @@ falling back to the editor's setting.
   parameters given their value at calls, defaults written out where a call relied on one.
   Unreal: Name_Implementation and Name_Validate follow, and a Blueprint-exposed UFUNCTION is
   flagged.
+- Create File...: a header and source for a new class (plain, UObject, AActor, UActorComponent,
+  USTRUCT, UINTERFACE) in the current file's module, under Public and Private in the same
+  subfolder, with the module's export macro and the project's CopyrightNotice (Config/
+  DefaultGame.ini; else the one in Options > Refactoring).
+- Move Class to New File...: the class at the caret (with its comment and macro) to a header of
+  its own and its method definitions to a new source file; the new header includes the old one
+  if it needs it, else the old includes the new (refused when they would need each other).
+- Rename Files...: the current file and its header or source, with every #include of them and
+  the header's .generated.h include. New files are written to disk only: regenerate the project
+  files for the solution to list them.
 
 ## Menus and dialogs
 

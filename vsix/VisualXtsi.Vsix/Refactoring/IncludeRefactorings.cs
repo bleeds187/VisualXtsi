@@ -137,7 +137,7 @@ namespace VisualXtsi.Refactoring
             path.EndsWith(".generated.h", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".gen.h", StringComparison.OrdinalIgnoreCase);
 
         // The Unreal module folder of a file (the one with its *.Build.cs), or null.
-        private static string ModuleRoot(string file)
+        internal static string ModuleRoot(string file)
         {
             for (string dir = Path.GetDirectoryName(file); !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
                 if (Directory.EnumerateFiles(dir, "*.Build.cs").Any())

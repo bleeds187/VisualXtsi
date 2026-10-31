@@ -525,6 +525,13 @@ namespace VisualXtsi.UI
                 "The getter gets UFUNCTION(BlueprintPure) and the setter UFUNCTION(BlueprintCallable), in the class's category, so Blueprints can use them too.");
             Option(page, "Add Missing Case Statements: skip _sentinels (_MAX, Count, Num)", _working.SkipSentinelCases, v => _working.SkipSentinelCases = v,
                 "Enumerators named like EFoo_MAX, Count or Num count the others rather than being values: they get no case.");
+            var notice = new TextBox { Text = _working.CopyrightNotice ?? "", Padding = new Thickness(3, 1, 3, 1), Margin = new Thickness(0, 0, 0, 3) };
+            notice.TextChanged += (s, e) => _working.CopyrightNotice = notice.Text;
+            Describe(notice, "The first line of files Create File and Move Class to New File write, when the project's Config\\DefaultGame.ini has no CopyrightNotice. Empty: none.");
+            var noticeLabel = Label("_Copyright notice for new files (when DefaultGame.ini has none):", notice);
+            noticeLabel.Margin = new Thickness(0, 8, 0, 0);
+            page.Children.Add(noticeLabel);
+            page.Children.Add(notice);
             return page;
         }
 

@@ -352,7 +352,7 @@ namespace VisualXtsi.Refactoring
 
         // The start of a definition whose name is at `nameAt`: its first line, with a return type or
         // template line and comments right above it.
-        private static int DefinitionStart(string text, int nameAt)
+        internal static int DefinitionStart(string text, int nameAt)
         {
             int start = TextScan.LineStart(text, nameAt);
             while (start > 0)

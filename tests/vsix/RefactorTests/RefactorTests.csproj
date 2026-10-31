@@ -25,6 +25,7 @@
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\MemberSupport.cs" Link="MemberSupport.cs" />
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\ExtractSupport.cs" Link="ExtractSupport.cs" />
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\SignatureSupport.cs" Link="SignatureSupport.cs" />
+    <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\FileSupport.cs" Link="FileSupport.cs" />
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Interop\CursorInfo.cs" Link="CursorInfo.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Program.cs" />

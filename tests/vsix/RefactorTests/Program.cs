@@ -41,6 +41,7 @@ namespace VisualXtsi.Tests
             MemberTests();
             ExtractTests();
             SignatureTests();
+            FileTests();
             Console.WriteLine(_failures == 0 ? "all tests passed" : $"{_failures} failures");
             return _failures == 0 ? 0 : 1;
         }
@@ -150,6 +151,52 @@ namespace VisualXtsi.Tests
             foreach (TextEdit e in edits.OrderByDescending(e => e.Start).ThenByDescending(e => e.Length))
                 text = text.Substring(0, e.Start) + e.Text + text.Substring(e.Start + e.Length);
             return text;
+        }
+
+        private static void FileTests()
+        {
+            ExpectText(FileSupport.BaseName("AMyActor"), "MyActor", "file name without the prefix");
+            ExpectText(FileSupport.BaseName("Widget"), "Widget", "file name of an unprefixed class");
+            ExpectText(FileSupport.ClassName("MyActor", "A"), "AMyActor", "the kind's prefix added");
+            ExpectText(FileSupport.ClassName("AMyActor", "A"), "AMyActor", "a prefix not doubled");
+            ExpectText(FileSupport.ClassName("UThing", "F"), "FThing", "another kind's prefix replaced");
+            ExpectText(FileSupport.CopyrightFrom("[/Script/EngineSettings.GeneralProjectSettings]\r\nProjectID=1\r\nCopyrightNotice=\"Copyright Fake Studio. All rights reserved.\"\r\n"),
+                       "// Copyright Fake Studio. All rights reserved.", "copyright notice from DefaultGame.ini");
+            ExpectText(FileSupport.CopyrightFrom("[X]\nA=1\n"), "", "no notice");
+
+            var dirs = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase) { @"C:\G\Source\Game\Public", @"C:\G\Source\Game\Private" };
+            var (h, s) = FileSupport.Layout(@"C:\G\Source\Game", @"C:\G\Source\Game\Private\Weapons\Gun.cpp", dirs.Contains);
+            Expect(h == @"C:\G\Source\Game\Public\Weapons" && s == @"C:\G\Source\Game\Private\Weapons", "layout: Public and Private, the same subfolder");
+            (h, s) = FileSupport.Layout(@"C:\G\Source\Tool", @"C:\G\Source\Tool\Thing.h", dirs.Contains);
+            Expect(h == @"C:\G\Source\Tool" && s == @"C:\G\Source\Tool", "layout: a module without Public/Private");
+
+            var (header, source) = FileSupport.Template("AActor", "AMyActor", "GAME_API", "Weapons/MyActor.h", "// Copyright Fake Studio.", "\n");
+            Expect(header.StartsWith("// Copyright Fake Studio.\n\n#pragma once\n") && header.Contains("#include \"GameFramework/Actor.h\"\n#include \"MyActor.generated.h\"\n") &&
+                   header.Contains("UCLASS()\nclass GAME_API AMyActor : public AActor\n{\n\tGENERATED_BODY()") && header.Contains("\tvirtual void BeginPlay() override;"),
+                   "an actor's header");
+            Expect(source.Contains("#include \"Weapons/MyActor.h\"\n") && source.Contains("void AMyActor::Tick(float DeltaTime)\n{\n\tSuper::Tick(DeltaTime);\n}"), "an actor's source");
+            (header, _) = FileSupport.Template("UINTERFACE", "UUsable", "GAME_API", "Usable.h", "", "\n");
+            Expect(header.StartsWith("#pragma once") && header.Contains("UINTERFACE(MinimalAPI)\nclass UUsable : public UInterface") && header.Contains("class GAME_API IUsable\n{"), "an interface pair");
+            (header, source) = FileSupport.Template("Plain class", "FHelper", "", "Helper.h", "", "\r\n");
+            Expect(header.Contains("class FHelper\r\n{\r\npublic:\r\n\tFHelper();") && source.Contains("FHelper::~FHelper()\r\n{\r\n}"), "a plain class outside a module");
+
+            ExpectText(FileSupport.RewriteInclude("#include \"Weapons/OldGun.h\" // the gun", "OldGun.h", "Rifle.h"), "#include \"Weapons/Rifle.h\" // the gun", "include rewritten in its folder");
+            ExpectText(FileSupport.RewriteInclude("  #include <OldGun.generated.h>", "OldGun.generated.h", "Rifle.generated.h"), "  #include <Rifle.generated.h>", "generated include");
+            Expect(FileSupport.RewriteInclude("#include \"NotOldGun.h\"", "OldGun.h", "Rifle.h") == null && FileSupport.RewriteInclude("// OldGun.h", "OldGun.h", "Rifle.h") == null, "other lines left alone");
+            Expect(FileSupport.IncludeMatches("Weapons/OldGun.h", @"C:\G\Source\Game\Public\Weapons\OldGun.h") && !FileSupport.IncludeMatches("Tools/OldGun.h", @"C:\G\Source\Game\Public\Weapons\OldGun.h"),
+                   "an include path matched against a file");
+
+            const string text = "#pragma once\n\nstruct FOther {};\n\n/** The gun. */\nUCLASS(Blueprintable,\n       meta = (X))\nclass GAME_API AGun : public AActor\n{\n\tGENERATED_BODY()\n};\n\nint After;\n";
+            int classStart = text.IndexOf("class GAME_API"), classEnd = text.IndexOf("};", classStart) + 1;
+            var (start, end) = FileSupport.ClassBlock(text, classStart, classEnd);
+            ExpectText(text.Substring(start, end - start), "/** The gun. */\nUCLASS(Blueprintable,\n       meta = (X))\nclass GAME_API AGun : public AActor\n{\n\tGENERATED_BODY()\n};\n",
+                       "a class's block: its comment, its macro over two lines, through \"};\"");
+            Expect(FileSupport.Includes("#include \"A.h\"\n#include <B/C.h>\nint X;\n").SequenceEqual(new[] { "#include \"A.h\"", "#include <B/C.h>" }), "includes of a file");
+            Expect(FileSupport.HasReflectedTypes(text) && !FileSupport.HasReflectedTypes("struct F {};"), "reflected types left");
+            var declared = FileSupport.DeclaredNames("namespace Plant { enum ELever { Up }; }\nclass GAME_API IRunnable;\n// class FNot;\nusing FCount = int32;\ntypedef float FScale;\n");
+            Expect(declared.SetEquals(new[] { "Plant", "ELever", "IRunnable", "FCount", "FScale" }), "names a header declares");
+            Expect(FileSupport.Uses("class FMachine : public IRunnable { Plant::ELever L; /* FCount */ };", declared).OrderBy(n => n).SequenceEqual(new[] { "ELever", "IRunnable", "Plant" }),
+                   "names a class uses");
         }
 
         private static void SignatureTests()
