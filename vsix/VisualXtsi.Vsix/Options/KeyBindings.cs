@@ -38,6 +38,7 @@ namespace VisualXtsi.Options
             new CommandInfo { Name = "VisualXtsi.Refactor.AddMember", Label = "Add Member", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.AddSimilarMember", Label = "Add Similar Member", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.ImplementInterface", Label = "Implement Interface / Override Methods", Defaults = new string[0] },
+            new CommandInfo { Name = "VisualXtsi.Refactor.ExtractMethod", Label = "Extract Method", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.IntroduceVariable", Label = "Introduce Variable", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.AddInclude", Label = "Add Include", Defaults = new string[0] },
             new CommandInfo { Name = "VisualXtsi.Refactor.AddForwardDeclaration", Label = "Add Forward Declaration", Defaults = new string[0] },

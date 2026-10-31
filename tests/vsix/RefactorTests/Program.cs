@@ -171,6 +171,73 @@ namespace VisualXtsi.Tests
             ExpectText(Apply(body, ExtractSupport.IntroduceVariable(body, new[] { occurrences[1] }, "Twice", "const float", "\n")),
                        "{\n    float Total = A * 2.f + 1.f;\n    const float Twice = A * 2.f;\n    for (int32 I = 0; I < Count; ++I)\n    {\n        Total += Twice;\n    }\n}\n",
                        "introduce variable: only the selected one, before its statement");
+
+            // Extract Method: parameters by how the variables are used.
+            ExpectText(ExtractSupport.Parameter(new ExtractVariable { Name = "Count", Type = "int32", Shape = "value", Written = true, UsedOutside = true }), "int32& Count", "changed and needed back: a reference");
+            ExpectText(ExtractSupport.Parameter(new ExtractVariable { Name = "A", Type = "const float", Shape = "value" }), "float A", "read: a copy");
+            ExpectText(ExtractSupport.Parameter(new ExtractVariable { Name = "Name", Type = "FString", Shape = "class" }), "const FString& Name", "a class read: const reference");
+            ExpectText(ExtractSupport.Parameter(new ExtractVariable { Name = "Values", Type = "TArray<int32> &", Shape = "ref" }), "TArray<int32>& Values", "a reference stays one");
+            Expect(ExtractSupport.Parameter(new ExtractVariable { Name = "Grid", Type = "int [4]", Shape = "array" }) == null, "an array cannot be passed");
+            ExpectText(ExtractSupport.OutAssignment("int32 Last = Count + 1", "Last", "int32"), "Last = Count + 1", "out: an initialized declaration");
+            ExpectText(ExtractSupport.OutAssignment("FVector V(1, 2, 3)", "V", "FVector"), "V = FVector(1, 2, 3)", "out: direct initialization");
+            ExpectText(ExtractSupport.OutAssignment("float Sum", "Sum", "float"), "Sum = {}", "out: no initializer");
+
+            const string mix = "float Mix(float A, int32 Count)\n{\n    float Total = 0.f;\n    for (int32 I = 0; I < Count; ++I)\n    {\n        Total += A;\n        ++Count;\n    }\n    return Total + Count;\n}\n";
+            int loop = mix.IndexOf("for ("), loopEnd = mix.IndexOf("    }\n") + 5;
+            var request = new ExtractRequest
+            {
+                Text = mix, Start = loop, End = loopEnd, Name = "Accumulate",
+                In =
+                {
+                    new ExtractVariable { Name = "Count", Type = "int32", Shape = "value", Written = true, UsedOutside = true },
+                    new ExtractVariable { Name = "Total", Type = "float", Shape = "value", Written = true, UsedOutside = true },
+                    new ExtractVariable { Name = "A", Type = "float", Shape = "value" },
+                },
+            };
+            ExtractResult x = ExtractSupport.ExtractMethod(request);
+            ExpectText(x.Signature, "void Accumulate(int32& Count, float& Total, float A)", "extract: a signature by use");
+            ExpectText(x.Call, "Accumulate(Count, Total, A);", "extract: the call");
+            ExpectText(x.Definition, "void Accumulate(int32& Count, float& Total, float A)\n{\n    for (int32 I = 0; I < Count; ++I)\n    {\n        Total += A;\n        ++Count;\n    }\n}",
+                       "extract: the definition, reindented");
+
+            // One result: returned; an expression: its value.
+            const string one = "{\n    int32 Last = Count + 1;\n    Use(Last);\n}";
+            request = new ExtractRequest
+            {
+                Text = one, Start = one.IndexOf("int32 Last"), End = one.IndexOf(";") + 1, Name = "Next", Qualifier = "UThing::", Const = true,
+                In = { new ExtractVariable { Name = "Count", Type = "int32", Shape = "value" } },
+                Out = { new ExtractVariable { Name = "Last", Type = "int32", Shape = "value" } },
+            };
+            x = ExtractSupport.ExtractMethod(request);
+            ExpectText(x.Call, "int32 Last = Next(Count);", "extract: one result is returned");
+            ExpectText(x.Definition, "int32 UThing::Next(int32 Count) const\n{\n    int32 Last = Count + 1;\n    return Last;\n}", "extract: a const member, qualified");
+            const string lines = "{\n    int Index = 1;\n    int32 Last = Index + 1;\n    Use(Last);\n}";
+            request.Text = lines;
+            request.Start = lines.IndexOf("int Index");
+            request.End = lines.IndexOf("+ 1;") + 4;
+            ExpectText(ExtractSupport.ExtractMethod(request).Definition, "int32 UThing::Next(int32 Count) const\n{\n    int Index = 1;\n    int32 Last = Index + 1;\n    return Last;\n}",
+                       "extract: several lines and the returned variable, all at one indentation");
+            request = new ExtractRequest { Text = "X = A * 2.f + B;", Start = 4, End = 11, Expression = true, ExpressionType = "float", Name = "Twice", Static = true,
+                                           In = { new ExtractVariable { Name = "A", Type = "float", Shape = "value" } } };
+            x = ExtractSupport.ExtractMethod(request);
+            Expect(x.Call == "Twice(A)" && x.Signature == "static float Twice(float A)" && x.Definition.Contains("return A * 2.f;"), "extract: an expression");
+
+            // Several results: out parameters.
+            const string two = "{\n    int32 Min = 0;\n    int32 Max = Count;\n    Use(Min, Max);\n}";
+            int s1 = two.IndexOf("int32 Min"), s2 = two.IndexOf("int32 Max");
+            request = new ExtractRequest
+            {
+                Text = two, Start = s1, End = two.IndexOf("Count;") + 6, Name = "Bounds",
+                In = { new ExtractVariable { Name = "Count", Type = "int32", Shape = "value" } },
+                Out =
+                {
+                    new ExtractVariable { Name = "Min", Type = "int32", Shape = "value", DeclStart = s1, DeclEnd = two.IndexOf(" = 0") + 4 },
+                    new ExtractVariable { Name = "Max", Type = "int32", Shape = "value", DeclStart = s2, DeclEnd = two.IndexOf("Count;") + 5 },
+                },
+            };
+            x = ExtractSupport.ExtractMethod(request);
+            ExpectText(x.Call, "int32 Min{};\nint32 Max{};\nBounds(Count, Min, Max);", "extract: several results declared before the call");
+            ExpectText(x.Definition, "void Bounds(int32 Count, int32& Min, int32& Max)\n{\n    Min = 0;\n    Max = Count;\n}", "extract: assigned through out parameters");
         }
 
         private static void MemberTests()

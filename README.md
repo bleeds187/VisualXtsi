@@ -242,6 +242,12 @@ falling back to the editor's setting.
 - Introduce Variable...: the selected expression becomes a local const auto (or its explicit
   type) declared before its statement, named after the expression, optionally replacing the
   identical expressions in the same block. Not in a loop's condition or increment.
+- Extract Method...: the selected statements (made whole) or expression become a new function,
+  called in their place. The variables used become parameters (by reference where the code
+  changes one that is needed afterwards); a variable declared there and used after is returned
+  (several: out parameters). In a method: a member (const like it, or static when it uses no
+  members) declared in the class's private section and defined after the method; elsewhere a
+  static function before it. Returns and jumps out of the selection are refused.
 
 ## Menus and dialogs
 

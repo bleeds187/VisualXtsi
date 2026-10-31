@@ -302,6 +302,18 @@
           <LocCanonicalName>.VisualXtsi.Refactor.ImplementInterface</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidExtractMethod" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorExtractGroup" />
+        <Icon guid="ImageCatalogGuid" id="ExtractMethod" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>E&amp;xtract Method...</ButtonText>
+          <ToolTipText>Move the selected statements or expression into a new function and call it there</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.ExtractMethod</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.ExtractMethod</LocCanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidIntroduceVariable" priority="0x0101" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorExtractGroup" />
         <Icon guid="ImageCatalogGuid" id="LocalVariable" />
@@ -633,6 +645,7 @@
       <IDSymbol name="cmdidAddSimilarMember" value="0x0212" />
       <IDSymbol name="cmdidImplementInterface" value="0x0213" />
       <IDSymbol name="cmdidIntroduceVariable" value="0x0214" />
+      <IDSymbol name="cmdidExtractMethod" value="0x0215" />
       <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />
