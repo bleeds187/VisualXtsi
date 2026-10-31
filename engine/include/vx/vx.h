@@ -279,9 +279,16 @@ VX_API uint32_t VX_CALL vx_references_start_word(const char16_t* word, uint32_t 
 VX_API uint32_t VX_CALL vx_references_target(uint32_t job, char16_t* out, uint32_t cap);
 /* Files searched so far, of how many; finished is 1 once done or cancelled. */
 VX_API void VX_CALL vx_references_progress(uint32_t job, uint32_t* done, uint32_t* total, uint32_t* finished);
+/* Convert to Scoped Enum: the uses of the enum at a position (or of an enumerator's enum) and of
+ * all its enumerators, a job like vx_references_start's. Its results also hold the implicit
+ * conversions of the enum's values to numbers that a scoped enum would not allow (comparisons of
+ * two of its values, switch conditions and case labels are left out): kind "convert", from the
+ * expression's start to its end, with the type converted to. */
+VX_API uint32_t VX_CALL vx_enum_uses_start(const char16_t* path, uint32_t line, uint32_t column);
 /* The references found, from the `from`-th on, as NUL-terminated records:
- * path\tline\tcolumn\tkind (definition, declaration, write, reference)\tconfirmed (1; 0: the name, in a
- * file that could not be parsed or where the parser could not tell)\tline text. */
+ * path\tline\tcolumn\tkind (definition, declaration, write, reference, convert)\tconfirmed (1; 0: the
+ * name, in a file that could not be parsed or where the parser could not tell)\tend line\tend column
+ * (convert; else 0)\ttype converted to (convert)\tline text. */
 VX_API uint32_t VX_CALL vx_references_results(uint32_t job, uint32_t from, char16_t* out, uint32_t cap);
 VX_API void VX_CALL vx_references_cancel(uint32_t job);
 /* Stops the search (waiting for its workers) and forgets it. */

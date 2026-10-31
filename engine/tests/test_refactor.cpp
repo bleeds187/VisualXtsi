@@ -318,6 +318,25 @@ int main()
         std::string words = collect(vx_references_start_word(u"GetSettings", 1));
         expect(words.find("Gadget.h\t27\t") != std::string::npos && words.find("Gadget.cpp\t8\t") != std::string::npos,
                "word search: every whole-word occurrence");
+
+        // Convert to Scoped Enum: the enum's and its enumerators' uses, and the conversions to numbers
+        // a scoped enum forbids (not the switch, its case, or comparisons of two of its values).
+        const std::u16string machine = kDir + u"Machine.cpp";
+        std::string uses = collect(vx_enum_uses_start(machine.c_str(), 29, 12)); // EMachineState in Rank's parameter
+        auto line = [&](const char* what) { return uses.find(what) != std::string::npos; };
+        bool ok = line("Machine.cpp\t8\t10\treference\t1\t") && line("Machine.cpp\t31\t14\treference\t1\t") &&
+                  line("Machine.h\t45\t27\treference\t1\t") && line("Machine.h\t7\t6\tdefinition\t1\t") &&
+                  line("Machine.h\t12\t5\tdefinition\t1\t");
+        expect(ok, "enum uses: the enum and its enumerators");
+        ok = line("Machine.cpp\t22\t17\tconvert\t1\t22\t22\tint\t") && line("Machine.cpp\t32\t16\tconvert\t1\t32\t17\tint32\t");
+        expect(ok, "enum uses: implicit conversions, to the type as written");
+        size_t converts = 0;
+        for (size_t at = uses.find("\tconvert\t"); at != std::string::npos; at = uses.find("\tconvert\t", at + 1))
+            ++converts;
+        expect(converts == 2, "enum uses: no conversion reported for the switch, the case or comparisons");
+        if (failures)
+            std::printf("%s\n", uses.c_str());
+        expect(vx_enum_uses_start(machine.c_str(), 4, 3) == 0, "enum uses: nothing for a non-enum");
     }
     vx_index_reset();
 

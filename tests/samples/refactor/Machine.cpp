@@ -25,3 +25,10 @@ void FMachine::Describe() const
     {
     }
 }
+
+int32 Rank(EMachineState S)
+{
+    if (S == MS_Running)
+        return S;
+    return S < MS_MAX ? 1 : 0;
+}

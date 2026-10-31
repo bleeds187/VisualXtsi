@@ -21,6 +21,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using namespace vx::clangs;
@@ -31,14 +32,19 @@ namespace {
 struct Reference {
     std::u16string path;
     uint32_t line = 0, column = 0; // 1-based, UTF-16
-    const char16_t* kind = u"reference"; // definition, declaration, write, reference
+    const char16_t* kind = u"reference"; // definition, declaration, write, reference, convert
     bool confirmed = true;
+    uint32_t endLine = 0, endColumn = 0; // convert: the end of the expression
+    std::u16string extra;                // convert: the type it is converted to
     std::u16string text;           // the line, trimmed
 };
 
 struct Job {
     std::string usr;
     std::string name;     // the identifier to look for
+    std::vector<std::string> names;      // every identifier to look for (name first)
+    std::unordered_set<std::string> usrs; // what they must refer to (usr among them)
+    std::string enumUsr;                 // also report implicit conversions of this enum to numbers
     std::u16string label; // "UThing::Run (method)"
     std::vector<std::string> scopes; // the names of its enclosing scopes ("UThing")
     bool macro = false;
@@ -152,16 +158,22 @@ void place(const char* text, size_t size, size_t offset, Reference& r)
     r.text = vx::toUtf16(lineText);
 }
 
+bool anyHit(const Job& job, const std::string& bytes)
+{
+    return std::any_of(job.names.begin(), job.names.end(), [&](const std::string& n) { return !wordHits(bytes, n).empty(); });
+}
+
 void addUnconfirmed(Job& job, const std::wstring& path, const std::string& bytes, bool confirmed = false)
 {
     std::vector<Reference> found;
-    for (size_t at : wordHits(bytes, job.name)) {
-        Reference r;
-        r.path = std::u16string(path.begin(), path.end());
-        r.confirmed = confirmed;
-        place(bytes.data(), bytes.size(), at, r);
-        found.push_back(std::move(r));
-    }
+    for (const std::string& name : job.names)
+        for (size_t at : wordHits(bytes, name)) {
+            Reference r;
+            r.path = std::u16string(path.begin(), path.end());
+            r.confirmed = confirmed;
+            place(bytes.data(), bytes.size(), at, r);
+            found.push_back(std::move(r));
+        }
     std::lock_guard lock(job.mutex);
     job.refs.insert(job.refs.end(), found.begin(), found.end());
 }
@@ -191,20 +203,20 @@ Match matches(const Job& job, CXCursor c)
         if (!job.macro)
             return Match::Unknown;
         const CXCursor def = kind == CXCursor_MacroDefinition ? c : clang_getCursorReferenced(c);
-        return takeString(clang_getCursorUSR(def)) == job.usr ? Match::Yes : Match::No;
+        return job.usrs.count(takeString(clang_getCursorUSR(def))) ? Match::Yes : Match::No;
     }
     if (clang_isInvalid(kind) || kind == CXCursor_UnexposedExpr || kind == CXCursor_UnexposedDecl)
         return Match::Unknown;
     if (kind == CXCursor_OverloadedDeclRef) {
         for (unsigned i = 0, n = clang_getNumOverloadedDecls(c); i < n; ++i)
-            if (takeString(clang_getCursorUSR(clang_getOverloadedDecl(c, i))) == job.usr)
+            if (job.usrs.count(takeString(clang_getCursorUSR(clang_getOverloadedDecl(c, i)))))
                 return Match::Yes;
         return Match::No;
     }
     const CXCursor ref = clang_isDeclaration(kind) ? c : clang_getCursorReferenced(c);
     if (clang_Cursor_isNull(ref) || clang_isInvalid(clang_getCursorKind(ref)))
         return Match::Unknown;
-    if (takeString(clang_getCursorUSR(ref)) == job.usr)
+    if (job.usrs.count(takeString(clang_getCursorUSR(ref))))
         return Match::Yes;
     return clang_getCursorKind(ref) == CXCursor_CXXMethod && overrides(ref, job.usr) ? Match::Yes : Match::No;
 }
@@ -241,6 +253,117 @@ bool isWrite(const std::vector<std::string>& spellings, size_t i)
     return i > 0 && (spellings[i - 1] == "++" || spellings[i - 1] == "--");
 }
 
+// The USR of the enum an expression is of, looking through implicit conversions ("" if none).
+std::string enumUsrOf(CXCursor e, int depth = 0)
+{
+    const CXType t = clang_getCanonicalType(clang_getCursorType(e));
+    if (t.kind == CXType_Enum)
+        return takeString(clang_getCursorUSR(clang_getTypeDeclaration(t)));
+    if (depth > 4 || clang_getCursorKind(e) != CXCursor_UnexposedExpr)
+        return {};
+    std::pair<std::string, int> found{std::string(), depth};
+    clang_visitChildren(
+        e,
+        [](CXCursor c, CXCursor, CXClientData d) {
+            auto& out = *static_cast<std::pair<std::string, int>*>(d);
+            out.first = enumUsrOf(c, out.second + 1);
+            return out.first.empty() ? CXChildVisit_Continue : CXChildVisit_Break;
+        },
+        &found);
+    return found.first;
+}
+
+struct ConversionScan {
+    const Job* job;
+    CXTranslationUnit tu;
+    CXFile file;
+    std::vector<CXCursor> stack; // the ancestors of the cursor being visited
+    std::vector<std::pair<CXCursor, CXType>> found;
+};
+
+// Whether an implicit conversion of an enum value to a number stays valid once the enum is
+// scoped: switch conditions and case labels, and comparisons with another value of the enum.
+bool staysValid(const ConversionScan& scan, size_t castAt)
+{
+    size_t i = castAt;
+    while (i > 0 && clang_getCursorKind(scan.stack[i]) == CXCursor_UnexposedExpr)
+        --i;
+    const CXCursor owner = scan.stack[i];
+    const CXCursorKind k = clang_getCursorKind(owner);
+    if (k == CXCursor_SwitchStmt || k == CXCursor_CaseStmt)
+        return true;
+    if (k == CXCursor_BinaryOperator) {
+        const CXBinaryOperatorKind op = clang_getCursorBinaryOperatorKind(owner);
+        const bool comparison = op == CXBinaryOperator_LT || op == CXBinaryOperator_GT || op == CXBinaryOperator_LE ||
+                                op == CXBinaryOperator_GE || op == CXBinaryOperator_EQ || op == CXBinaryOperator_NE ||
+                                op == CXBinaryOperator_Cmp;
+        if (!comparison)
+            return false;
+        std::pair<const std::string*, bool> both{&scan.job->enumUsr, true};
+        clang_visitChildren(
+            owner,
+            [](CXCursor c, CXCursor, CXClientData d) {
+                auto& s = *static_cast<std::pair<const std::string*, bool>*>(d);
+                if (enumUsrOf(c) != *s.first)
+                    s.second = false;
+                return CXChildVisit_Continue;
+            },
+            &both);
+        return both.second;
+    }
+    return false;
+}
+
+CXChildVisitResult scanConversions(CXCursor c, CXCursor, CXClientData data)
+{
+    auto& scan = *static_cast<ConversionScan*>(data);
+    CXFile file = nullptr;
+    clang_getExpansionLocation(clang_getCursorLocation(c), &file, nullptr, nullptr, nullptr);
+    if (scan.stack.empty() && (!file || !clang_File_isEqual(file, scan.file)))
+        return CXChildVisit_Continue; // declarations of other files
+    if (clang_isExpression(clang_getCursorKind(c)) && !scan.stack.empty()) {
+        const CXCursor parent = scan.stack.back();
+        const CXType to = clang_getCanonicalType(clang_getCursorType(parent));
+        const CXType from = clang_getCanonicalType(clang_getCursorType(c));
+        if (clang_getCursorKind(parent) == CXCursor_UnexposedExpr && from.kind == CXType_Enum &&
+            to.kind >= CXType_FirstBuiltin && to.kind <= CXType_LastBuiltin &&
+            takeString(clang_getCursorUSR(clang_getTypeDeclaration(from))) == scan.job->enumUsr &&
+            !staysValid(scan, scan.stack.size() - 1))
+            scan.found.emplace_back(c, clang_getCursorType(parent));
+    }
+    scan.stack.push_back(c);
+    clang_visitChildren(c, scanConversions, data);
+    scan.stack.pop_back();
+    return CXChildVisit_Continue;
+}
+
+// Implicit conversions of the job's enum to numbers in the file: "convert" records from the
+// expression's start to its end, with the type it is converted to.
+void conversions(const Job& job, CXTranslationUnit tu, CXFile file, const char* contents, size_t size, const std::wstring& path,
+                 std::vector<Reference>& out)
+{
+    ConversionScan scan{&job, tu, file, {}, {}};
+    clang_visitChildren(clang_getTranslationUnitCursor(tu), scanConversions, &scan);
+    for (const auto& [expr, type] : scan.found) {
+        const CXSourceRange r = clang_getCursorExtent(expr);
+        CXFile f1 = nullptr, f2 = nullptr;
+        unsigned start = 0, end = 0;
+        clang_getExpansionLocation(clang_getRangeStart(r), &f1, nullptr, nullptr, &start);
+        clang_getExpansionLocation(clang_getRangeEnd(r), &f2, nullptr, nullptr, &end);
+        if (!f1 || !f2 || !clang_File_isEqual(f1, file) || !clang_File_isEqual(f2, file) || end < start || end > size)
+            continue;
+        Reference ref;
+        ref.path = std::u16string(path.begin(), path.end());
+        ref.kind = u"convert";
+        place(contents, size, end, ref);
+        ref.endLine = ref.line;
+        ref.endColumn = ref.column;
+        place(contents, size, start, ref);
+        ref.extra = vx::toUtf16(takeString(clang_getTypeSpelling(type)));
+        out.push_back(std::move(ref));
+    }
+}
+
 // The references in `path` by the translation unit `tu` (whose main file it is).
 bool annotate(Job& job, CXTranslationUnit tu, const std::string& path8, const std::wstring& path)
 {
@@ -258,7 +381,8 @@ bool annotate(Job& job, CXTranslationUnit tu, const std::string& path8, const st
     std::vector<unsigned> index;
     for (unsigned i = 0; i < count; ++i) {
         spellings[i] = takeString(clang_getTokenSpelling(tu, tokens[i]));
-        if (clang_getTokenKind(tokens[i]) == CXToken_Identifier && spellings[i] == job.name) {
+        if (clang_getTokenKind(tokens[i]) == CXToken_Identifier &&
+            std::find(job.names.begin(), job.names.end(), spellings[i]) != job.names.end()) {
             selected.push_back(tokens[i]);
             index.push_back(i);
         }
@@ -292,6 +416,8 @@ bool annotate(Job& job, CXTranslationUnit tu, const std::string& path8, const st
         found.push_back(std::move(r));
     }
     clang_disposeTokens(tu, tokens, count);
+    if (!job.enumUsr.empty())
+        conversions(job, tu, file, contents, size, path, found);
     std::lock_guard lock(job.mutex);
     job.refs.insert(job.refs.end(), found.begin(), found.end());
     return true;
@@ -317,7 +443,7 @@ void searchFile(Job& job, CXIndex& index, const std::wstring& path)
             return;
     }
     const std::string bytes = readBytes(path);
-    if (wordHits(bytes, job.name).empty())
+    if (!anyHit(job, bytes))
         return;
     if (!index)
         index = clang_createIndex(0, 0);
@@ -391,6 +517,46 @@ CXCursor targetAt(Unit& unit, uint32_t line, uint32_t column)
     return clang_getCursorReferenced(c);
 }
 
+std::wstring fileOf(CXCursor c)
+{
+    CXFile file = nullptr;
+    clang_getSpellingLocation(clang_getCursorLocation(c), &file, nullptr, nullptr, nullptr);
+    if (!file)
+        return {};
+    const std::u16string f = vx::toUtf16(takeString(clang_getFileName(file)));
+    return fs::path(std::wstring(f.begin(), f.end())).lexically_normal().wstring();
+}
+
+// Starts the job's workers and registers it. With `path`, the candidate files are the indexed
+// C/C++ files (the engine's only if the target is declared in it), the open file and the
+// declaring file first; a local symbol is only in its own file.
+uint32_t launch(const std::shared_ptr<Job>& job, const char16_t* path = nullptr, const std::wstring& declFile = {}, bool local = false)
+{
+    if (path) {
+        const std::wstring self = fs::path(std::wstring(path, path + std::char_traits<char16_t>::length(path))).lexically_normal().wstring();
+        std::vector<std::wstring> files{self};
+        if (!declFile.empty() && lower(declFile) != lower(self))
+            files.push_back(declFile);
+        if (!local) {
+            const bool engineToo = !declFile.empty() && isEngine(declFile);
+            for (const std::wstring& f : vx::files::all()) {
+                const std::wstring n = fs::path(f).lexically_normal().wstring();
+                if (isCpp(n) && (engineToo || !isEngine(n)) && lower(n) != lower(self) && lower(n) != lower(declFile))
+                    files.push_back(n);
+            }
+        }
+        job->files = std::move(files);
+    }
+    const unsigned workers = std::max(1u, std::min(6u, std::thread::hardware_concurrency() / 2));
+    job->running = static_cast<int>(workers);
+    for (unsigned i = 0; i < workers; ++i)
+        job->workers.emplace_back(work, job.get());
+    std::lock_guard lock(g_jobsMutex);
+    const uint32_t id = g_nextJob++;
+    g_jobs[id] = job;
+    return id;
+}
+
 } // namespace
 
 extern "C" {
@@ -426,38 +592,13 @@ VX_API uint32_t VX_CALL vx_references_start(const char16_t* path, uint32_t line,
         }
         job->label = (scope.empty() ? u"" : scope + u"::") + vx::toUtf16(takeString(clang_getCursorSpelling(target))) + u" (" +
                      kindLabel(clang_getCursorKind(target)) + u")";
-        CXFile file = nullptr;
-        clang_getSpellingLocation(clang_getCursorLocation(target), &file, nullptr, nullptr, nullptr);
-        if (file) {
-            const std::u16string f = vx::toUtf16(takeString(clang_getFileName(file)));
-            declFile = fs::path(std::wstring(f.begin(), f.end())).lexically_normal().wstring();
-        }
+        declFile = fileOf(target);
     }
-    // Candidates: the indexed C/C++ files (the engine's only if the target is declared in it), the
-    // open file and the declaring file first. A local symbol is only in its own file.
-    const std::wstring self = fs::path(std::wstring(path, path + std::char_traits<char16_t>::length(path))).lexically_normal().wstring();
+    job->names = {job->name};
+    job->usrs = {job->usr};
     const bool local = job->usr.find('@') != std::string::npos && (job->usr.rfind("c:", 0) == 0) &&
                        (job->usr.find(".cpp@") != std::string::npos || job->usr.find(".h@") != std::string::npos);
-    std::vector<std::wstring> files{self};
-    if (!declFile.empty() && lower(declFile) != lower(self))
-        files.push_back(declFile);
-    if (!local) {
-        const bool engineToo = !declFile.empty() && isEngine(declFile);
-        for (const std::wstring& f : vx::files::all()) {
-            const std::wstring n = fs::path(f).lexically_normal().wstring();
-            if (isCpp(n) && (engineToo || !isEngine(n)) && lower(n) != lower(self) && lower(n) != lower(declFile))
-                files.push_back(n);
-        }
-    }
-    job->files = std::move(files);
-    const unsigned workers = std::max(1u, std::min(6u, std::thread::hardware_concurrency() / 2));
-    job->running = static_cast<int>(workers);
-    for (unsigned i = 0; i < workers; ++i)
-        job->workers.emplace_back(work, job.get());
-    std::lock_guard lock(g_jobsMutex);
-    const uint32_t id = g_nextJob++;
-    g_jobs[id] = job;
-    return id;
+    return launch(job, path, declFile, local);
 }
 
 VX_API uint32_t VX_CALL vx_references_start_word(const char16_t* word, uint32_t confirmed)
@@ -467,6 +608,7 @@ VX_API uint32_t VX_CALL vx_references_start_word(const char16_t* word, uint32_t 
     auto job = std::make_shared<Job>();
     job->name = vx::toUtf8(word);
     job->usr = job->name;
+    job->names = {job->name};
     job->label = std::u16string(word) + u" (text)";
     job->lexical = true;
     job->lexicalConfirmed = confirmed != 0;
@@ -475,14 +617,52 @@ VX_API uint32_t VX_CALL vx_references_start_word(const char16_t* word, uint32_t 
         if (isCpp(n) && !isEngine(n))
             job->files.push_back(n);
     }
-    const unsigned workers = std::max(1u, std::min(6u, std::thread::hardware_concurrency() / 2));
-    job->running = static_cast<int>(workers);
-    for (unsigned i = 0; i < workers; ++i)
-        job->workers.emplace_back(work, job.get());
-    std::lock_guard lock(g_jobsMutex);
-    const uint32_t id = g_nextJob++;
-    g_jobs[id] = job;
-    return id;
+    return launch(job);
+}
+
+VX_API uint32_t VX_CALL vx_enum_uses_start(const char16_t* path, uint32_t line, uint32_t column)
+{
+    if (!path || line == 0 || column == 0 || !ensureLibclang())
+        return 0;
+    auto job = std::make_shared<Job>();
+    std::wstring declFile;
+    {
+        std::shared_ptr<Slot> slot = findSlot(vx::toUtf8(path), false);
+        if (!slot)
+            return 0;
+        std::lock_guard lock(slot->mutex);
+        if (!slot->unit || !slot->unit->tu)
+            return 0;
+        CXCursor target = targetAt(*slot->unit, line, column);
+        if (clang_getCursorKind(target) == CXCursor_EnumConstantDecl)
+            target = clang_getCursorSemanticParent(target);
+        if (clang_getCursorKind(target) != CXCursor_EnumDecl)
+            return 0;
+        const CXCursor def = clang_getCursorDefinition(target);
+        if (!clang_Cursor_isNull(def))
+            target = def;
+        job->usr = job->enumUsr = takeString(clang_getCursorUSR(target));
+        job->name = takeString(clang_getCursorSpelling(target));
+        if (job->usr.empty() || job->name.empty())
+            return 0;
+        job->names = {job->name};
+        job->usrs = {job->usr};
+        clang_visitChildren(
+            target,
+            [](CXCursor c, CXCursor, CXClientData d) {
+                if (clang_getCursorKind(c) == CXCursor_EnumConstantDecl) {
+                    auto& j = *static_cast<Job*>(d);
+                    j.names.push_back(takeString(clang_getCursorSpelling(c)));
+                    j.usrs.insert(takeString(clang_getCursorUSR(c)));
+                }
+                return CXChildVisit_Continue;
+            },
+            job.get());
+        const std::u16string scope = qualifiedScope(target);
+        job->label = (scope.empty() ? u"" : scope + u"::") + vx::toUtf16(job->name) + u" (enum and enumerators)";
+        declFile = fileOf(target);
+    }
+    return launch(job, path, declFile, false);
 }
 
 VX_API uint32_t VX_CALL vx_references_target(uint32_t job, char16_t* out, uint32_t cap)
@@ -515,7 +695,8 @@ VX_API uint32_t VX_CALL vx_references_results(uint32_t job, uint32_t from, char1
         for (size_t i = from; i < j->refs.size(); ++i) {
             const Reference& r = j->refs[i];
             result += r.path + u"\t" + vx::toUtf16(std::to_string(r.line)) + u"\t" + vx::toUtf16(std::to_string(r.column)) + u"\t" +
-                      r.kind + u"\t" + (r.confirmed ? u"1" : u"0") + u"\t" + r.text;
+                      r.kind + u"\t" + (r.confirmed ? u"1" : u"0") + u"\t" + vx::toUtf16(std::to_string(r.endLine)) + u"\t" +
+                      vx::toUtf16(std::to_string(r.endColumn)) + u"\t" + r.extra + u"\t" + r.text;
             result.push_back(u'\0');
         }
     }

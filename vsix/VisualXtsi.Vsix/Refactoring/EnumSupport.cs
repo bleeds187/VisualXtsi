@@ -112,5 +112,110 @@ namespace VisualXtsi.Refactoring
         }
 
         private static bool IsIdent(char c) => char.IsLetterOrDigit(c) || c == '_';
+
+        // ---- Convert Unscoped Enum to Scoped Enum
+
+        /// <summary>
+        /// Making the declaration of an enum (its name at <paramref name="nameAt"/>) scoped: "enum E"
+        /// (with its base if any) becomes "enum class E : base" (no base when <paramref name="newBase"/>
+        /// is empty). Null when it is not "enum E" there (already scoped, or not an enum).
+        /// </summary>
+        public static TextEdit ScopedDeclaration(string text, int nameAt, string name, string newBase)
+        {
+            Match keyword = Regex.Match(text.Substring(0, nameAt), @"\benum\s+$", RegexOptions.RightToLeft);
+            if (!keyword.Success || Regex.IsMatch(text.Substring(0, nameAt), @"\benum\s+(class|struct)\s+$") ||
+                string.CompareOrdinal(text, nameAt, name, 0, name.Length) != 0)
+                return null;
+            int end = nameAt + name.Length;
+            Match oldBase = Regex.Match(text.Substring(end), @"^\s*:\s*[\w:]+(\s+[\w:]+)*(?=\s*[{;])");
+            if (oldBase.Success)
+                end += oldBase.Length;
+            string replacement = "enum class " + name + (string.IsNullOrWhiteSpace(newBase) ? "" : " : " + newBase.Trim());
+            return new TextEdit(keyword.Index, end - keyword.Index, replacement);
+        }
+
+        /// <summary>The base an enum's declaration names ("uint8"), or null.</summary>
+        public static string DeclaredBase(string text, int nameAt, string name)
+        {
+            Match m = Regex.Match(text.Substring(nameAt + name.Length), @"^\s*:\s*([\w:]+(\s+[\w:]+)*)(?=\s*[{;])");
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
+        /// <summary>Writing an enumerator used at <paramref name="at"/> as E::Name; null when it already is.</summary>
+        public static TextEdit Qualify(string text, int at, string enumName)
+        {
+            if (Regex.IsMatch(text.Substring(Math.Max(0, at - enumName.Length - 16), Math.Min(at, enumName.Length + 16)),
+                              @"\b" + Regex.Escape(enumName) + @"\s*::\s*$"))
+                return null;
+            return new TextEdit(at, 0, enumName + "::");
+        }
+
+        /// <summary>TEnumAsByte&lt;E&gt; around a use of the enum's name at <paramref name="at"/> becomes E; null when it is not in one.</summary>
+        public static TextEdit UnwrapEnumAsByte(string text, int at, string enumName)
+        {
+            Match before = Regex.Match(text.Substring(0, at), @"\bTEnumAsByte\s*<\s*$", RegexOptions.RightToLeft);
+            Match after = Regex.Match(text.Substring(at + enumName.Length), @"^\s*>");
+            if (!before.Success || !after.Success)
+                return null;
+            return new TextEdit(before.Index, at + enumName.Length + after.Length - before.Index, enumName);
+        }
+
+        /// <summary>An implicit conversion made explicit: the expression from <paramref name="start"/> to <paramref name="end"/> in a static_cast.</summary>
+        public static TextEdit Cast(string text, int start, int end, string type) =>
+            new TextEdit(start, end - start, "static_cast<" + type + ">(" + text.Substring(start, end - start) + ")");
+
+        /// <summary>
+        /// Edits of one file made independent: an edit inside the range another replaces (a use of an
+        /// enumerator inside a converted expression) is folded into that one's replacement. Sorted by start.
+        /// </summary>
+        public static List<TextEdit> Fold(string text, IEnumerable<TextEdit> edits)
+        {
+            var list = edits.Where(e => e != null).OrderBy(e => e.Start).ThenByDescending(e => e.Length).ToList();
+            var result = new List<TextEdit>();
+            foreach (TextEdit e in list)
+            {
+                TextEdit outer = result.LastOrDefault(o => o.Length > 0 && e.Start >= o.Start && e.Start + e.Length <= o.Start + o.Length);
+                if (outer != null)
+                    outer.Inner.Add(e);
+                else if (result.Count == 0 || result[result.Count - 1].Start + result[result.Count - 1].Length <= e.Start)
+                    result.Add(e); // (overlapping without nesting: the first one wins)
+            }
+            foreach (TextEdit o in result)
+                o.FoldInner(text);
+            return result;
+        }
+    }
+
+    /// <summary>A replacement in a text; edits folded into it apply within its replaced range first.</summary>
+    internal sealed class TextEdit
+    {
+        public int Start, Length;
+        public string Text;
+        public object Tag { get; set; } // what it is, for the caller
+        internal readonly List<TextEdit> Inner = new List<TextEdit>();
+
+        public TextEdit(int start, int length, string text)
+        {
+            Start = start;
+            Length = length;
+            Text = text;
+        }
+
+        // A replacement that wraps the original text ("static_cast<T>(" + it + ")") takes the inner
+        // edits into its middle.
+        internal void FoldInner(string text)
+        {
+            if (Inner.Count == 0)
+                return;
+            string original = text.Substring(Start, Length);
+            int at = Text.IndexOf(original, StringComparison.Ordinal);
+            if (at < 0)
+                return; // not a wrapping replacement: the inner edits are lost in it
+            string middle = original;
+            foreach (TextEdit e in Inner.OrderByDescending(e => e.Start))
+                middle = middle.Substring(0, e.Start - Start) + e.Text + middle.Substring(e.Start - Start + e.Length);
+            Text = Text.Substring(0, at) + middle + Text.Substring(at + original.Length);
+            Inner.Clear();
+        }
     }
 }

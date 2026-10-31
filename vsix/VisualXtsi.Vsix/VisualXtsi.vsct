@@ -335,6 +335,18 @@
           <LocCanonicalName>.VisualXtsi.Refactor.AddMissingCaseStatements</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidConvertToScopedEnum" priority="0x0104" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorEditGroup" />
+        <Icon guid="ImageCatalogGuid" id="Enumeration" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Convert to Scoped En&amp;um...</ButtonText>
+          <ToolTipText>Make the enum at the caret an enum class, qualifying its values where they are used, after a preview</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.ConvertToScopedEnum</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.ConvertToScopedEnum</LocCanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidRefactorAtCaret" priority="0x0050" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="SubmenuRefactorGroup" />
         <Icon guid="ImageCatalogGuid" id="Refactoring" />
@@ -561,6 +573,7 @@
       <IDSymbol name="cmdidEncapsulateField" value="0x020A" />
       <IDSymbol name="cmdidAddRemoveBraces" value="0x020B" />
       <IDSymbol name="cmdidAddMissingCases" value="0x020F" />
+      <IDSymbol name="cmdidConvertToScopedEnum" value="0x0210" />
       <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />

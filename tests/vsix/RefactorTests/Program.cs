@@ -102,6 +102,44 @@ namespace VisualXtsi.Tests
             s = Switch(text, "EColor::", colors);
             (at, insert) = EnumSupport.Insertion(text, s, new[] { "Red" }, "    ");
             ExpectText(text.Insert(at, insert), "    switch (C) {\n    case EColor::Red:\n        break;\n    }\n", "an empty one-line switch");
+
+            // Convert to Scoped Enum.
+            string Apply(string t, System.Collections.Generic.IEnumerable<TextEdit> edits)
+            {
+                foreach (TextEdit e in EnumSupport.Fold(t, edits).OrderByDescending(e => e.Start))
+                    t = t.Substring(0, e.Start) + e.Text + t.Substring(e.Start + e.Length);
+                return t;
+            }
+            text = "UENUM(BlueprintType)\nenum EMode\n{\n    Off UMETA(Hidden),\n    On,\n};\n";
+            int name = text.IndexOf("EMode");
+            ExpectText(Apply(text, new[] { EnumSupport.ScopedDeclaration(text, name, "EMode", "uint8") }),
+                       "UENUM(BlueprintType)\nenum class EMode : uint8\n{\n    Off UMETA(Hidden),\n    On,\n};\n", "scoped, a base chosen");
+            text = "enum EMode : int32 { A };\nenum EMode : int32;";
+            ExpectText(Apply(text, new[] { EnumSupport.ScopedDeclaration(text, text.IndexOf("EMode"), "EMode", EnumSupport.DeclaredBase(text, text.IndexOf("EMode"), "EMode")) }),
+                       "enum class EMode : int32 { A };\nenum EMode : int32;", "scoped, its base kept");
+            ExpectText(Apply(text, new[] { EnumSupport.ScopedDeclaration(text, text.LastIndexOf("EMode"), "EMode", "int32") }),
+                       "enum EMode : int32 { A };\nenum class EMode : int32;", "an opaque declaration");
+            Expect(EnumSupport.ScopedDeclaration("enum class EMode { A };", 11, "EMode", "") == null, "already scoped: nothing");
+
+            text = "int F(EMode M) { if (M == On) return Off; return EMode::On + M; }";
+            var edits = new[]
+            {
+                EnumSupport.Qualify(text, text.IndexOf("On)"), "EMode"),
+                EnumSupport.Qualify(text, text.IndexOf("Off;"), "EMode"),
+                EnumSupport.Cast(text, text.IndexOf("Off;"), text.IndexOf("Off;") + 3, "int"),
+                EnumSupport.Qualify(text, text.IndexOf("On +"), "EMode"),
+                EnumSupport.Cast(text, text.IndexOf("EMode::On"), text.IndexOf("EMode::On") + 9, "int"),
+                EnumSupport.Cast(text, text.LastIndexOf("M;"), text.LastIndexOf("M;") + 1, "int"),
+            };
+            Expect(edits[3] == null, "qualify: already qualified");
+            ExpectText(Apply(text, edits),
+                       "int F(EMode M) { if (M == EMode::On) return static_cast<int>(EMode::Off); return static_cast<int>(EMode::On) + static_cast<int>(M); }",
+                       "enumerators qualified, conversions cast, nested edits folded");
+            text = "TEnumAsByte< EMode > Mode;";
+            ExpectText(Apply(text, new[] { EnumSupport.UnwrapEnumAsByte(text, text.IndexOf("EMode"), "EMode") }), "EMode Mode;", "TEnumAsByte unwrapped");
+            Expect(EnumSupport.UnwrapEnumAsByte("EMode Mode;", 0, "EMode") == null, "no TEnumAsByte: nothing");
+            ExpectText(RenameSupport.EnumValueRedirect("Game", "EMode", new[] { "Off", "On" }),
+                       "+EnumRedirects=(OldName=\"/Script/Game.EMode\",ValueChanges=((\"Off\",\"EMode::Off\"),(\"On\",\"EMode::On\")))", "enum value redirects");
         }
 
         private static void ShapeTests()

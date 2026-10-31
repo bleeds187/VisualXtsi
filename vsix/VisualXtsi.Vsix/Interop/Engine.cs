@@ -296,6 +296,9 @@ namespace VisualXtsi.Interop
         /// <summary>Starts a Find References search for the declaration at a position (0: nothing there).</summary>
         public static uint ReferencesStart(string path, int line, int column) => vx_references_start(path, (uint)line, (uint)column);
 
+        /// <summary>A search for the uses of the enum at a position and its enumerators, and the conversions a scoped enum forbids (0: no enum there).</summary>
+        public static uint EnumUsesStart(string path, int line, int column) => vx_enum_uses_start(path, (uint)line, (uint)column);
+
         /// <summary>A search for the whole-word occurrences of a word (outside the engine), reported confirmed when asked.</summary>
         public static uint ReferencesStartWord(string word, bool confirmed) => vx_references_start_word(word, confirmed ? 1u : 0u);
 
@@ -319,9 +322,15 @@ namespace VisualXtsi.Interop
             var list = new List<Reference>();
             foreach (string record in SplitStrings((buffer, cap) => vx_references_results(job, (uint)from, buffer, cap)))
             {
-                string[] f = record.Split('\t');
-                if (f.Length >= 6 && int.TryParse(f[1], out int line) && int.TryParse(f[2], out int column))
-                    list.Add(new Reference { Path = f[0], Line = line, Column = column, Kind = f[3], Confirmed = f[4] == "1", Text = f[5] });
+                string[] f = record.Split(new[] { '\t' }, 9);
+                if (f.Length >= 9 && int.TryParse(f[1], out int line) && int.TryParse(f[2], out int column))
+                    list.Add(new Reference
+                    {
+                        Path = f[0], Line = line, Column = column, Kind = f[3], Confirmed = f[4] == "1",
+                        EndLine = int.TryParse(f[5], out int endLine) ? endLine : 0,
+                        EndColumn = int.TryParse(f[6], out int endColumn) ? endColumn : 0,
+                        ConvertTo = f[7], Text = f[8],
+                    });
             }
             return list;
         }
@@ -334,8 +343,10 @@ namespace VisualXtsi.Interop
         {
             public string Path;
             public int Line, Column;
-            public string Kind; // definition, declaration, write, reference
+            public string Kind; // definition, declaration, write, reference, convert
             public bool Confirmed = true;
+            public int EndLine, EndColumn; // convert: the end of the expression
+            public string ConvertTo;       // convert: the type the value becomes
             public string Text;
         }
 
@@ -462,6 +473,9 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_references_start_word(string word, uint confirmed);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_enum_uses_start(string path, uint line, uint column);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_references_target(uint job, [Out] char[] output, uint cap);

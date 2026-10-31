@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -91,6 +92,14 @@ namespace VisualXtsi.Refactoring
                     return null;
             }
         }
+
+        /// <summary>
+        /// The [CoreRedirects] line mapping a UENUM's value names from the unscoped form ("Value") to
+        /// the scoped one ("EFoo::Value"), for assets that saved them by name.
+        /// </summary>
+        public static string EnumValueRedirect(string module, string enumName, IEnumerable<string> values) =>
+            $"+EnumRedirects=(OldName=\"/Script/{module}.{enumName}\",ValueChanges=(" +
+            string.Join(",", values.Select(v => $"(\"{v}\",\"{enumName}::{v}\")")) + "))";
 
         /// <summary>
         /// Where a redirect line goes in an ini file''s text: at the end of its [CoreRedirects] section,

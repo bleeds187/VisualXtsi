@@ -221,6 +221,12 @@ falling back to the editor's setting.
   as EFoo_MAX, Count or Num are skipped unless switched off in Options > Refactoring), the values
   written the way the existing cases write them, before default unless a case falls through into
   it. Works through TEnumAsByte.
+- Convert to Scoped Enum...: enum E becomes enum class E (its underlying type kept or chosen;
+  uint8 offered for a UENUM), after a preview: its values are written E::Value where they are
+  used, implicit conversions to numbers get a static_cast to the type the code expects (switches,
+  case labels and comparisons of two of its values stay), TEnumAsByte<E> becomes E and
+  declarations ahead follow. A UENUM gets a note that assets refer to its values by name and an
+  unchecked +EnumRedirects line with ValueChanges.
 
 ## Menus and dialogs
 

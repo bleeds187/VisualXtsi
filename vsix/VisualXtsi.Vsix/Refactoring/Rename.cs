@@ -171,7 +171,7 @@ namespace VisualXtsi.Refactoring
             return (ini, text, offset, line, macro);
         }
 
-        private static string ModuleOf(string file)
+        internal static string ModuleOf(string file)
         {
             for (string dir = Path.GetDirectoryName(file); !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
             {
@@ -185,7 +185,7 @@ namespace VisualXtsi.Refactoring
             return null;
         }
 
-        private static string ProjectOf(string file)
+        internal static string ProjectOf(string file)
         {
             for (string dir = Path.GetDirectoryName(file); !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
                 if (Directory.EnumerateFiles(dir, "*.uproject").Any())
@@ -194,11 +194,11 @@ namespace VisualXtsi.Refactoring
         }
 
         /// <summary>Waits for a search behind Visual Studio''s wait dialog (with progress and Cancel); null if cancelled.</summary>
-        private static async Task<List<Engine.Reference>> WaitAsync(uint job, string message)
+        internal static async Task<List<Engine.Reference>> WaitAsync(uint job, string message, string title = "Rename")
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             var factory = (IVsThreadedWaitDialogFactory)Package.GetGlobalService(typeof(SVsThreadedWaitDialogFactory));
-            using (ThreadedWaitDialogHelper.Session session = factory.StartWaitDialog("Rename - VisualXtsi", new ThreadedWaitDialogProgressData(message, "", "VisualXtsi: " + message, true), TimeSpan.FromMilliseconds(500)))
+            using (ThreadedWaitDialogHelper.Session session = factory.StartWaitDialog(title + " - VisualXtsi", new ThreadedWaitDialogProgressData(message, "", "VisualXtsi: " + message, true), TimeSpan.FromMilliseconds(500)))
             {
                 CancellationToken cancel = session.UserCancellationToken;
                 for (;;)
