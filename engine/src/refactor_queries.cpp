@@ -814,6 +814,236 @@ const char16_t* accessName(CX_CXXAccessSpecifier a)
     return a == CX_CXXPrivate ? u"private" : a == CX_CXXProtected ? u"protected" : u"public";
 }
 
+// ---- Selections (Introduce Variable, Extract Method)
+
+struct Span {
+    unsigned start = 0, end = 0; // bytes in the main file
+    bool contains(unsigned s, unsigned e) const { return start <= s && e <= end; }
+    bool overlaps(unsigned s, unsigned e) const { return s < end && start < e; }
+};
+
+Span spanOf(CXTranslationUnit tu, CXCursor c)
+{
+    const CXSourceRange r = extentOf(tu, c);
+    Span s;
+    clang_getSpellingLocation(clang_getRangeStart(r), nullptr, nullptr, nullptr, &s.start);
+    clang_getSpellingLocation(clang_getRangeEnd(r), nullptr, nullptr, nullptr, &s.end);
+    return s;
+}
+
+bool inMainFile(CXCursor c)
+{
+    CXFile file = nullptr;
+    clang_getExpansionLocation(clang_getCursorLocation(c), &file, nullptr, nullptr, nullptr);
+    return file && clang_Location_isFromMainFile(clang_getCursorLocation(c));
+}
+
+bool isLoop(CXCursorKind k)
+{
+    return k == CXCursor_ForStmt || k == CXCursor_WhileStmt || k == CXCursor_DoStmt || k == CXCursor_CXXForRangeStmt;
+}
+
+std::u16string spanText(CXTranslationUnit tu, CXFile file, unsigned start, unsigned end)
+{
+    const Pos a = locate(tu, clang_getLocationForOffset(tu, file, start));
+    const Pos b = locate(tu, clang_getLocationForOffset(tu, file, end));
+    return num(a.line) + u"\t" + num(a.column) + u"\t" + num(b.line) + u"\t" + num(b.column);
+}
+
+// What a function body does with the variables and code in a selection.
+struct SelectionScan {
+    CXTranslationUnit tu;
+    Span function;            // the function's extent
+    Span selection;           // trimmed
+    std::vector<CXCursor> stack;
+    // The selection as one expression (deepest exact match), the innermost block around it, and
+    // every expression's extent (for identical occurrences).
+    CXCursor expression = clang_getNullCursor();
+    CXCursor block = clang_getNullCursor();
+    std::vector<Span> expressions;
+    // Variables.
+    struct Var {
+        CXCursor decl;
+        std::string usr;
+        bool parameter = false;
+        bool declaredInside = false;
+        bool usedInside = false, writtenInside = false, usedOutside = false, usedAfter = false;
+    };
+    std::vector<Var> vars;
+    Span analysed;            // the region the variables are judged against
+    bool usesThis = false, returns = false, jumps = false;
+
+    Var& var(CXCursor decl)
+    {
+        const std::string usr = takeString(clang_getCursorUSR(decl));
+        for (Var& v : vars)
+            if (v.usr == usr)
+                return v;
+        vars.push_back(Var{decl, usr});
+        return vars.back();
+    }
+};
+
+// Whether the use of a variable at the top of the stack may change it: assigned, incremented,
+// its address taken, passed by non-const reference, or a non-const method called on it.
+bool isWrite(const SelectionScan& scan, size_t at)
+{
+    // Skip the implicit conversions around the use.
+    size_t i = at;
+    CXCursor use = scan.stack[i];
+    while (i > 0 && clang_getCursorKind(scan.stack[i - 1]) == CXCursor_UnexposedExpr)
+        use = scan.stack[--i];
+    if (i == 0)
+        return false;
+    const CXCursor parent = scan.stack[i - 1];
+    const CXCursorKind k = clang_getCursorKind(parent);
+    const Span useSpan = spanOf(scan.tu, use);
+    if (k == CXCursor_BinaryOperator || k == CXCursor_CompoundAssignOperator) {
+        const CXBinaryOperatorKind op = clang_getCursorBinaryOperatorKind(parent);
+        const bool assigns = op == CXBinaryOperator_Assign || (op >= CXBinaryOperator_MulAssign && op <= CXBinaryOperator_OrAssign);
+        return assigns && spanOf(scan.tu, parent).start == useSpan.start; // the left side
+    }
+    if (k == CXCursor_UnaryOperator) {
+        const CXUnaryOperatorKind op = clang_getCursorUnaryOperatorKind(parent);
+        return op == CXUnaryOperator_PostInc || op == CXUnaryOperator_PostDec || op == CXUnaryOperator_PreInc ||
+               op == CXUnaryOperator_PreDec || op == CXUnaryOperator_AddrOf;
+    }
+    if (k == CXCursor_MemberRefExpr) {
+        // x.Method(...): a non-const method; x.Field = ...: the member expression is the one written.
+        const CXCursor member = clang_getCursorReferenced(parent);
+        if (clang_getCursorKind(member) == CXCursor_CXXMethod)
+            return !clang_CXXMethod_isConst(member) && !clang_CXXMethod_isStatic(member);
+        return isWrite(scan, i - 1);
+    }
+    if (k == CXCursor_ArraySubscriptExpr)
+        return spanOf(scan.tu, parent).start == useSpan.start && isWrite(scan, i - 1);
+    if (k == CXCursor_CallExpr) {
+        // An argument: by the parameter's type; the object of an operator call: by the operator's constness.
+        const CXCursor callee = clang_getCursorReferenced(parent);
+        const int args = clang_Cursor_getNumArguments(parent);
+        for (int a = 0; a < args; ++a) {
+            const Span s = spanOf(scan.tu, clang_Cursor_getArgument(parent, static_cast<unsigned>(a)));
+            if (s.start != useSpan.start || s.end != useSpan.end)
+                continue;
+            const CXType t = clang_getArgType(clang_getCursorType(callee), static_cast<unsigned>(a));
+            return t.kind == CXType_LValueReference && !clang_isConstQualifiedType(clang_getPointeeType(t));
+        }
+        if (clang_getCursorKind(callee) == CXCursor_CXXMethod)
+            return !clang_CXXMethod_isConst(callee); // operator[] and the like on the variable
+        return false;
+    }
+    return false;
+}
+
+CXChildVisitResult scanSelection(CXCursor c, CXCursor, CXClientData data)
+{
+    auto& scan = *static_cast<SelectionScan*>(data);
+    const CXCursorKind k = clang_getCursorKind(c);
+    const Span s = spanOf(scan.tu, c);
+    const bool inside = scan.analysed.contains(s.start, s.end) && s.end > s.start;
+    if (clang_isExpression(k) && k != CXCursor_UnexposedExpr) {
+        scan.expressions.push_back(s);
+        if (s.start == scan.selection.start && s.end == scan.selection.end)
+            scan.expression = c; // deepest exact match wins
+    }
+    if (k == CXCursor_CompoundStmt && s.contains(scan.selection.start, scan.selection.end))
+        scan.block = c;
+    if (k == CXCursor_DeclRefExpr) {
+        const CXCursor d = clang_getCursorReferenced(c);
+        const CXCursorKind dk = clang_getCursorKind(d);
+        if (dk == CXCursor_VarDecl || dk == CXCursor_ParmDecl) {
+            const Span ds = spanOf(scan.tu, d);
+            const bool local = dk == CXCursor_ParmDecl || (scan.function.contains(ds.start, ds.end) && inMainFile(d) &&
+                                                           clang_Cursor_getStorageClass(d) != CX_SC_Static);
+            if (local) {
+                SelectionScan::Var& v = scan.var(d);
+                v.parameter = dk == CXCursor_ParmDecl;
+                if (inside) {
+                    v.usedInside = true;
+                    scan.stack.push_back(c);
+                    if (isWrite(scan, scan.stack.size() - 1))
+                        v.writtenInside = true;
+                    scan.stack.pop_back();
+                } else {
+                    v.usedOutside = true;
+                    if (s.start >= scan.analysed.end)
+                        v.usedAfter = true;
+                }
+            }
+        }
+    }
+    if (inside) {
+        if (k == CXCursor_VarDecl && clang_getCursorKind(scan.stack.empty() ? c : scan.stack.back()) == CXCursor_DeclStmt)
+            scan.var(c).declaredInside = true;
+        if (k == CXCursor_CXXThisExpr)
+            scan.usesThis = true;
+        if (k == CXCursor_MemberRefExpr) {
+            // Implicitly this->Member: the expression starts at the member's name.
+            unsigned name = 0;
+            clang_getSpellingLocation(clang_getCursorLocation(c), nullptr, nullptr, nullptr, &name);
+            const CXCursor member = clang_getCursorReferenced(c);
+            if (name == s.start && !(clang_getCursorKind(member) == CXCursor_CXXMethod && clang_CXXMethod_isStatic(member)))
+                scan.usesThis = true;
+        }
+        if (k == CXCursor_CallExpr && clang_getCursorKind(clang_getCursorReferenced(c)) == CXCursor_CXXMethod) {
+            unsigned name = 0;
+            clang_getSpellingLocation(clang_getCursorLocation(c), nullptr, nullptr, nullptr, &name);
+            if (name == s.start && !clang_CXXMethod_isStatic(clang_getCursorReferenced(c)))
+                scan.usesThis = true; // Method(...) on this
+        }
+        if (k == CXCursor_ReturnStmt)
+            scan.returns = true;
+        if (k == CXCursor_GotoStmt || k == CXCursor_IndirectGotoStmt)
+            scan.jumps = true;
+        if (k == CXCursor_BreakStmt || k == CXCursor_ContinueStmt) {
+            // It must break or continue a loop (or switch, for break) inside the selection.
+            bool target = false;
+            for (size_t i = scan.stack.size(); i-- > 0;) {
+                const CXCursorKind a = clang_getCursorKind(scan.stack[i]);
+                const Span as = spanOf(scan.tu, scan.stack[i]);
+                if (!scan.analysed.contains(as.start, as.end))
+                    break;
+                if (isLoop(a) || (k == CXCursor_BreakStmt && a == CXCursor_SwitchStmt)) {
+                    target = true;
+                    break;
+                }
+            }
+            if (!target)
+                scan.jumps = true;
+        }
+    }
+    scan.stack.push_back(c);
+    clang_visitChildren(c, scanSelection, data);
+    scan.stack.pop_back();
+    return CXChildVisit_Continue;
+}
+
+// The type of a variable as it can be written in a parameter list.
+std::u16string typeOf(CXCursor decl)
+{
+    const CXType t = clang_getCursorType(decl);
+    std::string spelling = takeString(clang_getTypeSpelling(t));
+    if (spelling.find("(lambda") != std::string::npos || spelling.find("(unnamed") != std::string::npos)
+        return u"";
+    if (spelling == "auto" || spelling.find("auto ") == 0)
+        spelling = takeString(clang_getTypeSpelling(clang_getCanonicalType(t)));
+    return vx::toUtf16(spelling);
+}
+
+const char16_t* typeShape(CXType t)
+{
+    // builtin, pointer, enum: copied; ref: a reference already; class: by const reference.
+    if (t.kind == CXType_LValueReference || t.kind == CXType_RValueReference)
+        return u"ref";
+    const CXType c = clang_getCanonicalType(t);
+    if ((c.kind >= CXType_FirstBuiltin && c.kind <= CXType_LastBuiltin) || c.kind == CXType_Pointer || c.kind == CXType_Enum ||
+        c.kind == CXType_MemberPointer || c.kind == CXType_BlockPointer)
+        return u"value";
+    if (c.kind == CXType_ConstantArray || c.kind == CXType_IncompleteArray)
+        return u"array";
+    return u"class";
+}
+
 } // namespace
 
 extern "C" {
@@ -899,6 +1129,159 @@ VX_API uint32_t VX_CALL vx_overridable(const char16_t* path, uint32_t line, uint
             }
             for (CXCursor b : basesOf(base))
                 queue.emplace_back(b, primary);
+        }
+        return writeOut(result, out, cap);
+    });
+}
+
+VX_API uint32_t VX_CALL vx_selection_info(const char16_t* path, uint32_t line, uint32_t column, uint32_t endLine, uint32_t endColumn,
+                                          uint32_t wait, char16_t* out, uint32_t cap)
+{
+    if (line == 0 || column == 0 || endLine == 0 || endColumn == 0)
+        return 0;
+    return withUnit(path, wait != 0, [&](Unit& unit) -> uint32_t {
+        CXTranslationUnit tu = unit.tu;
+        CXFile file = clang_getFile(tu, unit.path.c_str());
+        size_t size = 0;
+        const char* text = file ? clang_getFileContents(tu, file, &size) : nullptr;
+        if (!text)
+            return 0;
+        SelectionScan scan{tu};
+        cursorAt(unit, line, column, &scan.selection.start);
+        cursorAt(unit, endLine, endColumn, &scan.selection.end);
+        // Trimmed of white space and a final ";".
+        auto blank = [&](unsigned at) { return text[at] == ' ' || text[at] == '\t' || text[at] == '\r' || text[at] == '\n'; };
+        while (scan.selection.start < scan.selection.end && blank(scan.selection.start))
+            ++scan.selection.start;
+        while (scan.selection.end > scan.selection.start && (blank(scan.selection.end - 1) || text[scan.selection.end - 1] == ';'))
+            --scan.selection.end;
+        if (scan.selection.end <= scan.selection.start)
+            return 0;
+        const CXCursor function = enclosing(unit, scan.selection.start, true);
+        if (clang_Cursor_isNull(function))
+            return 0;
+        scan.function = spanOf(tu, function);
+        if (!scan.function.contains(scan.selection.start, scan.selection.end))
+            return 0;
+
+        // First pass: the expression and block; then the region analysed is the expression, or
+        // the whole statements of the block the selection touches.
+        scan.analysed = scan.selection;
+        clang_visitChildren(function, scanSelection, &scan);
+        std::u16string result;
+        Span region = scan.selection;
+        std::vector<CXCursor> statements;
+        if (clang_Cursor_isNull(scan.expression)) {
+            if (clang_Cursor_isNull(scan.block))
+                return 0;
+            for (CXCursor child : childrenOf(scan.block)) {
+                const Span cs = spanOf(tu, child);
+                if (cs.overlaps(scan.selection.start, scan.selection.end))
+                    statements.push_back(child);
+            }
+            if (statements.empty())
+                return 0;
+            region = {spanOf(tu, statements.front()).start, spanOf(tu, statements.back()).end};
+            if (region.end < size && text[region.end] == ';')
+                ++region.end;
+            result += u"statements\t" + spanText(tu, file, region.start, region.end) + u"\t" + num(static_cast<uint32_t>(statements.size())) + u"\n";
+        } else {
+            const CXType t = clang_getCursorType(scan.expression);
+            result += u"expression\t" + spanText(tu, file, region.start, region.end) + u"\t" + vx::toUtf16(takeString(clang_getTypeSpelling(t))) +
+                      u"\t" + typeShape(t) + u"\n";
+            if (t.kind == CXType_Void)
+                result += u"void\t1\n";
+            // The statement of the block holding it, where a variable can be declared.
+            if (!clang_Cursor_isNull(scan.block)) {
+                for (CXCursor child : childrenOf(scan.block)) {
+                    const Span cs = spanOf(tu, child);
+                    if (!cs.contains(region.start, region.end))
+                        continue;
+                    result += u"statement\t" + spanText(tu, file, cs.start, cs.end) + u"\n";
+                    // In a loop's condition or increment: evaluated on every iteration.
+                    if (isLoop(clang_getCursorKind(child))) {
+                        const std::vector<CXCursor> parts = childrenOf(child);
+                        const Span body = parts.empty() ? cs : spanOf(tu, parts.back());
+                        if (!body.contains(region.start, region.end))
+                            result += u"inloop\t1\n";
+                    }
+                    const Span bs = spanOf(tu, scan.block);
+                    result += u"block\t" + spanText(tu, file, bs.start, bs.end) + u"\n";
+                    break;
+                }
+            }
+        }
+
+        // Second pass over the region: variables, this, returns and jumps.
+        SelectionScan second{tu};
+        second.function = scan.function;
+        second.selection = scan.selection;
+        second.analysed = region;
+        clang_visitChildren(function, scanSelection, &second);
+        for (const SelectionScan::Var& v : second.vars) {
+            const std::u16string name = vx::toUtf16(takeString(clang_getCursorSpelling(v.decl)));
+            const std::u16string type = typeOf(v.decl);
+            if (v.declaredInside) {
+                if (v.usedAfter)
+                    result += u"out\t" + name + u"\t" + type + u"\t" + typeShape(clang_getCursorType(v.decl)) + u"\t" +
+                              spanText(tu, file, spanOf(tu, v.decl).start, spanOf(tu, v.decl).end) + u"\n";
+            } else if (v.usedInside) {
+                result += u"in\t" + name + u"\t" + type + u"\t" + typeShape(clang_getCursorType(v.decl)) + u"\t" + (v.writtenInside ? u"1" : u"0") +
+                          u"\t" + (v.usedOutside ? u"1" : u"0") + u"\t" + (v.parameter ? u"1" : u"0") + u"\n";
+            }
+        }
+        if (second.usesThis)
+            result += u"this\t1\n";
+        if (second.returns)
+            result += u"return\t1\n";
+        if (second.jumps)
+            result += u"jump\t1\n";
+
+        // Identical occurrences of an expression in its block: the same tokens, as an expression too.
+        if (!clang_Cursor_isNull(scan.expression) && !clang_Cursor_isNull(scan.block)) {
+            const std::vector<Tok> want = tokensOf(tu, clang_getRange(clang_getLocationForOffset(tu, file, region.start),
+                                                                       clang_getLocationForOffset(tu, file, region.end)));
+            const Span bs = spanOf(tu, scan.block);
+            const std::vector<Tok> all = tokensOf(tu, extentOf(tu, scan.block));
+            const std::vector<CXCursor> children = childrenOf(scan.block);
+            for (size_t i = 0; !want.empty() && i + want.size() <= all.size(); ++i) {
+                bool same = true;
+                for (size_t j = 0; j < want.size() && same; ++j)
+                    same = all[i + j].text == want[j].text;
+                if (!same)
+                    continue;
+                const unsigned s = all[i].start, e = all[i + want.size() - 1].end;
+                if (s == region.start || !bs.contains(s, e) ||
+                    std::none_of(scan.expressions.begin(), scan.expressions.end(), [&](const Span& x) { return x.start == s && x.end == e; }))
+                    continue;
+                for (CXCursor child : children) {
+                    const Span cs = spanOf(tu, child);
+                    if (cs.contains(s, e)) {
+                        result += u"same\t" + spanText(tu, file, s, e) + u"\t" + spanText(tu, file, cs.start, cs.end) + u"\n";
+                        break;
+                    }
+                }
+            }
+        }
+
+        // The function it is in.
+        std::u16string classes, namespaces;
+        bool templated = false;
+        scopesOf(function, classes, namespaces, templated);
+        const CXCursorKind fk = clang_getCursorKind(function);
+        const bool method = fk == CXCursor_CXXMethod || fk == CXCursor_Constructor || fk == CXCursor_Destructor || fk == CXCursor_ConversionFunction;
+        result += u"function\t" + vx::toUtf16(takeString(clang_getCursorSpelling(function))) + u"\t" + classes + u"\t" + namespaces + u"\t" +
+                  (method && clang_CXXMethod_isConst(function) ? u"1" : u"0") + u"\t" + (method && clang_CXXMethod_isStatic(function) ? u"1" : u"0") +
+                  u"\t" + (method ? u"1" : u"0") + u"\t" + (templated || fk == CXCursor_FunctionTemplate ? u"1" : u"0") + u"\n";
+        const Span fs = scan.function;
+        result += u"functionextent\t" + spanText(tu, file, fs.start, fs.end) + u"\n";
+        const CXCursor canonical = clang_getCanonicalCursor(function);
+        if (!clang_equalCursors(canonical, function))
+            addRange(result, u"functiondecl", tu, clang_getRangeStart(extentOf(tu, canonical)), clang_getRangeEnd(extentOf(tu, canonical)));
+        const CXCursor parent = clang_getCursorSemanticParent(function);
+        if (method && isRecordKind(clang_getCursorKind(parent)) && !clang_Cursor_isNull(clang_getCursorDefinition(parent))) {
+            const CXCursor cls = clang_getCursorDefinition(parent);
+            addRange(result, u"class", tu, clang_getRangeStart(extentOf(tu, cls)), clang_getRangeEnd(extentOf(tu, cls)));
         }
         return writeOut(result, out, cap);
     });

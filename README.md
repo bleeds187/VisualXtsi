@@ -239,6 +239,9 @@ falling back to the editor's setting.
   macro if it uses one), with stubs at the end of the source file that return a value or call the
   base (through Super:: for the first base of a reflected class). An Unreal interface's
   BlueprintNativeEvent is offered as Name_Implementation.
+- Introduce Variable...: the selected expression becomes a local const auto (or its explicit
+  type) declared before its statement, named after the expression, optionally replacing the
+  identical expressions in the same block. Not in a loop's condition or increment.
 
 ## Menus and dialogs
 

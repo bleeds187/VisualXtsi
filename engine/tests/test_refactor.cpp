@@ -243,6 +243,39 @@ int main()
         if (!ok)
             std::printf("%s\n", s.c_str());
         expect(at(4, 3).empty(), "switch: none outside a switch");
+
+        // Selections, for Introduce Variable and Extract Method.
+        auto selection = [&](uint32_t l1, uint32_t c1, uint32_t l2, uint32_t c2) {
+            std::vector<char16_t> buf(8192);
+            uint32_t n = vx_selection_info(cpp.c_str(), l1, c1, l2, c2, 1, buf.data(), 8192);
+            return narrow(std::u16string(buf.data(), std::min<uint32_t>(n, 8192)));
+        };
+        auto has = [](const std::string& s, const char* what) { return s.find(what) != std::string::npos; };
+        s = selection(38, 19, 38, 26); // "A * 2.f" in "float Total = A * 2.f + 1.f;"
+        ok = has(s, "expression\t38\t19\t38\t26\tfloat\tvalue\n") && has(s, "statement\t38\t5\t") && has(s, "same\t41\t18\t41\t25\t39\t5\t43\t6\n") &&
+             has(s, "in\tA\tfloat\tvalue\t0\t1\t1\n") && has(s, "function\tMix\t\t\t0\t0\t0\t0\n") && !has(s, "inloop");
+        expect(ok, "selection: an expression, its identical twin in the block, the parameter it reads");
+        if (!ok)
+            std::printf("%s\n", s.c_str());
+        s = selection(39, 1, 43, 6); // the for loop
+        ok = has(s, "statements\t39\t5\t43\t6\t1\n") && has(s, "in\tCount\tint32\tvalue\t1\t1\t1\n") && has(s, "in\tTotal\tfloat\tvalue\t1\t1\t0\n") &&
+             !has(s, "out\t") && !has(s, "return\t") && !has(s, "jump\t") && !has(s, "this\t");
+        expect(ok, "selection: statements, variables written inside and used outside");
+        if (!ok)
+            std::printf("%s\n", s.c_str());
+        s = selection(44, 5, 44, 39); // int32 Last = Count + Values.Num();
+        ok = has(s, "out\tLast\tint32\tvalue\t44\t") && has(s, "in\tValues\t") && has(s, "\tref\t0\t") && !has(s, "expression\t");
+        expect(ok, "selection: a declaration used after it, a reference parameter only read");
+        if (!ok)
+            std::printf("%s\n", s.c_str());
+        s = selection(41, 9, 41, 26); // inside the loop: Total += A * 2.f;
+        expect(has(s, "statements\t41\t9\t41\t26\t1\n") || has(s, "expression\t41\t9\t"), "selection: one statement in a loop");
+        s = selection(44, 5, 45, 25);
+        expect(has(s, "return\t1\n"), "selection: a return inside");
+        s = selection(39, 10, 39, 23); // "int32 I = 0; I" spans parts of the for header
+        expect(has(s, "statements\t39\t5\t43\t6\t1\n"), "selection: part of a statement extends to all of it");
+        s = selection(39, 27, 39, 32); // "Count" in the loop condition
+        expect(has(s, "inloop\t1\n"), "selection: an expression in a loop's condition");
     }
 
     // Unreal's split UFUNCTIONs, from the symbol index.

@@ -40,6 +40,7 @@ namespace VisualXtsi.Commands
             AddRefactoring(commands, CommandIds.AddMember, MemberRefactorings.AddMemberAsync, MemberRefactorings.CanAddMember);
             AddRefactoring(commands, CommandIds.AddSimilarMember, MemberRefactorings.AddSimilarMemberAsync, MemberRefactorings.CanAddSimilarMember);
             AddRefactoring(commands, CommandIds.ImplementInterface, MemberRefactorings.ImplementInterfaceAsync, MemberRefactorings.CanImplementInterface);
+            AddRefactoring(commands, CommandIds.IntroduceVariable, ExtractRefactorings.IntroduceVariableAsync, ExtractRefactorings.CanIntroduceVariable);
             AddRefactoring(commands, CommandIds.AddInclude, IncludeRefactorings.AddIncludeAsync, IncludeRefactorings.CanAddInclude);
             AddRefactoring(commands, CommandIds.AddForwardDeclaration, IncludeRefactorings.AddForwardDeclarationAsync, IncludeRefactorings.CanAddForwardDeclaration);
             AddRefactoring(commands, CommandIds.DocumentMethod, SmallRefactorings.DocumentMethodAsync, SmallRefactorings.CanDocument);

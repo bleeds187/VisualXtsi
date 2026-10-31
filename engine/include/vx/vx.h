@@ -325,6 +325,24 @@ VX_API uint32_t VX_CALL vx_switch_at(const char16_t* path, uint32_t line, uint32
  * methods overridden further down, final ones and destructors are left out. */
 VX_API uint32_t VX_CALL vx_overridable(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
                                        uint32_t cap);
+/* Introduce Variable and Extract Method: what a selection (from line/column to end line/end column,
+ * in a function body) holds, as "key\tvalue..." lines; ranges are line, column, end line, end column.
+ *   expression: the range, its type and shape (value, ref, class, array) when the selection
+ *     (trimmed of white space and a final ";") is exactly one expression; void 1 for a void one;
+ *     statement (the statement of the innermost block holding it), block (that block), inloop 1
+ *     (in a loop's condition or increment), same (each identical expression in the block, with
+ *     its own statement of the block);
+ *   statements: otherwise, the range of the whole statements of the innermost block that the
+ *     selection touches, and their count;
+ *   in: name, type, shape, written inside (1/0), used outside (1/0), parameter (1/0) for each
+ *     local variable or parameter declared before and used in the range;
+ *   out: name, type, shape, declaration range for each variable declared in it and used after;
+ *   this 1 (uses members), return 1, jump 1 (a break, continue or goto leaving the range);
+ *   function: name, classes, namespaces, const, static, method, template (1/0);
+ *   functionextent (range), functiondecl (path and range of its separate declaration) and class
+ *   (path and range of its class's definition). */
+VX_API uint32_t VX_CALL vx_selection_info(const char16_t* path, uint32_t line, uint32_t column, uint32_t endLine,
+                                          uint32_t endColumn, uint32_t wait, char16_t* out, uint32_t cap);
 
 #ifdef __cplusplus
 }

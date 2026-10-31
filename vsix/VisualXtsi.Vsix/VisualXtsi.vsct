@@ -81,6 +81,9 @@
       <Group guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" priority="0x0200">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
       </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="RefactorExtractGroup" priority="0x0250">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
+      </Group>
       <Group guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" priority="0x0300">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
       </Group>
@@ -299,6 +302,18 @@
           <LocCanonicalName>.VisualXtsi.Refactor.ImplementInterface</LocCanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidIntroduceVariable" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorExtractGroup" />
+        <Icon guid="ImageCatalogGuid" id="LocalVariable" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Introduce &amp;Variable...</ButtonText>
+          <ToolTipText>Put the selected expression in a local constant declared before its statement</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.IntroduceVariable</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.IntroduceVariable</LocCanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidAddInclude" priority="0x0100" type="Button">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" />
         <Icon guid="ImageCatalogGuid" id="Include" />
@@ -505,6 +520,9 @@
     <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" priority="0x0200">
       <Parent guid="guidVisualXtsiCmdSet" id="RefactorPopup" />
     </CommandPlacement>
+    <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorExtractGroup" priority="0x0250">
+      <Parent guid="guidVisualXtsiCmdSet" id="RefactorPopup" />
+    </CommandPlacement>
     <CommandPlacement guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" priority="0x0300">
       <Parent guid="guidVisualXtsiCmdSet" id="RefactorPopup" />
     </CommandPlacement>
@@ -605,6 +623,7 @@
       <IDSymbol name="cmdidAddInclude" value="0x0207" />
       <IDSymbol name="cmdidAddForwardDeclaration" value="0x0208" />
       <IDSymbol name="RefactorEditGroup" value="0x1011" />
+      <IDSymbol name="RefactorExtractGroup" value="0x1012" />
       <IDSymbol name="cmdidDocumentMethod" value="0x0209" />
       <IDSymbol name="cmdidEncapsulateField" value="0x020A" />
       <IDSymbol name="cmdidAddRemoveBraces" value="0x020B" />
@@ -613,6 +632,7 @@
       <IDSymbol name="cmdidAddMember" value="0x0211" />
       <IDSymbol name="cmdidAddSimilarMember" value="0x0212" />
       <IDSymbol name="cmdidImplementInterface" value="0x0213" />
+      <IDSymbol name="cmdidIntroduceVariable" value="0x0214" />
       <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />

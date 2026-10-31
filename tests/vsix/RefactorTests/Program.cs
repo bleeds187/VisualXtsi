@@ -39,6 +39,7 @@ namespace VisualXtsi.Tests
             ShapeTests();
             EnumTests();
             MemberTests();
+            ExtractTests();
             Console.WriteLine(_failures == 0 ? "all tests passed" : $"{_failures} failures");
             return _failures == 0 ? 0 : 1;
         }
@@ -141,6 +142,35 @@ namespace VisualXtsi.Tests
             Expect(EnumSupport.UnwrapEnumAsByte("EMode Mode;", 0, "EMode") == null, "no TEnumAsByte: nothing");
             ExpectText(RenameSupport.EnumValueRedirect("Game", "EMode", new[] { "Off", "On" }),
                        "+EnumRedirects=(OldName=\"/Script/Game.EMode\",ValueChanges=((\"Off\",\"EMode::Off\"),(\"On\",\"EMode::On\")))", "enum value redirects");
+        }
+
+        private static string Apply(string text, System.Collections.Generic.IEnumerable<TextEdit> edits)
+        {
+            foreach (TextEdit e in edits.OrderByDescending(e => e.Start).ThenByDescending(e => e.Length))
+                text = text.Substring(0, e.Start) + e.Text + text.Substring(e.Start + e.Length);
+            return text;
+        }
+
+        private static void ExtractTests()
+        {
+            // Introduce Variable.
+            ExpectText(ExtractSupport.SuggestName("Character->GetHealthComponent()", "UHealthComponent*"), "HealthComponent", "name from a getter call");
+            ExpectText(ExtractSupport.SuggestName("Owner.bIsAlive", "bool"), "bIsAlive", "a bool keeps its b prefix");
+            ExpectText(ExtractSupport.SuggestName("IsValid(Actor)", "bool"), "bValid", "a bool predicate");
+            ExpectText(ExtractSupport.SuggestName("A * 2.f", "float"), "Value", "an arithmetic expression");
+            ExpectText(ExtractSupport.SuggestName("Values.Num()", "int32"), "Num", "a method call");
+            ExpectText(ExtractSupport.VariableType("float", false), "const auto", "auto by default");
+            ExpectText(ExtractSupport.VariableType("const FString &", true), "const FString&", "an explicit type, const once");
+            ExpectText(ExtractSupport.VariableType("UCharacterMovementComponent *", true), "UCharacterMovementComponent* const", "a pointer stays pointing to something writable");
+            const string body = "{\n    float Total = A * 2.f + 1.f;\n    for (int32 I = 0; I < Count; ++I)\n    {\n        Total += A * 2.f;\n    }\n}\n";
+            int first = body.IndexOf("A * 2.f"), second = body.LastIndexOf("A * 2.f");
+            var occurrences = new[] { (first, first + 7, body.IndexOf("float Total")), (second, second + 7, body.IndexOf("for (")) };
+            ExpectText(Apply(body, ExtractSupport.IntroduceVariable(body, occurrences, "Twice", "const auto", "\n")),
+                       "{\n    const auto Twice = A * 2.f;\n    float Total = Twice + 1.f;\n    for (int32 I = 0; I < Count; ++I)\n    {\n        Total += Twice;\n    }\n}\n",
+                       "introduce variable: declared before the first statement, both occurrences replaced");
+            ExpectText(Apply(body, ExtractSupport.IntroduceVariable(body, new[] { occurrences[1] }, "Twice", "const float", "\n")),
+                       "{\n    float Total = A * 2.f + 1.f;\n    const float Twice = A * 2.f;\n    for (int32 I = 0; I < Count; ++I)\n    {\n        Total += Twice;\n    }\n}\n",
+                       "introduce variable: only the selected one, before its statement");
         }
 
         private static void MemberTests()

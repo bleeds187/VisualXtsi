@@ -87,6 +87,8 @@
     <Compile Include="Refactoring\EnumRefactorings.cs" />
     <Compile Include="Refactoring\MemberSupport.cs" />
     <Compile Include="Refactoring\MemberRefactorings.cs" />
+    <Compile Include="Refactoring\ExtractSupport.cs" />
+    <Compile Include="Refactoring\ExtractRefactorings.cs" />
     <Compile Include="UI\ReferencesToolWindow.cs" />
     <Compile Include="Interop\CursorInfo.cs" />
     <Compile Include="UI\RefactorPreviewDialog.cs" />
@@ -105,6 +107,7 @@
     <Compile Include="UI\KeyCaptureDialog.cs" />
     <Compile Include="UI\NameDialog.cs" />
     <Compile Include="UI\AddMemberDialog.cs" />
+    <Compile Include="UI\NameOptionsDialog.cs" />
     <Compile Include="UI\OpenFileDialog.cs" />
     <Compile Include="UI\OptionsDialog.cs" />
     <Compile Include="UI\OptionsToolWindow.cs" />

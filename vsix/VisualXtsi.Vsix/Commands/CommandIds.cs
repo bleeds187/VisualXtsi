@@ -40,6 +40,7 @@ namespace VisualXtsi.Commands
         public const int AddMember = 0x0211;
         public const int AddSimilarMember = 0x0212;
         public const int ImplementInterface = 0x0213;
+        public const int IntroduceVariable = 0x0214;
         public const int SurroundSnippetFirst = 0x0400; // a dynamic list of SurroundSnippetSlots items
         public const int SurroundSnippetSlots = 128;
 

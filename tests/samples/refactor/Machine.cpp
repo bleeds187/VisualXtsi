@@ -32,3 +32,15 @@ int32 Rank(EMachineState S)
         return S;
     return S < MS_MAX ? 1 : 0;
 }
+
+float Mix(float A, int32 Count, TArray<int32>& Values)
+{
+    float Total = A * 2.f + 1.f;
+    for (int32 I = 0; I < Count; ++I)
+    {
+        Total += A * 2.f;
+        ++Count;
+    }
+    int32 Last = Count + Values.Num();
+    return Total + Last;
+}
