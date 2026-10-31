@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -247,6 +248,25 @@ namespace VisualXtsi.Interop
             return text.Length == 0 ? null : Interop.CursorInfo.Parse(text[0]);
         }
 
+        /// <summary>The if / for / while / do statement around a position, as vx_statement_at's key/value lines (null: none).</summary>
+        public static Dictionary<string, List<string[]>> StatementAt(string path, int line, int column, bool wait)
+        {
+            string[] text = SplitStrings((buffer, cap) => vx_statement_at(path, (uint)line, (uint)column, wait ? 1u : 0u, buffer, cap));
+            if (text.Length == 0)
+                return null;
+            var result = new Dictionary<string, List<string[]>>();
+            foreach (string record in text[0].Split('\n'))
+            {
+                string[] f = record.Split('\t');
+                if (f.Length < 2)
+                    continue;
+                if (!result.TryGetValue(f[0], out List<string[]> list))
+                    result[f[0]] = list = new List<string[]>();
+                list.Add(f.Skip(1).ToArray());
+            }
+            return result;
+        }
+
         /// <summary>The methods of the class at a position: its qualified name, then (name, line, column, defined inline) in declaration order.</summary>
         public static (string Class, List<(string Name, int Line, int Column, bool Inline)> Methods) ClassMembers(string path, int line, int column, bool wait)
         {
@@ -451,6 +471,9 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_cursor_info(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_statement_at(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_class_members(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);

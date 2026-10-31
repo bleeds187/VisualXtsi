@@ -204,6 +204,58 @@ namespace VisualXtsi.Refactoring
             return -1;
         }
 
+        /// <summary>
+        /// One level of indentation as a file uses it: a tab if more lines are indented with tabs, else
+        /// the most common step between the indentation of consecutive lines (2, 4, ... spaces);
+        /// <paramref name="fallback"/> (the editor's setting) when the file says nothing.
+        /// </summary>
+        public static string IndentUnit(string text, string fallback)
+        {
+            int tabs = 0, spaces = 0;
+            var steps = new Dictionary<int, int>();
+            int previous = -1;
+            foreach (string line in text.Replace("\r", "").Split('\n'))
+            {
+                if (line.Trim().Length == 0)
+                    continue;
+                if (line[0] == '\t')
+                    tabs++;
+                else if (line[0] == ' ')
+                    spaces++;
+                int width = 0;
+                while (width < line.Length && line[width] == ' ')
+                    width++;
+                if (width < line.Length && line[width] == '\t')
+                {
+                    previous = -1;
+                    continue;
+                }
+                if (previous >= 0 && width > previous && width - previous <= 8)
+                    steps[width - previous] = steps.TryGetValue(width - previous, out int n) ? n + 1 : 1;
+                previous = width;
+            }
+            if (tabs == 0 && spaces == 0)
+                return fallback;
+            if (tabs >= spaces)
+                return "\t";
+            return steps.Count == 0 ? fallback : new string(' ', steps.OrderByDescending(s => s.Value).ThenBy(s => s.Key).First().Key);
+        }
+
+        /// <summary>The indentation of a class's members: as the member line above <paramref name="at"/> has it.</summary>
+        public static string MemberIndent(string text, int at, string classIndent, string unit)
+        {
+            for (int line = LineStart(text, at); line > 0;)
+            {
+                line = LineStart(text, line - 1);
+                string content = text.Substring(line, LineEnd(text, line) - line);
+                if (content.Trim().Length == 0)
+                    continue;
+                string indent = IndentOf(text, line);
+                return indent.Length > classIndent.Length ? indent : classIndent + unit;
+            }
+            return classIndent + unit;
+        }
+
         /// <summary>Where to append to a file: after its last non-blank text, with blank-line separation.</summary>
         public static (int Offset, string Prefix) AppendPoint(string text, string newline)
         {

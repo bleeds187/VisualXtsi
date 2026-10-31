@@ -36,8 +36,50 @@ namespace VisualXtsi.Tests
             TextScanTests();
             RenameTests();
             IncludeTests();
+            ShapeTests();
             Console.WriteLine(_failures == 0 ? "all tests passed" : $"{_failures} failures");
             return _failures == 0 ? 0 : 1;
+        }
+
+        private static void ShapeTests()
+        {
+            // Document Method.
+            CursorInfo f = CursorInfo.Parse("kind\tmethod\nname\tRun\nresult\tbool\nparam\tint32 Count\tCount\nparam\tconst FString& Name\tName\tTEXT(\"x\")");
+            var (doc, caret) = CodeShapes.DocComment(f, 0, "\t", "\n");
+            ExpectText(doc, "\t/**\n\t * \n\t *\n\t * @param Count\n\t * @param Name\n\t * @return\n\t */\n", "doc comment, Unreal style");
+            Expect(doc.Substring(0, caret).EndsWith("/**\n\t * "), "caret on the summary line");
+            CursorInfo v = CursorInfo.Parse("kind\tmethod\nname\tTick\nresult\tvoid");
+            ExpectText(CodeShapes.DocComment(v, 1, "", "\r\n").Text, "/// \r\n", "/// style, nothing to list");
+
+            // Encapsulate Field.
+            var (acc, getter, setter) = CodeShapes.Accessors("bEnabled", "bool", true, false, null, null, "\t", "\n");
+            ExpectText(acc, "\tbool IsEnabled() const { return bEnabled; }\n\tvoid SetEnabled(bool bInEnabled) { bEnabled = bInEnabled; }\n", "bool accessors");
+            Expect(getter == "IsEnabled" && setter == "SetEnabled", "bool accessor names");
+            (acc, _, _) = CodeShapes.Accessors("Names", "TArray<FString>", false, false, "Gadget", null, "    ", "\n");
+            ExpectText(acc, "    UFUNCTION(BlueprintPure, Category = \"Gadget\")\n    const TArray<FString>& GetNames() const { return Names; }\n" +
+                            "    UFUNCTION(BlueprintCallable, Category = \"Gadget\")\n    void SetNames(const TArray<FString>& InNames) { Names = InNames; }\n",
+                       "class-type accessors by reference, Blueprint style");
+            (acc, _, _) = CodeShapes.Accessors("m_count", "int", true, true, null, new[] { "GetCount" }, "", "\n");
+            ExpectText(acc, "static void SetCount(int InCount) { m_count = InCount; }\n", "static, m_ prefix, existing getter left out");
+
+            // Remove Braces.
+            string text = "\tif (X > 0)\n\t{\n\t\tX = 1;\n\t}\n\telse\n\t\tX = 2;\n";
+            int open = text.IndexOf('{'), close = text.IndexOf('}');
+            int inner = text.IndexOf("X = 1"), innerEnd = inner + "X = 1".Length;
+            var (s, l, r) = CodeShapes.RemoveBraces(text, open, close, inner, innerEnd, "\t", "\t", "\n");
+            ExpectText(text.Remove(s, l).Insert(s, r), "\tif (X > 0)\n\t\tX = 1;\n\telse\n\t\tX = 2;\n", "remove braces of a one-statement block");
+            text = "\tif (X) {\n\t\tA();\n\t} else {\n\t\tB();\n\t}\n";
+            (s, l, r) = CodeShapes.RemoveBraces(text, text.IndexOf('{'), text.IndexOf('}'), text.IndexOf("A()"), text.IndexOf("A()") + 3, "\t", "\t", "\n");
+            ExpectText(text.Remove(s, l).Insert(s, r), "\tif (X)\n\t\tA();\n\telse {\n\t\tB();\n\t}\n", "remove K&R braces, else to its own line");
+
+            // Add Braces.
+            text = "\tfor (int I = 0; I < 3; ++I)\n\t\tX += I;\n\treturn X;\n";
+            int body = text.IndexOf("X += I"), bodyEnd = body + "X += I".Length;
+            (s, l, r) = CodeShapes.AddBraces(text, body, bodyEnd, "\t", "\t", "\n");
+            ExpectText(text.Remove(s, l).Insert(s, r), "\tfor (int I = 0; I < 3; ++I)\n\t{\n\t\tX += I;\n\t}\n\treturn X;\n", "add braces around a loop body");
+            text = "    if (X) A(); else B();\n";
+            (s, l, r) = CodeShapes.AddBraces(text, text.IndexOf("A()"), text.IndexOf("A()") + 3, "    ", "    ", "\n");
+            ExpectText(text.Remove(s, l).Insert(s, r), "    if (X)\n    {\n        A();\n    }\n    else B();\n", "add braces on one line, else to its own line");
         }
 
         private static void IncludeTests()
@@ -176,6 +218,10 @@ namespace VisualXtsi.Tests
             Expect(!TextScan.MemberInsertion(st, 0, st.Length - 1, true).NeedsPublic, "a struct without labels is public");
             string pub = "class X\n{\nprivate:\n\tint A;\npublic:\n\tvoid F();\n};";
             Expect(!TextScan.MemberInsertion(pub, 0, pub.Length - 1, false).NeedsPublic, "last label public");
+            Expect(TextScan.IndentUnit("a\n    b\n        c\n    d\n", "\t") == "    ", "indent unit: four spaces");
+            Expect(TextScan.IndentUnit("a\n  b\n    c\n", "\t") == "  ", "indent unit: two spaces");
+            Expect(TextScan.IndentUnit("a\n\tb\n\t\tc\n    d\n", "    ") == "\t", "indent unit: tabs win");
+            Expect(TextScan.IndentUnit("a\nb\n", "\t") == "\t", "indent unit: nothing indented, the fallback");
             var (offset, prefix) = TextScan.AppendPoint("a\n\n\n", "\n");
             Expect(offset == 1 && prefix == "\n\n", "append after the last text with a blank line");
         }

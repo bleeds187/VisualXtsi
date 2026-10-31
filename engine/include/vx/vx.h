@@ -287,6 +287,13 @@ VX_API void VX_CALL vx_references_cancel(uint32_t job);
 /* Stops the search (waiting for its workers) and forgets it. */
 VX_API void VX_CALL vx_references_free(uint32_t job);
 
+/* The innermost if / for / while / do (or range-for) statement around a position: "kind\tif|for|while|do",
+ * "header\tpath\tline\tcolumn\tend line\tend column" (keyword to the closing parenthesis), then per
+ * body "body\twhich (then, else, loop)\tline\tcolumn\tend line\tend column\tis a { } block (1/0)\tstatements
+ * in it\tif (when an else body is another if)", "inner\twhich\t..." for a block holding one statement,
+ * and "else\tpath\tline\tcolumn" of the else keyword. */
+VX_API uint32_t VX_CALL vx_statement_at(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
+                                        uint32_t cap);
 /* The methods of the class at (or around) a position, in declaration order: a "class\tA::B" line,
  * then "method\tname\tline\tcolumn\tdefined-inline (0/1)" lines. */
 VX_API uint32_t VX_CALL vx_class_members(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,

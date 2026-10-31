@@ -545,9 +545,129 @@ uint32_t withUnit(const char16_t* path, bool wait, F f)
     return f(*holder->unit);
 }
 
+// The innermost if / for / while / do / range-for whose extent in the main file holds `offset`.
+CXCursor statementAt(Unit& unit, unsigned offset)
+{
+    struct Ctx {
+        CXTranslationUnit tu;
+        unsigned offset;
+        CXCursor found;
+    } ctx{unit.tu, offset, clang_getNullCursor()};
+    clang_visitChildren(
+        clang_getTranslationUnitCursor(unit.tu),
+        [](CXCursor c, CXCursor, CXClientData data) {
+            auto& ctx = *static_cast<Ctx*>(data);
+            if (!clang_Location_isFromMainFile(clang_getCursorLocation(c)))
+                return CXChildVisit_Continue;
+            CXSourceRange r = extentOf(ctx.tu, c);
+            unsigned s = 0, e = 0;
+            clang_getSpellingLocation(clang_getRangeStart(r), nullptr, nullptr, nullptr, &s);
+            clang_getSpellingLocation(clang_getRangeEnd(r), nullptr, nullptr, nullptr, &e);
+            if (ctx.offset < s || ctx.offset > e)
+                return CXChildVisit_Continue;
+            const CXCursorKind k = clang_getCursorKind(c);
+            if (k == CXCursor_IfStmt || k == CXCursor_ForStmt || k == CXCursor_WhileStmt || k == CXCursor_DoStmt || k == CXCursor_CXXForRangeStmt)
+                ctx.found = c;
+            return CXChildVisit_Recurse;
+        },
+        &ctx);
+    return ctx.found;
+}
+
+std::vector<CXCursor> childrenOf(CXCursor c)
+{
+    std::vector<CXCursor> children;
+    clang_visitChildren(
+        c,
+        [](CXCursor child, CXCursor, CXClientData data) {
+            static_cast<std::vector<CXCursor>*>(data)->push_back(child);
+            return CXChildVisit_Continue;
+        },
+        &children);
+    return children;
+}
+
+unsigned startOf(CXTranslationUnit tu, CXCursor c)
+{
+    unsigned s = 0;
+    clang_getSpellingLocation(clang_getRangeStart(extentOf(tu, c)), nullptr, nullptr, nullptr, &s);
+    return s;
+}
+
+// A body: its extent, whether it is a { } block and how many statements it holds, and the one
+// statement's extent if it holds just one.
+void describeBody(CXTranslationUnit tu, const char16_t* which, CXCursor body, std::u16string& out)
+{
+    const bool compound = clang_getCursorKind(body) == CXCursor_CompoundStmt;
+    const std::vector<CXCursor> inner = compound ? childrenOf(body) : std::vector<CXCursor>{};
+    const CXSourceRange r = extentOf(tu, body);
+    const Pos a = locate(tu, clang_getRangeStart(r)), b = locate(tu, clang_getRangeEnd(r));
+    if (!a.valid || !b.valid)
+        return;
+    out += u"body\t" + std::u16string(which) + u"\t" + num(a.line) + u"\t" + num(a.column) + u"\t" + num(b.line) + u"\t" + num(b.column) +
+           u"\t" + (compound ? u"1" : u"0") + u"\t" + num(static_cast<uint32_t>(inner.size())) + u"\t" +
+           std::u16string(clang_getCursorKind(body) == CXCursor_IfStmt ? u"if" : u"") + u"\n";
+    if (inner.size() == 1) {
+        const CXSourceRange ir = extentOf(tu, inner[0]);
+        const Pos c = locate(tu, clang_getRangeStart(ir)), d = locate(tu, clang_getRangeEnd(ir));
+        if (c.valid && d.valid)
+            out += u"inner\t" + std::u16string(which) + u"\t" + num(c.line) + u"\t" + num(c.column) + u"\t" + num(d.line) + u"\t" + num(d.column) + u"\n";
+    }
+}
+
 } // namespace
 
 extern "C" {
+
+VX_API uint32_t VX_CALL vx_statement_at(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
+                                        uint32_t cap)
+{
+    if (line == 0 || column == 0)
+        return 0;
+    return withUnit(path, wait != 0, [&](Unit& unit) -> uint32_t {
+        unsigned offset = 0;
+        cursorAt(unit, line, column, &offset);
+        const CXCursor stmt = statementAt(unit, offset);
+        if (clang_Cursor_isNull(stmt))
+            return 0;
+        CXTranslationUnit tu = unit.tu;
+        const CXCursorKind kind = clang_getCursorKind(stmt);
+        std::u16string result = u"kind\t" + std::u16string(kind == CXCursor_IfStmt ? u"if" : kind == CXCursor_ForStmt || kind == CXCursor_CXXForRangeStmt ? u"for"
+                                                           : kind == CXCursor_WhileStmt ? u"while" : u"do") + u"\n";
+        // The header ends at the ")" closing the parenthesis after the keyword (do: at "do").
+        const std::vector<Tok> toks = tokensOf(tu, extentOf(tu, stmt));
+        if (toks.empty())
+            return 0;
+        size_t headerEnd = 0;
+        if (kind != CXCursor_DoStmt && toks.size() > 1 && toks[1].text == "(")
+            headerEnd = matching(toks, 1);
+        if (headerEnd >= toks.size())
+            return 0;
+        const Pos start = locate(tu, toks[0].loc);
+        const Pos end = locate(tu, clang_getLocationForOffset(tu, clang_getFile(tu, unit.path.c_str()), toks[headerEnd].end));
+        result += u"header\t" + where(start) + u"\t" + num(end.line) + u"\t" + num(end.column) + u"\n";
+        // Bodies: the children starting after the header (then and else for an if).
+        std::vector<CXCursor> bodies;
+        for (CXCursor child : childrenOf(stmt))
+            if (startOf(tu, child) >= toks[headerEnd].end && (kind != CXCursor_DoStmt || clang_isStatement(clang_getCursorKind(child)) ||
+                                                               clang_isExpression(clang_getCursorKind(child))))
+                bodies.push_back(child);
+        if (kind == CXCursor_DoStmt && !bodies.empty())
+            bodies.resize(1); // the condition after "while" is a child too
+        if (bodies.empty())
+            return 0;
+        describeBody(tu, kind == CXCursor_IfStmt ? u"then" : u"loop", bodies[0], result);
+        if (kind == CXCursor_IfStmt && bodies.size() > 1) {
+            for (const Tok& t : toks)
+                if (t.text == "else" && t.start >= startOf(tu, bodies[0])) {
+                    result += u"else\t" + where(locate(tu, t.loc)) + u"\n";
+                    break;
+                }
+            describeBody(tu, u"else", bodies[1], result);
+        }
+        return writeOut(result, out, cap);
+    });
+}
 
 VX_API uint32_t VX_CALL vx_cursor_info(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
                                        uint32_t cap)

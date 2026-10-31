@@ -35,7 +35,7 @@ namespace VisualXtsi.UI
 
         private static readonly string[] Pages =
         {
-            "Coloring and Attributes", "Tooltips", "Navigation", "Parsing and Performance", "Unreal Engine", "Keyboard", "System Info",
+            "Coloring and Attributes", "Tooltips", "Navigation", "Parsing and Performance", "Unreal Engine", "Refactoring", "Keyboard", "System Info",
         };
 
         // The preview: «category|text» marks colored spans (categories as in PreviewCategory).
@@ -250,7 +250,8 @@ namespace VisualXtsi.UI
                     case 2: page = NavigationPage(); break;
                     case 3: page = ParsingPage(); break;
                     case 4: page = UnrealPage(); break;
-                    case 5: page = KeyboardPage(); break;
+                    case 5: page = RefactoringPage(); break;
+                case 6: page = KeyboardPage(); break;
                     default: page = SystemInfoPage(); break;
                 }
                 AutomationProperties.SetName(page, Pages[index]);
@@ -507,6 +508,21 @@ namespace VisualXtsi.UI
             page.Children.Add(sources);
             Option(page, "Note missing _generated code in macro QuickInfo", _working.GeneratedCodeHint, v => _working.GeneratedCodeHint = v,
                 "When a GENERATED_BODY-style macro cannot expand because UnrealHeaderTool has not run (no .generated.h yet), the tooltip says so.");
+            return page;
+        }
+
+        private FrameworkElement RefactoringPage()
+        {
+            var page = Page("The Refactor (Xtsi) and Surround With (Xtsi) menus of the code editor.");
+            page.Children.Add(Heading("Document Method writes"));
+            var styles = new StackPanel { Margin = new Thickness(12, 0, 0, 6) };
+            styles.Children.Add(Radio("docStyle", "/** ... */ with @param and @return lines (_Unreal style)", _working.DocCommentStyle == 0, () => _working.DocCommentStyle = 0,
+                "A block comment: /**, a line per parameter and the result as \" * @param Name\" and \" * @return\", then */."));
+            styles.Children.Add(Radio("docStyle", "/// _lines", _working.DocCommentStyle == 1, () => _working.DocCommentStyle = 1,
+                "Line comments: /// with @param and @return lines."));
+            page.Children.Add(styles);
+            Option(page, "Encapsulate Field in a UCLASS: _Blueprint accessors", _working.EncapsulateBlueprint, v => _working.EncapsulateBlueprint = v,
+                "The getter gets UFUNCTION(BlueprintPure) and the setter UFUNCTION(BlueprintCallable), in the class's category, so Blueprints can use them too.");
             return page;
         }
 

@@ -29,6 +29,9 @@ namespace VisualXtsi.Commands
         public const int MoveToHeader = 0x0206;
         public const int AddInclude = 0x0207;
         public const int AddForwardDeclaration = 0x0208;
+        public const int DocumentMethod = 0x0209;
+        public const int EncapsulateField = 0x020A;
+        public const int AddRemoveBraces = 0x020B;
         public const int RefactorAtCaret = 0x020C;
         public const int EditSnippets = 0x020D;
         public const int SurroundWithAtCaret = 0x020E;

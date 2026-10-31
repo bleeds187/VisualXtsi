@@ -18,3 +18,16 @@ void UGadget::Defined()
 void FreeHelper(int A, int B = 2)
 {
 }
+
+int Braces(int X)
+{
+    if (X > 0)
+    {
+        X = 1;
+    }
+    else
+        X = 2;
+    for (int I = 0; I < 3; ++I)
+        X += I;
+    return X;
+}

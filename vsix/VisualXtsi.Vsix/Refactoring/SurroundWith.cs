@@ -47,7 +47,7 @@ namespace VisualXtsi.Refactoring
             string newline = selection.Start.GetContainingLine().GetLineBreakText();
             if (string.IsNullOrEmpty(newline))
                 newline = view.Options.GetOptionValue(DefaultOptions.NewLineCharacterOptionId);
-            string unit = IndentUnit(view);
+            string unit = TextScan.IndentUnit(snapshot.GetText(), IndentUnit(view));
             Expansion expansion = Snippets.Expand(snippet, selected, baseIndent, unit, Path.GetFileName(path), newline);
 
             ITextSnapshot after;
@@ -62,6 +62,9 @@ namespace VisualXtsi.Refactoring
             else
                 view.Caret.MoveTo(new SnapshotPoint(after, replace.Start + expansion.End));
         }
+
+        /// <summary>One level of indentation as the file uses it, else as the editor is set.</summary>
+        public static string IndentUnit(ITextView view, string text) => TextScan.IndentUnit(text, IndentUnit(view));
 
         /// <summary>One level of indentation in the editor's settings: a tab or spaces.</summary>
         public static string IndentUnit(ITextView view) =>

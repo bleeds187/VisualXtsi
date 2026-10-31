@@ -163,6 +163,8 @@ Refactor (Xtsi) works from what the parser knows about the declaration at the ca
 Shift+Alt+Q opens it at the caret. Changes to more than one file are shown first in a preview, a
 diff per change with a check box each (Space toggles, a file's box covers all its changes); edits
 to several files are one undo step together, and files it had to open stay open and unsaved.
+Generated code is indented the way the file is (tabs, or the file's usual number of spaces),
+falling back to the editor's setting.
 - Find References (Shift+Alt+F, the editor's own binding over Go To Text, which keeps Ctrl+T):
   the uses of the symbol at the caret, in a VisualXtsi References window docked with Output, by
   file, with definitions, declarations and writes marked; Enter or a double-click goes there. A
@@ -189,6 +191,16 @@ to several files are one undo step together, and files it had to open stay open 
 - Add Forward Declaration: class X;, struct X; or enum class X : base; (in its namespace) in the
   file's block of forward declarations, kept in order (classes, structs, enums, by name), else
   after the includes. Not for nested types or enums without a fixed underlying type.
+- Document Method: a doc comment above the function at the caret (above its UFUNCTION), with a
+  summary line to type into and @param and @return lines; "/** */" (Unreal's style) or "///"
+  lines (Options > Refactoring).
+- Encapsulate Field: a getter and a setter for the member variable at the caret, at the end of
+  the class (in a public section): IsX / SetX(bool bInX) for a bool bX, GetX / SetX(InX)
+  otherwise, by value for simple types and by const reference for others, leaving out those that
+  exist. With "Blueprint accessors" (Options > Refactoring), a UPROPERTY of a UCLASS gets
+  UFUNCTION(BlueprintPure) and UFUNCTION(BlueprintCallable).
+- Add/Remove Braces: puts braces around the body of the if, else, for, while or do at the caret,
+  or takes them off a block holding one statement (Allman style, an else moved to its own line).
 - Create Implementation (on a declaration): the definition stub goes into the source file, next
   to the definitions of the methods declared around it (after the one before, else before the
   one after, else at the end, fully qualified), without default arguments, virtual, static,

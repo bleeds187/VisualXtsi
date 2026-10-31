@@ -20,6 +20,7 @@
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\CodeGen.cs" Link="CodeGen.cs" />
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\RenameSupport.cs" Link="RenameSupport.cs" />
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\IncludeSupport.cs" Link="IncludeSupport.cs" />
+    <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Refactoring\CodeShapes.cs" Link="CodeShapes.cs" />
     <Compile Include="..\..\..\vsix\VisualXtsi.Vsix\Interop\CursorInfo.cs" Link="CursorInfo.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Program.cs" />

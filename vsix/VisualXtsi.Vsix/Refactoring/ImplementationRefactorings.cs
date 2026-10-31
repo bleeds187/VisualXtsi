@@ -59,7 +59,7 @@ namespace VisualXtsi.Refactoring
             string text = Documents.Read(target);
             string nl = TextScan.Newline(text);
             Placement place = PlaceDefinition(text, target, declFile, f, null, nl);
-            var defs = CodeGen.Definitions(f, CodeGen.Qualifier(f, place.WithNamespaces), SurroundWith.IndentUnit(c.View), nl);
+            var defs = CodeGen.Definitions(f, CodeGen.Qualifier(f, place.WithNamespaces), SurroundWith.IndentUnit(c.View, c.View.TextBuffer.CurrentSnapshot.GetText()), nl);
             string code = place.Prefix + string.Join(nl + nl, defs.Select(d => d.Text)) + place.Suffix;
             if (!Documents.Apply(new[] { FileEdit.Insert(target, place.Offset, code) }, "Create Implementation", out string error))
             {
@@ -101,7 +101,7 @@ namespace VisualXtsi.Refactoring
 
             string text = Documents.Read(target);
             string nl = TextScan.Newline(text);
-            string unit = SurroundWith.IndentUnit(c.View);
+            string unit = SurroundWith.IndentUnit(c.View, c.View.TextBuffer.CurrentSnapshot.GetText());
             var items = missing.Select(f => new PreviewItem
             {
                 Group = target,
@@ -141,7 +141,7 @@ namespace VisualXtsi.Refactoring
             if (!Check(f != null && f.IsFunction && f.AtDefinition, "put the caret on a function definition") ||
                 !Check(f.DefinitionOnly, $"{f.Name} is already declared"))
                 return;
-            string unit = SurroundWith.IndentUnit(c.View);
+            string unit = SurroundWith.IndentUnit(c.View, c.View.TextBuffer.CurrentSnapshot.GetText());
             string file, text, code;
             int at;
             if (f.IsMember && f.Class != null)
@@ -157,7 +157,7 @@ namespace VisualXtsi.Refactoring
                 var (offset, needsPublic) = TextScan.MemberInsertion(text, classStart, classEnd, isStruct);
                 string classIndent = TextScan.IndentOf(text, classStart);
                 at = offset;
-                code = (needsPublic ? classIndent + "public:" + nl : "") + MemberIndent(text, offset, classIndent, unit) + CodeGen.Declaration(f) + nl;
+                code = (needsPublic ? classIndent + "public:" + nl : "") + TextScan.MemberIndent(text, offset, classIndent, unit) + CodeGen.Declaration(f) + nl;
             }
             else
             {
@@ -191,21 +191,6 @@ namespace VisualXtsi.Refactoring
                 return;
             }
             OpenAt(file, text.Insert(at, code), at + code.TrimEnd().Length);
-        }
-
-        // The indentation of the class's members: as the member line above the insertion point has it.
-        private static string MemberIndent(string text, int at, string classIndent, string unit)
-        {
-            for (int line = TextScan.LineStart(text, at); line > 0;)
-            {
-                line = TextScan.LineStart(text, line - 1);
-                string content = text.Substring(line, TextScan.LineEnd(text, line) - line);
-                if (content.Trim().Length == 0)
-                    continue;
-                string indent = TextScan.IndentOf(text, line);
-                return indent.Length > classIndent.Length ? indent : classIndent + unit;
-            }
-            return classIndent + unit;
         }
 
         private static int MatchingParen(string text, int open)
@@ -251,7 +236,7 @@ namespace VisualXtsi.Refactoring
                 if (stripped != prefix)
                     headerEdits.Insert(0, FileEdit.Replace(c.Path, header, declStart, prefix.Length, stripped));
             }
-            string body = Expand(header.Substring(bodyStart, bodyEnd - bodyStart), SurroundWith.IndentUnit(c.View), nl);
+            string body = Expand(header.Substring(bodyStart, bodyEnd - bodyStart), SurroundWith.IndentUnit(c.View, c.View.TextBuffer.CurrentSnapshot.GetText()), nl);
             string text = Documents.Read(target);
             string targetNl = TextScan.Newline(text);
             Placement place = PlaceDefinition(text, target, c.Path, f, null, targetNl);
@@ -296,7 +281,7 @@ namespace VisualXtsi.Refactoring
                        $"the declaration of {f.Name} in {Path.GetFileName(headerPath)} has changed; save and try again"))
                 return;
             string indent = TextScan.IndentOf(header, declStart);
-            string body = TextScan.Reindent(Expand(source.Substring(bodyStart, bodyEnd - bodyStart), SurroundWith.IndentUnit(c.View), nl), indent, nl);
+            string body = TextScan.Reindent(Expand(source.Substring(bodyStart, bodyEnd - bodyStart), SurroundWith.IndentUnit(c.View, c.View.TextBuffer.CurrentSnapshot.GetText()), nl), indent, nl);
             var headerEdits = new List<FileEdit> { FileEdit.Replace(headerPath, header, declEnd, semi + 1 - declEnd, nl + body) };
             if (!f.IsMember) // a free function defined in a header must be inline
                 headerEdits.Insert(0, FileEdit.Insert(headerPath, declStart, "inline "));

@@ -84,6 +84,9 @@
       <Group guid="guidVisualXtsiCmdSet" id="RefactorIncludeGroup" priority="0x0300">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
       </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="RefactorEditGroup" priority="0x0400">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
+      </Group>
       <Group guid="guidVisualXtsiCmdSet" id="SurroundSnippetsGroup" priority="0x0100">
         <Parent guid="guidVisualXtsiCmdSet" id="SurroundMenu" />
       </Group>
@@ -282,6 +285,42 @@
           <ToolTipText>Declare the class, struct or enum at the caret ahead, after the includes</ToolTipText>
           <CanonicalName>.VisualXtsi.Refactor.AddForwardDeclaration</CanonicalName>
           <LocCanonicalName>.VisualXtsi.Refactor.AddForwardDeclaration</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidDocumentMethod" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorEditGroup" />
+        <Icon guid="ImageCatalogGuid" id="CommentCode" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>D&amp;ocument Method</ButtonText>
+          <ToolTipText>Add a doc comment with its parameters and result above the function at the caret</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.DocumentMethod</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.DocumentMethod</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidEncapsulateField" priority="0x0101" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorEditGroup" />
+        <Icon guid="ImageCatalogGuid" id="EncapsulateField" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>&amp;Encapsulate Field</ButtonText>
+          <ToolTipText>Add a getter and a setter for the member variable at the caret</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.EncapsulateField</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.EncapsulateField</LocCanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidAddRemoveBraces" priority="0x0102" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorEditGroup" />
+        <Icon guid="ImageCatalogGuid" id="Code" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Add/Remove &amp;Braces</ButtonText>
+          <ToolTipText>Put braces around the body of the if, else, for, while or do at the caret, or take them off a one-statement block</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.AddRemoveBraces</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.AddRemoveBraces</LocCanonicalName>
         </Strings>
       </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidRefactorAtCaret" priority="0x0050" type="Button">
@@ -505,6 +544,10 @@
       <IDSymbol name="RefactorIncludeGroup" value="0x1010" />
       <IDSymbol name="cmdidAddInclude" value="0x0207" />
       <IDSymbol name="cmdidAddForwardDeclaration" value="0x0208" />
+      <IDSymbol name="RefactorEditGroup" value="0x1011" />
+      <IDSymbol name="cmdidDocumentMethod" value="0x0209" />
+      <IDSymbol name="cmdidEncapsulateField" value="0x020A" />
+      <IDSymbol name="cmdidAddRemoveBraces" value="0x020B" />
       <IDSymbol name="cmdidRefactorAtCaret" value="0x020C" />
       <IDSymbol name="cmdidEditSnippets" value="0x020D" />
       <IDSymbol name="cmdidSurroundWithAtCaret" value="0x020E" />

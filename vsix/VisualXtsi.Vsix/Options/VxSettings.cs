@@ -110,6 +110,12 @@ namespace VisualXtsi.Options
         /// <summary>Go to Definition with several candidates: true shows a picker, false goes to the best one.</summary>
         public bool PickDefinition { get; set; } = true;
 
+        /// <summary>Document Method's comments: 0 "/** ... */" with " * @param" lines (Unreal's style), 1 "///" lines.</summary>
+        public int DocCommentStyle { get; set; } = 0;
+
+        /// <summary>Encapsulate Field in a UCLASS: Blueprint accessors (UFUNCTION BlueprintPure / BlueprintCallable).</summary>
+        public bool EncapsulateBlueprint { get; set; } = false;
+
         /// <summary>Whether a coloring category is switched on in the options (ignores <see cref="Enabled"/>).</summary>
         public bool IsColorOn(string classificationName) => !DisabledColors.Contains(classificationName);
 
@@ -171,6 +177,8 @@ namespace VisualXtsi.Options
                 settings.RememberQueries = store.GetBoolean(Collection, nameof(RememberQueries), settings.RememberQueries);
                 settings.MaxResults = Math.Max(10, Math.Min(1000, store.GetInt32(Collection, nameof(MaxResults), settings.MaxResults)));
                 settings.PickDefinition = store.GetBoolean(Collection, nameof(PickDefinition), settings.PickDefinition);
+                settings.DocCommentStyle = store.GetInt32(Collection, nameof(DocCommentStyle), settings.DocCommentStyle);
+                settings.EncapsulateBlueprint = store.GetBoolean(Collection, nameof(EncapsulateBlueprint), settings.EncapsulateBlueprint);
             }
             catch (Exception ex)
             {
@@ -208,6 +216,8 @@ namespace VisualXtsi.Options
                 store.SetBoolean(Collection, nameof(RememberQueries), settings.RememberQueries);
                 store.SetInt32(Collection, nameof(MaxResults), settings.MaxResults);
                 store.SetBoolean(Collection, nameof(PickDefinition), settings.PickDefinition);
+            store.SetInt32(Collection, nameof(DocCommentStyle), settings.DocCommentStyle);
+            store.SetBoolean(Collection, nameof(EncapsulateBlueprint), settings.EncapsulateBlueprint);
             }
             catch (Exception ex)
             {

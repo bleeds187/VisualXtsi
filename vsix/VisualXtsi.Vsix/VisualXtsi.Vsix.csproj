@@ -80,6 +80,8 @@
     <Compile Include="Refactoring\Rename.cs" />
     <Compile Include="Refactoring\IncludeRefactorings.cs" />
     <Compile Include="Refactoring\IncludeSupport.cs" />
+    <Compile Include="Refactoring\SmallRefactorings.cs" />
+    <Compile Include="Refactoring\CodeShapes.cs" />
     <Compile Include="Refactoring\RenameSupport.cs" />
     <Compile Include="UI\ReferencesToolWindow.cs" />
     <Compile Include="Interop\CursorInfo.cs" />

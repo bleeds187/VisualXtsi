@@ -155,6 +155,27 @@ int main()
                all(i, "param").size() == 2 && all(i, "param")[1] == "int B\tB\t2",
            "FreeHelper: defined only here, default dropped", &i);
 
+    // Statements for Add/Remove Braces.
+    {
+        const std::u16string cpp = kDir + u"Gadget.cpp";
+        std::vector<char16_t> buf(4096);
+        uint32_t n = vx_statement_at(cpp.c_str(), 24, 6, 1, buf.data(), 4096);
+        std::string s = narrow(std::u16string(buf.data(), std::min<uint32_t>(n, 4096)));
+        expect(s.find("kind\tif\n") != std::string::npos && s.find("body\tthen\t") != std::string::npos &&
+                   s.find("\t25\t5\t27\t6\t1\t1\t") != std::string::npos && s.find("inner\tthen\t26\t9\t26\t14") != std::string::npos,
+               "if: a then block holding one statement");
+        expect(s.find("else\t") != std::string::npos && s.find("body\telse\t") != std::string::npos && s.find("\t29\t9\t29\t14\t0\t0\t") != std::string::npos,
+               "if: an else statement without braces");
+        if (failures)
+            std::printf("%s\n", s.c_str());
+        n = vx_statement_at(cpp.c_str(), 31, 10, 1, buf.data(), 4096);
+        s = narrow(std::u16string(buf.data(), std::min<uint32_t>(n, 4096)));
+        expect(s.find("kind\tfor\n") != std::string::npos && s.find("body\tloop\t31\t9\t31\t15\t0\t") != std::string::npos,
+               "for: a loop body without braces", nullptr);
+        if (s.find("kind\tfor") == std::string::npos || s.find("body\tloop\t31") == std::string::npos)
+            std::printf("%s\n", s.c_str());
+    }
+
     // The class's methods, in order.
     {
         const std::u16string path = kDir + u"Gadget.h";
