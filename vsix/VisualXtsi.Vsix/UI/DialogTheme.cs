@@ -111,6 +111,25 @@ namespace VisualXtsi.UI
       </Setter.Value>
     </Setter>
   </Style>
+  <!-- Trees (the Rename and other previews, the References window): the theme's tree colors for
+       text, selection (focused or not) and the background; high contrast maps them to system colors. -->
+  <Style TargetType='TreeView'>
+    <Setter Property='Background' Value='{DynamicResource {x:Static vsui:TreeViewColors.BackgroundBrushKey}}' />
+    <Setter Property='Foreground' Value='{DynamicResource {x:Static vsui:TreeViewColors.BackgroundTextBrushKey}}' />
+    <Setter Property='BorderBrush' Value='{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}' />
+    <Setter Property='FocusVisualStyle' Value='{StaticResource VxFocusVisual}' />
+  </Style>
+  <Style TargetType='TreeViewItem'>
+    <Setter Property='Foreground' Value='{DynamicResource {x:Static vsui:TreeViewColors.BackgroundTextBrushKey}}' />
+    <Setter Property='FocusVisualStyle' Value='{StaticResource VxFocusVisual}' />
+    <Style.Resources>
+      <SolidColorBrush x:Key='{x:Static SystemColors.HighlightBrushKey}' Color='{DynamicResource {x:Static vsui:TreeViewColors.SelectedItemActiveColorKey}}' />
+      <SolidColorBrush x:Key='{x:Static SystemColors.HighlightTextBrushKey}' Color='{DynamicResource {x:Static vsui:TreeViewColors.SelectedItemActiveTextColorKey}}' />
+      <SolidColorBrush x:Key='{x:Static SystemColors.InactiveSelectionHighlightBrushKey}' Color='{DynamicResource {x:Static vsui:TreeViewColors.SelectedItemInactiveColorKey}}' />
+      <SolidColorBrush x:Key='{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}' Color='{DynamicResource {x:Static vsui:TreeViewColors.SelectedItemInactiveTextColorKey}}' />
+      <SolidColorBrush x:Key='{x:Static SystemColors.ControlTextBrushKey}' Color='{DynamicResource {x:Static vsui:TreeViewColors.BackgroundTextColorKey}}' />
+    </Style.Resources>
+  </Style>
 </ResourceDictionary>";
 
         private static ResourceDictionary _listStyles;
@@ -188,7 +207,7 @@ namespace VisualXtsi.UI
         }
 
         /// <summary>
-        /// Gives list views under <paramref name="root"/> themed styles with column headers. Put on
+        /// Gives list views (with column headers) and trees under <paramref name="root"/> themed styles. Put on
         /// the content, not the window: the themed dialog styles are added to the window later and
         /// would win there.
         /// </summary>

@@ -20,6 +20,7 @@ namespace VisualXtsi.Commands
         public const int ToggleEnabled = 0x010A;
 
         // Refactor and Surround With (0x0200...)
+        public const int FindReferences = 0x0200;
         public const int CreateImplementation = 0x0202;
         public const int CreateDeclaration = 0x0203;
         public const int CreateMethodImplementations = 0x0204;

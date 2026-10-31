@@ -22,6 +22,11 @@ namespace VisualXtsi.Commands
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             RegisterSurroundItems(commands);
+            EditorCommands.Add(commands, CommandIds.FindReferences, () => FindReferences.RunAsync(package), () =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                return EditorCommands.VisualXtsiEnabled && EditorCommands.ActiveSourceDocument(package) != null;
+            });
             AddRefactoring(commands, CommandIds.CreateImplementation, ImplementationRefactorings.CreateImplementationAsync, ImplementationRefactorings.CanCreateImplementation);
             AddRefactoring(commands, CommandIds.CreateMethodImplementations, ImplementationRefactorings.CreateMethodImplementationsAsync, ImplementationRefactorings.CanCreateMethodImplementations);
             AddRefactoring(commands, CommandIds.CreateDeclaration, ImplementationRefactorings.CreateDeclarationAsync, ImplementationRefactorings.CanCreateDeclaration);

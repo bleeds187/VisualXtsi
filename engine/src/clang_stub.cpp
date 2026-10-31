@@ -60,4 +60,33 @@ VX_API uint32_t VX_CALL vx_class_members(const char16_t*, uint32_t, uint32_t, ui
     return 0;
 }
 
+VX_API uint32_t VX_CALL vx_references_start(const char16_t*, uint32_t, uint32_t)
+{
+    return 0;
+}
+
+VX_API uint32_t VX_CALL vx_references_target(uint32_t, char16_t*, uint32_t)
+{
+    return 0;
+}
+
+VX_API void VX_CALL vx_references_progress(uint32_t, uint32_t* done, uint32_t* total, uint32_t* finished)
+{
+    if (done)
+        *done = 0;
+    if (total)
+        *total = 0;
+    if (finished)
+        *finished = 1;
+}
+
+VX_API uint32_t VX_CALL vx_references_results(uint32_t, uint32_t, char16_t*, uint32_t)
+{
+    return 0;
+}
+
+VX_API void VX_CALL vx_references_cancel(uint32_t) {}
+
+VX_API void VX_CALL vx_references_free(uint32_t) {}
+
 } // extern "C"

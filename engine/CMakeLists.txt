@@ -48,7 +48,7 @@ target_include_directories(vxengine PUBLIC include PRIVATE src)
 target_compile_definitions(vxengine PRIVATE VX_BUILDING_ENGINE)
 
 if(VX_HAVE_LIBCLANG)
-  target_sources(vxengine PRIVATE src/clang_session.cpp src/module_pch.cpp src/refactor_queries.cpp src/semantic_tokens.cpp)
+  target_sources(vxengine PRIVATE src/clang_session.cpp src/module_pch.cpp src/refactor_queries.cpp src/references.cpp src/semantic_tokens.cpp)
   target_include_directories(vxengine PRIVATE "${VX_LLVM_ROOT_PATH}/include")
   # Delay-loaded so lexical classification works even when libclang.dll is missing.
   target_link_libraries(vxengine PRIVATE "${VX_LLVM_ROOT_PATH}/lib/libclang.lib" delayimp)

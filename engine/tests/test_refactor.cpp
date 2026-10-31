@@ -1,6 +1,7 @@
 // Tests of the refactoring queries (vx_cursor_info, vx_class_members) on the refactor fixture.
 #include "vx/vx.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <map>
@@ -195,6 +196,47 @@ int main()
     expect(get(i, "ue") == "3", "ServerPush: RPC WithValidation", &i);
     i = info(u"Gadget.h", 38, 10); // OnShown
     expect(get(i, "ue") == "4", "OnShown: BlueprintImplementableEvent", &i);
+    // Find References: the field Count, not Make's parameter of the same name; a write marked.
+    {
+        const std::u16string header = kDir + u"Gadget.h";
+        uint32_t job = vx_references_start(header.c_str(), 41, 11);
+        expect(job != 0, "references: a job for Count");
+        uint32_t done = 0, total = 0, finished = 0;
+        for (int t = 0; t < 600 && !finished; ++t) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            vx_references_progress(job, &done, &total, &finished);
+        }
+        expect(finished && total >= 3, "references: finished over the fixture's files");
+        std::vector<char16_t> buf(1 << 16);
+        uint32_t n = vx_references_results(job, 0, buf.data(), static_cast<uint32_t>(buf.size()));
+        std::vector<std::string> records;
+        std::string cur;
+        for (uint32_t k = 0; k < n && k < buf.size(); ++k) {
+            if (buf[k] == 0) {
+                records.push_back(cur);
+                cur.clear();
+            } else {
+                cur.push_back(buf[k] < 0x80 ? static_cast<char>(buf[k]) : '?');
+            }
+        }
+        auto has = [&](const char* file, const char* lineAndKind) {
+            return std::any_of(records.begin(), records.end(), [&](const std::string& r) {
+                return r.find(file) != std::string::npos && r.find(lineAndKind) != std::string::npos;
+            });
+        };
+        expect(has("Gadget.h", "\t41\t11\t") && has("Gadget.h", "\t33\t"), "references: the declaration and the use in GetCount");
+        expect(has("Gadget.cpp", "\t15\t5\twrite\t1\t"), "references: the assignment in Defined is a write");
+        expect(!has("Gadget.h", "\t28\t"), "references: Make's parameter Count is another symbol");
+        expect(std::all_of(records.begin(), records.end(), [](const std::string& r) { return r.find("\t1\t") != std::string::npos; }),
+               "references: all confirmed");
+        if (failures)
+            for (auto& r : records)
+                std::printf("  %s\n", r.c_str());
+        char16_t target[256] = {};
+        vx_references_target(job, target, 255);
+        expect(std::u16string(target).find(u"UGadget::Count") != std::u16string::npos, "references: the target's label");
+        vx_references_free(job);
+    }
     vx_index_reset();
 
     vx_release((kDir + u"Gadget.h").c_str());

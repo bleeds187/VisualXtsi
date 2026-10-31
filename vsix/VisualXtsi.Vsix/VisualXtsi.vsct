@@ -75,6 +75,9 @@
       <Group guid="guidVisualXtsiCmdSet" id="ContextRefactorGroup" priority="0x0001">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
       </Group>
+      <Group guid="guidVisualXtsiCmdSet" id="RefactorFindGroup" priority="0x0100">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
+      </Group>
       <Group guid="guidVisualXtsiCmdSet" id="RefactorCreateGroup" priority="0x0200">
         <Parent guid="guidVisualXtsiCmdSet" id="RefactorMenu" />
       </Group>
@@ -168,6 +171,18 @@
         <CommandFlag>TextChanges</CommandFlag>
         <Strings>
           <ButtonText>Snippet</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidVisualXtsiCmdSet" id="cmdidFindReferences" priority="0x0100" type="Button">
+        <Parent guid="guidVisualXtsiCmdSet" id="RefactorFindGroup" />
+        <Icon guid="ImageCatalogGuid" id="ReferencedElement" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Find Re&amp;ferences</ButtonText>
+          <ToolTipText>List the uses of the symbol at the caret across the solution and Unreal project</ToolTipText>
+          <CanonicalName>.VisualXtsi.Refactor.FindReferences</CanonicalName>
+          <LocCanonicalName>.VisualXtsi.Refactor.FindReferences</LocCanonicalName>
         </Strings>
       </Button>
       <Button guid="guidVisualXtsiCmdSet" id="cmdidCreateImplementation" priority="0x0100" type="Button">
@@ -407,6 +422,7 @@
     <!-- Alt+G is Edit.BriefBrowse globally: ours applies in the text editor only. -->
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidGoToDefinition" editor="guidTextEditor" key1="G" mod1="Alt" />
     <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidRefactorAtCaret" editor="guidTextEditor" key1="Q" mod1="Alt Shift" />
+    <KeyBinding guid="guidVisualXtsiCmdSet" id="cmdidFindReferences" editor="guidTextEditor" key1="F" mod1="Alt Shift" />
   </KeyBindings>
 
   <Symbols>
@@ -437,7 +453,9 @@
       <IDSymbol name="SurroundSnippetsGroup" value="0x100B" />
       <IDSymbol name="SurroundEditGroup" value="0x100C" />
       <IDSymbol name="SubmenuRefactorGroup" value="0x100D" />
+      <IDSymbol name="RefactorFindGroup" value="0x100E" />
       <IDSymbol name="RefactorCreateGroup" value="0x100F" />
+      <IDSymbol name="cmdidFindReferences" value="0x0200" />
       <IDSymbol name="cmdidCreateImplementation" value="0x0202" />
       <IDSymbol name="cmdidCreateDeclaration" value="0x0203" />
       <IDSymbol name="cmdidCreateMethodImplementations" value="0x0204" />

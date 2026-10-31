@@ -18,6 +18,9 @@ bool addProjectOf(const std::wstring& path);
 
 size_t count();
 
+// Every indexed file.
+std::vector<std::wstring> all();
+
 // Best matches for a fuzzy `query` (case-insensitive subsequence; a query containing a
 // path separator is matched against the whole path), best first.
 std::vector<std::wstring> find(const std::wstring& query, size_t maxResults);

@@ -21,6 +21,8 @@ namespace VisualXtsi
     [ProvideToolWindow(typeof(UI.OptionsToolWindow), Style = VsDockStyle.Float, PositionX = 160, PositionY = 100, Width = 1100, Height = 780, Transient = true)]
     // Loaded in the background at startup, so menu items show their real state (the Enable/Disable
     // check mark, disabled editor commands) before any of them is first used.
+    // Find References results, docked with the Output window.
+    [ProvideToolWindow(typeof(UI.ReferencesToolWindow), Style = VsDockStyle.Tabbed, Window = "34e76e81-ee4a-11d0-ae2e-00a0c90fffc3")]
     [ProvideAutoLoad(VSConstants.UICONTEXT.ShellInitialized_string, PackageAutoLoadFlags.BackgroundLoad)]
     [ProvideOptionPage(typeof(OptionsPage), "VisualXtsi", "General", 0, 0, true)]
     public sealed class VisualXtsiPackage : AsyncPackage

@@ -264,6 +264,24 @@ VX_API void VX_CALL vx_release(const char16_t* path);
  * Returns the number of char16_t needed (0: nothing there, or no parsed unit). */
 VX_API uint32_t VX_CALL vx_cursor_info(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,
                                        uint32_t cap);
+/* Find References: the uses of the declaration at a position of an open file, across the indexed
+ * files, searched in the background. Returns a job id (0: nothing to search for there). A
+ * whole-word scan picks the candidate files (the engine's only for a declaration in the engine;
+ * only its own file for a local or file-static one); each is parsed (an open file's unit is used
+ * as is) and every token with the name is confirmed by the USR of what it refers to. */
+VX_API uint32_t VX_CALL vx_references_start(const char16_t* path, uint32_t line, uint32_t column);
+/* "name\tusr\tlabel" of what is searched for. */
+VX_API uint32_t VX_CALL vx_references_target(uint32_t job, char16_t* out, uint32_t cap);
+/* Files searched so far, of how many; finished is 1 once done or cancelled. */
+VX_API void VX_CALL vx_references_progress(uint32_t job, uint32_t* done, uint32_t* total, uint32_t* finished);
+/* The references found, from the `from`-th on, as NUL-terminated records:
+ * path\tline\tcolumn\tkind (definition, declaration, write, reference)\tconfirmed (1; 0: the name, in a
+ * file that could not be parsed or where the parser could not tell)\tline text. */
+VX_API uint32_t VX_CALL vx_references_results(uint32_t job, uint32_t from, char16_t* out, uint32_t cap);
+VX_API void VX_CALL vx_references_cancel(uint32_t job);
+/* Stops the search (waiting for its workers) and forgets it. */
+VX_API void VX_CALL vx_references_free(uint32_t job);
+
 /* The methods of the class at (or around) a position, in declaration order: a "class\tA::B" line,
  * then "method\tname\tline\tcolumn\tdefined-inline (0/1)" lines. */
 VX_API uint32_t VX_CALL vx_class_members(const char16_t* path, uint32_t line, uint32_t column, uint32_t wait, char16_t* out,

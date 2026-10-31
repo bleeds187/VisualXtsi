@@ -163,6 +163,16 @@ Refactor (Xtsi) works from what the parser knows about the declaration at the ca
 Shift+Alt+Q opens it at the caret. Changes to more than one file are shown first in a preview, a
 diff per change with a check box each (Space toggles, a file's box covers all its changes); edits
 to several files are one undo step together, and files it had to open stay open and unsaved.
+- Find References (Shift+Alt+F, the editor's own binding over Go To Text, which keeps Ctrl+T):
+  the uses of the symbol at the caret, in a VisualXtsi References window docked with Output, by
+  file, with definitions, declarations and writes marked; Enter or a double-click goes there. A
+  whole-word scan of the indexed files picks the candidates (the engine's only for a symbol
+  declared in the engine; for a local or file-static one only its file), each candidate is
+  parsed in the background (with its module's shared PCH when there is one; an open file's own
+  parse, unsaved changes included) and each occurrence confirmed by the USR of what it refers
+  to, so same-named symbols are left out. Occurrences the parser cannot place (in files it cannot
+  parse, or in macro arguments it does not map) are listed apart as possible matches. Results
+  appear as they are found, with progress and Cancel. C# uses Roslyn.
 - Create Implementation (on a declaration): the definition stub goes into the source file, next
   to the definitions of the methods declared around it (after the one before, else before the
   one after, else at the end, fully qualified), without default arguments, virtual, static,

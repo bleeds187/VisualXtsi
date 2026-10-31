@@ -264,6 +264,49 @@ namespace VisualXtsi.Interop
             return (cls, methods);
         }
 
+        /// <summary>Starts a Find References search for the declaration at a position (0: nothing there).</summary>
+        public static uint ReferencesStart(string path, int line, int column) => vx_references_start(path, (uint)line, (uint)column);
+
+        /// <summary>(name, usr, label) of what a search looks for.</summary>
+        public static (string Name, string Usr, string Label) ReferencesTarget(uint job)
+        {
+            string[] text = SplitStrings((buffer, cap) => vx_references_target(job, buffer, cap));
+            string[] f = text.Length == 0 ? new string[0] : text[0].Split('\t');
+            return f.Length >= 3 ? (f[0], f[1], f[2]) : ("", "", "");
+        }
+
+        public static (int Done, int Total, bool Finished) ReferencesProgress(uint job)
+        {
+            vx_references_progress(job, out uint done, out uint total, out uint finished);
+            return ((int)done, (int)total, finished != 0);
+        }
+
+        /// <summary>The references found from the <paramref name="from"/>-th on.</summary>
+        public static List<Reference> ReferencesResults(uint job, int from)
+        {
+            var list = new List<Reference>();
+            foreach (string record in SplitStrings((buffer, cap) => vx_references_results(job, (uint)from, buffer, cap)))
+            {
+                string[] f = record.Split('\t');
+                if (f.Length >= 6 && int.TryParse(f[1], out int line) && int.TryParse(f[2], out int column))
+                    list.Add(new Reference { Path = f[0], Line = line, Column = column, Kind = f[3], Confirmed = f[4] == "1", Text = f[5] });
+            }
+            return list;
+        }
+
+        public static void ReferencesCancel(uint job) => vx_references_cancel(job);
+        public static void ReferencesFree(uint job) => vx_references_free(job);
+
+        /// <summary>A place a symbol is used (Find References).</summary>
+        public sealed class Reference
+        {
+            public string Path;
+            public int Line, Column;
+            public string Kind; // definition, declaration, write, reference
+            public bool Confirmed = true;
+            public string Text;
+        }
+
         public static string[] Counterparts(string path)
         {
             return SplitStrings((buffer, cap) => vx_counterparts(path, buffer, cap));
@@ -381,6 +424,24 @@ namespace VisualXtsi.Interop
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_counterparts(string path, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_references_start(string path, uint line, uint column);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_references_target(uint job, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void vx_references_progress(uint job, out uint done, out uint total, out uint finished);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern uint vx_references_results(uint job, uint from, [Out] char[] output, uint cap);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void vx_references_cancel(uint job);
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void vx_references_free(uint job);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         private static extern uint vx_cursor_info(string path, uint line, uint column, uint wait, [Out] char[] output, uint cap);

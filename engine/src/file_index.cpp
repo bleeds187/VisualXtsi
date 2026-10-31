@@ -437,6 +437,11 @@ std::vector<std::wstring> find(const std::wstring& query, size_t maxResults)
     return g_index.find(query, maxResults);
 }
 
+std::vector<std::wstring> all()
+{
+    return g_index.all();
+}
+
 void setListener(Listener listener)
 {
     g_listener = listener;

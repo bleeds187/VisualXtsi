@@ -76,6 +76,8 @@
     <Compile Include="Refactoring\Documents.cs" />
     <Compile Include="Refactoring\RefactorContext.cs" />
     <Compile Include="Refactoring\ImplementationRefactorings.cs" />
+    <Compile Include="Refactoring\FindReferences.cs" />
+    <Compile Include="UI\ReferencesToolWindow.cs" />
     <Compile Include="Interop\CursorInfo.cs" />
     <Compile Include="UI\RefactorPreviewDialog.cs" />
     <Compile Include="Refactoring\SurroundWith.cs" />
